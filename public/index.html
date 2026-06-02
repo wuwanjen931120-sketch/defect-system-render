@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>瑕疵辨識與分流系統</title>
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- ✅ PWA 必加 -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <style>
+    .centerWrap{
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+    }
+    .panel{
+      width:min(720px, 100%);
+      background: rgba(18,35,59,.75);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .hero{
+      display:flex;
+      gap:14px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+    .heroIcon{
+      width:64px;height:64px;border-radius:18px;
+      background: linear-gradient(135deg, rgba(59,130,246,.9), rgba(34,197,94,.6));
+      box-shadow: var(--shadow);
+      flex: 0 0 auto;
+    }
+    .heroTitle{
+      margin:0;
+      font-size:22px;
+      font-weight:900;
+      letter-spacing:.8px;
+    }
+    .heroSub{
+      margin:6px 0 0;
+      color:var(--muted);
+      line-height:1.6;
+      font-size:13px;
+    }
+
+    /* 新增即時影像區 */
+    .liveFrame {
+      border-radius: 16px;
+      border: 3px solid rgba(121, 89, 255, .85);
+      background: rgba(0,0,0,.25);
+      overflow: hidden;
+      position: relative;
+      aspect-ratio: 16 / 9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .liveFrame video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;  /* 保持比例 */
+    }
+
+    .liveHint {
+      position: absolute;
+      inset: auto 10px 10px 10px;
+      font-size: 12px;
+      color: rgba(231, 238, 252, .78);
+      background: rgba(0, 0, 0, .35);
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 12px;
+      padding: 8px 10px;
+      backdrop-filter: blur(6px);
+    }
+
+  </style>
+
+  <!-- ✅ 用 defer 避免白畫面/阻塞 -->
+  <script defer src="core.js"></script>
+</head>
+<body>
+  <div class="centerWrap">
+    <div class="panel">
+      <div class="hero">
+        <div class="heroIcon"></div>
+        <div style="min-width:220px">
+          <h1 class="heroTitle">瑕疵辨識與分流系統</h1>        </div>
+      </div>
+
+      <!-- 新增即時影像區域 -->
+      <div class="liveFrame">
+        <video id="camera" autoplay playsinline></video>
+        <div class="liveHint">
+          MQTT → 後端 → MongoDB → 前端輪詢 /api/defects
+        </div>
+      </div>
+
+      <div class="btnRow">
+        <button class="btn btnPrimary" id="btnGo">進入系統</button>
+        <button class="btn" onclick="location.href='login.html'">前往登入</button>
+        <button class="btn" onclick="location.href='dashboard.html'">前往首頁</button>
+        <button class="btn" id="btnFix">修復灰底/警告（清快取）</button>
+      </div>
+
+      <div class="note">
+        <div>✅ 建議用 HTTPS（GitHub Pages / Netlify / Vercel）才能安裝成 App。</div>
+        <div>✅ 若未登入，會自動導向 login.html。</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="errorBar"></div>
+<button id="estopButton" onclick="triggerEmergencyStop()">緊急停止</button>
+
+
+
+
+<script>
+  function triggerEmergencyStop() {
+    // 發送急停請求到後端
+    fetch(window.location.origin + '/api/estop', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: 'emergency_stop' })  // 傳遞急停信號
+    })
+    .then(response => response.json())
+    .then(data => {
+      console.log('急停成功:', data);
+      // 顯示操作結果
+      alert('緊急停止已觸發');
+    })
+    .catch((error) => {
+      console.error('錯誤:', error);
+    });
+  }
+</script>
+  <script>
+    // 註冊 Service Worker（PWA）
+    window.addEventListener("load", () => {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js").catch(console.error);
+      }
+    });
+
+    // 進入系統
+    document.getElementById("btnGo").addEventListener("click", () => {
+      try {
+        const ok = localStorage.getItem("isLogin") === "true";
+        location.href = ok ? "dashboard.html" : "login.html";
+      } catch (e) {
+        location.href = "login.html";
+      }
+    });
+
+    // 修復快取
+    document.getElementById("btnFix").addEventListener("click", async () => {
+      await window.swHardReset();
+      window.toast("已清快取，建議 Ctrl+F5", "OK");
+    });
+
+
+    
+
+    // 啟動即時影像
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+
+        const video = document.getElementById("camera");
+        video.srcObject = stream;
+
+      } catch (err) {
+        console.error("❌ 無法開啟鏡頭:", err);
+        alert("請允許瀏覽器使用鏡頭！");
+      }
+    }
+
+    startCamera();
+  </script>
+</body>
+</html>
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>即時影像顯示</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 即時影像區域 -->
+  <div class="liveFrame">
+    <video id="cam" autoplay playsinline></video>
+    <div class="liveHint">
+      MQTT → 後端 → MongoDB → 前端輪詢 /api/defects
+    </div>
+  </div>
+
+  <script src="core.js"></script>
+  <script>
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+
+        const video = document.getElementById("cam");  // 使用 id 'cam' 來引用 <video> 元素
+        video.srcObject = stream;  // 將視頻流設置到 video 元素
+
+      } catch (err) {
+        console.error("❌ 無法開啟鏡頭:", err);
+        alert("請允許瀏覽器使用鏡頭！");
+      }
+    }
+
+    startCamera();  // 開始即時影像
+  </script>
+  
+</body>
+</html>
