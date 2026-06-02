@@ -374,14 +374,22 @@ app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admi
 
 // 📧 Gmail 郵差機車與鑰匙設定
 // 強制使用 IPv4 連線 Gmail SMTP，避免 Render 發生 IPv6 ENETUNREACH
+// =====================================================
+// 📧 Brevo SMTP Relay 寄信設定
+// 保留 Nodemailer，不使用 Brevo HTTPS API
+// 使用 2525 避開 Render 免費方案封鎖的 SMTP 連接埠
+// =====================================================
+// =====================================================
+// 📧 Brevo SMTP Relay 寄信設定
+// Render 免費方案封鎖 25、465、587，因此改用 2525
+// =====================================================
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  family: 4,
+  host: "smtp-relay.brevo.com",
+  port: 2525,
+  secure: false,
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS
+    user: process.env.BREVO_SMTP_LOGIN,
+    pass: process.env.BREVO_SMTP_KEY
   },
   connectionTimeout: 15000,
   greetingTimeout: 15000,
@@ -426,12 +434,12 @@ app.post("/api/login/send-code", async (req, res) => {
       expiresAt: Date.now() + 5 * 60 * 1000
     });
 
-    await transporter.sendMail({
-      from: process.env.GMAIL_USER,
-      to: user.email || user.username,
-      subject: "瑕疵辨識與分流系統登入驗證碼",
-      text: `您的登入驗證碼是：${code}\n\n此驗證碼 5 分鐘內有效。`
-    });
+  await transporter.sendMail({
+  from: `"瑕疵辨識與分流系統" <${process.env.BREVO_SENDER_EMAIL}>`,
+  to: user.email || user.username,
+  subject: "瑕疵辨識與分流系統登入驗證碼",
+  text: `您的登入驗證碼是：${code}\n\n此驗證碼 5 分鐘內有效。`
+});
 
     res.json({
       success: true,
@@ -711,11 +719,11 @@ if (ngCounterMap[counterKey] >= ALERT_THRESHOLD) {
   console.log("🚨 連續NG警報");
 
   await transporter.sendMail({
-    from: process.env.GMAIL_USER,
-    to: process.env.GMAIL_USER,
-    subject: "🚨 產線異常",
-    text: `機台 ${systemId} 已連續 ${ALERT_THRESHOLD} 次 NG`
-  });
+  from: `"瑕疵辨識與分流系統" <${process.env.BREVO_SENDER_EMAIL}>`,
+  to: process.env.ALERT_EMAIL,
+  subject: "🚨 產線異常",
+  text: `機台 ${systemId} 已連續 ${ALERT_THRESHOLD} 次 NG`
+});
 
   ngCounterMap[counterKey] = 0;
 }
