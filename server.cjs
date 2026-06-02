@@ -2,9 +2,14 @@
 // 1. 套件引入與環境設定 (地基)
 // ==========================================
 const dns = require("dns");
-dns.setServers(["8.8.8.8", "1.1.1.1"]); // 解決手機熱點 DNS 阻擋
-require("dotenv").config(); // 讀取保險箱 .env
 
+// 強制 Node.js 優先使用 IPv4，避免 Render 寄信時走 IPv6 失敗
+dns.setDefaultResultOrder("ipv4first");
+
+// 保留原本自訂 DNS 設定
+dns.setServers(["8.8.8.8", "1.1.1.1"]);
+
+require("dotenv").config(); // 讀取保險箱 .env
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -368,12 +373,19 @@ app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admi
 
 
 // 📧 Gmail 郵差機車與鑰匙設定
+// 強制使用 IPv4 連線 Gmail SMTP，避免 Render 發生 IPv6 ENETUNREACH
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  family: 4,
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_PASS
-  }
+  },
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 20000
 });
 
 // ================= 寄送登入驗證碼 =================
