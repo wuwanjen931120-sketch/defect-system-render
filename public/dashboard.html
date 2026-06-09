@@ -3,69 +3,7 @@
 <head>
   
   <meta charset="UTF-8" />
-  <script>
-   let selectedProducts = [];
-let productStats = {};
 
-const token = sessionStorage.getItem("token");
-
-// ⭐ 沒登入直接踢回去
-if (!token) {
-  alert("請先登入");
-  window.location.replace("login.html");
-}
-
-
-// 在 DOMContentLoaded 之前
-
-async function initSelectedProductsFromDB() {
-  selectedProducts = [];
-  productStats = {};
-  const list = await apiFetch(buildDefectsUrl());
-  const dbProducts = [...new Set(list.map(x => normalizeProductName(x.product)))];
-  dbProducts.forEach(p => addProductDynamic(p));
-}
-function initProductStat(product){
-  if(!productStats[product]){
-    productStats[product] = { ok:0, ng:0, total:0 };
-  }
-  renderProductStats();
-}
-
-
-function updateDetectedProducts(){
-  const detectedEl = document.getElementById("currentProductsText");
-  if (!detectedEl) return;
-  detectedEl.textContent = Object.keys(productStats).join("、");
-}
-
-function updateProductStats(defect){
-  try {
-    const product = normalizeProductName(defect.product);
-    const status = (defect.status || "").toUpperCase();
-    if(!productStats[product]) {
-      productStats[product] = { ok:0, ng:0, total:0 };
-      selectedProducts.push(product);
-    }
-
-    if(status === "OK") productStats[product].ok++;
-    if(status === "NG") productStats[product].ng++;
-
-    productStats[product].total = productStats[product].ok + productStats[product].ng;
-
-    renderProductStats();       // 更新表格與 gauge
-    updateDetectedProducts();   // 更新上方已偵測產品
-    renderCategoryButtons();    // 更新分類按鈕
-  } catch(err) {
-    console.error("更新統計表錯誤", err);
-  }
-}
-
-// SSE 即時刷新
-
-// ===== 新增程式碼結束 =====
-
-</script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>瑕疵辨識與分流系統 - 首頁</title>
 
@@ -1117,21 +1055,20 @@ function updateProductStats(defect){
       <div class="page-bg">
         <div class="productInputBar">
 
+  <!-- 多產品輸入區 -->
+<div class="productInputBar">
   <div class="productInputTitle">
-  多產品檢測
-  <span id="currentProductsText">尚未設定</span>
+    多產品檢測
+    <span id="currentProductsText">尚未設定</span>
+  </div>
+
+  <div id="productInputRow">
+    <input id="productInput" type="text" placeholder="輸入產品 (例如：手機殼、書本)">
+    <button onclick="addProductDynamic(document.getElementById('productInput').value)">加入</button>
+  </div>
 </div>
 
-<div id="productInputRow">
-  <input id="productInput" type="text" placeholder="輸入產品 (例如：手機殼、書本)">
-  <button onclick="addProductDynamic(document.getElementById('productInput').value)">加入</button>
-</div>
-
-<div id="categoryButtons"></div>
-<div id="productList"></div>
-
-<span id="totalOk">0</span>
-<span id="totalNg">0</span>
+<!-- 產品統計表與 Gauge -->
 <div id="dynamicProductGaugeArea"></div>
 <div id="dynamicProductRows"></div>
 
@@ -1264,1149 +1201,68 @@ function updateProductStats(defect){
       </div>
     </main>
   </div>
-
-<script>
-console.log("JS 已啟動");
-
+ <script>
 const API_BASE = window.location.origin;
-let dashboardTimer = null;
+let selectedProducts = [];
+let productStats = {};
+let eventSource = null;
 
-   function initProductStat(product) {
-    if (!productStats[product]) productStats[product] = { ok: 0, ng: 0, total: 0 };
-    renderProductStats();
-  }
-function updateProductStats(defect) {
-  const product = normalizeProductName(defect.product);
-  if (!productStats[product]) {
-    productStats[product] = { ok: 0, ng: 0, total: 0 };
-    selectedProducts.push(product);
-  }
-
-  if ((defect.status || "").toUpperCase() === "OK") productStats[product].ok++;
-  if ((defect.status || "").toUpperCase() === "NG") productStats[product].ng++;
-
-  productStats[product].total = productStats[product].ok + productStats[product].ng;
-
-  renderProductStats();
-  updateDetectedProducts();
-  renderCategoryButtons();
-}
-
-  // 5️⃣ 更新事件紀錄上方已偵測產品清單
-  function updateDetectedProducts() {
-  const detectedEl = document.getElementById("currentProductsText");
-  if (!detectedEl) return;
-  detectedEl.textContent = selectedProducts.join("、");
-}
-
-
-function getProductStorageKey() {
-  const tenantId = sessionStorage.getItem("tenant_id") || "defaultTenant";
-  return `selectedProducts_${tenantId}`;
-}
-
-function saveSelectedProducts() {
-  localStorage.setItem(
-    getProductStorageKey(),
-    JSON.stringify(selectedProducts)
-  );
-}
-
-function loadSelectedProducts() {
+// 初始化 MongoDB 產品
+async function initSelectedProductsFromDB() {
   try {
-    const raw = localStorage.getItem(getProductStorageKey());
-    selectedProducts = raw ? JSON.parse(raw) : [];
-
-    if (!Array.isArray(selectedProducts)) {
-      selectedProducts = [];
-    }
-
-    // 清除舊版留下的「未分類」、空白資料與重複產品
-    const seen = new Set();
-
-    selectedProducts = selectedProducts
-      .map(product => normalizeProductName(product))
-      .filter(product => {
-        if (!product || product === "未分類") return false;
-
-        const key = product.toLowerCase();
-        if (seen.has(key)) return false;
-
-        seen.add(key);
-        return true;
-      });
-
-    saveSelectedProducts();
-  } catch (error) {
-    console.warn("載入產品清單失敗：", error);
-    selectedProducts = [];
+    const list = await apiFetch(buildDefectsUrl());
+    const dbProducts = [...new Set(list.map(x => normalizeProductName(x.product)))];
+    dbProducts.forEach(p => addProductDynamic(p));
+  } catch(err) {
+    console.error("初始化產品清單失敗", err);
   }
 }
 
-function normalizeProductName(name) {
-  if (name === null || name === undefined) return "";
-
-  // 允許輸入任何產品名稱，只整理控制字元、前後空白與連續空格。
-  // 顯示時使用 textContent，避免產品名稱中的符號破壞 HTML。
-  return String(name)
-    .replace(/[\u0000-\u001F\u007F]/g, "")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-async function apiFetch(url, options = {}) {
-  const token = sessionStorage.getItem("token");
-
- // console.log("目前 token:", token);
-
-  if (!token) {
-    alert("⚠️ 請重新登入");
-    window.location.replace("login.html");
-    return null;
-  }
-
-  const fullUrl = url.startsWith("http")
-    ? url
-    : API_BASE + url;
-
-  const res = await fetch(fullUrl, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": "Bearer " + token,
-      "ngrok-skip-browser-warning": "true",
-      ...(options.headers || {})
-    }
-  });
-
-  if (res.status === 401) {
-    alert("登入過期，請重新登入");
-    sessionStorage.clear();
-    window.location.replace("login.html");
-    return null;
-  }
-
-  if (!res.ok) {
-    throw new Error("API 錯誤：" + res.status);
-  }
-
-  return await res.json();
-}
-
-function handleHardReset(e){
-  e.preventDefault();
-  e.stopPropagation();
-
-  try{
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        regs.forEach(r => r.unregister());
-        location.replace("login.html");
-      });
-    } else {
-      location.replace("login.html");
-    }
-  } catch(err){
-    console.error("清快取失敗：", err);
-  }
-}
-
-function forceReload(e){
-  e.preventDefault();
-  e.stopPropagation();
-  location.reload();
-}
-
-window.addEventListener("error", function(e) {
-  console.warn("已攔截錯誤，不顯示白畫面", e.message);
-  e.preventDefault();
-});
-
-window.addEventListener("unhandledrejection", function(e) {
-  console.warn("Promise錯誤已攔截", e.reason);
-  e.preventDefault();
-});
-
-const role = sessionStorage.getItem("role") || "user";
-const isSuperAdmin = role === "super_admin" || role === "admin";
-const isTenantAdmin = role === "tenant_admin";
-const canOpenAdmin = isSuperAdmin || isTenantAdmin;
-
-function getCurrentTenantId(){
-  const role = sessionStorage.getItem("role");
-
-  if (role !== "super_admin" && role !== "tenant_admin") {
-    return sessionStorage.getItem("tenant_id") || "";
-  }
-
-  return sessionStorage.getItem("tenant_id") || "";
-}
-
-function setCurrentTenantId(tenantId){
-  sessionStorage.setItem("tenant_id", tenantId || "");
-}
-
-function setCurrentSystemId(systemId){
-  sessionStorage.setItem("system_id", systemId || "");
-}
-
-function getCurrentSystemId(){
-  return sessionStorage.getItem("system_id") || "";
-}
-
-function getDisplayUserName(userId) {
-  const userMap = {
-    "user_001": "使用者A",
-    "user_002": "使用者B",
-    "user_003": "使用者C",
-    "admin": "系統管理員"
-  };
-
-  return userMap[userId] || userId || "未知使用者";
-}
-
-function getDisplaySystemName(systemId) {
-  return systemId ? `機台 ${systemId}` : "未選擇";
-}
-
-function forceCloseErrorOverlay() {
-  const selectors = [
-    ".fatal-overlay",
-    ".error-overlay",
-    ".panic-overlay",
-    ".app-error-overlay",
-    ".global-error-overlay",
-    ".white-screen-guard",
-    ".runtime-error-modal"
-  ];
-
-  selectors.forEach(selector => {
-    document.querySelectorAll(selector).forEach(el => {
-      el.style.display = "none";
-      el.remove();
-    });
-  });
-
-  document.body.classList.remove("has-error", "app-crashed", "panic-mode", "white-screen-protected");
-  document.documentElement.classList.remove("has-error", "app-crashed", "panic-mode", "white-screen-protected");
-
-  try {
-    localStorage.removeItem("fatalError");
-    localStorage.removeItem("appError");
-    localStorage.removeItem("panicMode");
-    sessionStorage.removeItem("fatalError");
-    sessionStorage.removeItem("appError");
-    sessionStorage.removeItem("panicMode");
-  } catch (e) {
-    console.warn(e);
-  }
-}
-
-function showError(msg) {
-  const el = document.getElementById("errorBar");
-  if (!el) return;
-  el.textContent = msg || "";
-}
-
-function addProduct() {
-  const input = document.getElementById("productInput");
-
-  if (!input) {
-    alert("找不到產品輸入框");
-    return;
-  }
-
-  const productName = normalizeProductName(input.value);
-
-  if (!productName) {
-    alert("請先輸入產品名稱");
-    return;
-  }
-
-  const alreadyExists = selectedProducts.some(
-    product => normalizeProductName(product).toLowerCase() === productName.toLowerCase()
-  );
-
-  if (alreadyExists) {
-    alert("這個產品已經加入");
-    return;
-  }
-
-  selectedProducts.push(productName);
-  saveSelectedProducts();
-
-  input.value = "";
-  renderProductList();
-
-  if (typeof window.refreshDashboard === "function") {
-    window.refreshDashboard();
-  }
-}
-
-function removeProduct(name) {
-  selectedProducts = selectedProducts.filter(product => product !== name);
-
-  saveSelectedProducts();
-  renderProductList();
-
-  if (typeof window.refreshDashboard === "function") {
-    window.refreshDashboard();
-  }
-}
-
-function renderProductList() {
-  const div = document.getElementById("productList");
-  const text = document.getElementById("currentProductsText");
-
-  if (text) {
-    text.textContent = selectedProducts.length > 0
-      ? selectedProducts.join("、")
-      : "尚未設定";
-  }
-
-  if (!div) return;
-
-  div.innerHTML = "";
-
-  selectedProducts.forEach(productName => {
-    const tag = document.createElement("span");
-
-    tag.style.display = "inline-block";
-    tag.style.padding = "6px 12px";
-    tag.style.margin = "4px";
-    tag.style.borderRadius = "10px";
-    tag.style.background = "#2563eb";
-    tag.style.cursor = "pointer";
-
-    tag.textContent = `${productName} ❌`;
-    tag.title = `點擊移除 ${productName}`;
-
-    tag.addEventListener("click", () => {
-      removeProduct(productName);
-    });
-
-    div.appendChild(tag);
-  });
-}
-
-function updateMqttStatus(ok, textMsg = "") {
-  const dot = document.getElementById("mqttDot");
-  const text = document.getElementById("mqttText");
-  if (!dot || !text) return;
-
-  if (ok) {
-    dot.style.background = "#22c55e";
-    dot.style.boxShadow = "0 0 12px rgba(34,197,94,.8)";
-    text.textContent = textMsg || "MQTT 已連線";
-  } else {
-    dot.style.background = "#ef4444";
-    dot.style.boxShadow = "0 0 12px rgba(239,68,68,.8)";
-    text.textContent = textMsg || "MQTT 未連線";
-  }
-}
-
-async function loadHealth() {
-  const data = await apiFetch("/api/health");
-  if (!data) return;
-
-  updateMqttStatus(
-    !!data?.mqttConnected,
-    data?.mqttConnected ? "後端 MQTT 已連線" : "後端 MQTT 未連線"
-  );
-}
-
-function buildDefectsUrl(){
-  const role = sessionStorage.getItem("role");
-  const params = new URLSearchParams();
-
-  if (role === "super_admin" || role === "tenant_admin") {
-    const tenantId = getCurrentTenantId();
-    const systemId = getCurrentSystemId();
-
-    if (tenantId) params.append("tenant_id", tenantId);
-    if (systemId) params.append("system_id", systemId);
-  } else {
-    const tenantId = sessionStorage.getItem("tenant_id") || "";
-    const systemId = sessionStorage.getItem("system_id") || "";
-
-    if (tenantId) params.append("tenant_id", tenantId);
-    if (systemId) params.append("system_id", systemId);
-  }
-
-  return `/api/defects?${params.toString()}`;
-}
-
-async function loadDashboardStats() {
-  try {
-    const data = await apiFetch(buildDefectsUrl());
-    const list = Array.isArray(data) ? data : [];
-
-// 1. 先整理 MongoDB 裡實際存在的產品
-const dbProducts = [
-  ...new Set(
-    list
-      .map(x => normalizeProductName(x.product))
-      .filter(p => p && p !== "未分類")
-  )
-];
-
-// 2. 畫面手動加入的產品 + MongoDB 已存在的產品，合併後去重
-const displayProducts = [
-  ...new Set([
-    ...selectedProducts.map(p => normalizeProductName(p)),
-    ...dbProducts
-  ])
-].filter(p => p && p !== "未分類");
-
-// 3. 只統計要顯示的產品資料
-const filteredList = displayProducts.length === 0
-  ? []
-  : list.filter(x => {
-      const productName = normalizeProductName(x.product);
-      return displayProducts.includes(productName);
-    });
-
-const totalCount = filteredList.length;
-
-    const defectCount = filteredList.filter(
-      x => String(x.status || "").toUpperCase() === "NG"
-    ).length;
-
-// 使用全域 productStats
-Object.keys(productStats).forEach(key => delete productStats[key]); // 清空舊資料
-
-// 先把要顯示的產品建立出來
-// 包含：手動加入的產品 + MongoDB 裡實際存在的產品
-displayProducts.forEach(p => {
-  const product = normalizeProductName(p);
-
-  if (product !== "未分類") {
-    productStats[product] = { ok: 0, ng: 0 };
-  }
-});
-filteredList.forEach(item => {
-
-  // 🔥 關鍵修正（這行）
-const product = normalizeProductName(item.product);
-
-  const status = String(item.status || "").toUpperCase();
-
-      if (!productStats[product]) {
-        productStats[product] = { ok: 0, ng: 0 };
-      }
-
-      if (status === "OK") productStats[product].ok++;
-      if (status === "NG") productStats[product].ng++;
-    });
-
-    document.getElementById("gaugeValue").textContent = totalCount;
-    document.getElementById("defectCount").textContent = defectCount;
-
-    const gaugePercent = Math.min(totalCount * 10, 100);
-    document.getElementById("gauge").style.setProperty("--p", gaugePercent);
-    document.getElementById("gaugeBarFill").style.width = gaugePercent + "%";
-
-    const gaugeArea = document.getElementById("dynamicProductGaugeArea");
-    const dynamicRows = document.getElementById("dynamicProductRows");
-
-    if (gaugeArea) gaugeArea.innerHTML = "";
-    if (dynamicRows) dynamicRows.innerHTML = "";
-
-    let totalOK = 0;
-    let totalNG = 0;
-
-    Object.keys(productStats).forEach(productName => {
-  if (productName === "未分類") return;
-
-  const stats = productStats[productName];
-  const total = stats.ok + stats.ng;
-  const totalCount = s.ok + s.ng;
-const yieldRate = totalCount > 0 ? Math.round(s.ok / totalCount * 100) : 0;
-      totalOK += stats.ok;
-      totalNG += stats.ng;
-
-      if (gaugeArea) {
-        gaugeArea.innerHTML += `
-          <div class="gaugeBox">
-            <div class="gaugeLabel">${productName}</div>
-            <div class="gauge" style="
-              --p:${yieldRate};
-              background: conic-gradient(
-                from 180deg,
-                rgba(34,197,94,.95) ${yieldRate}%,
-                rgba(239,68,68,.95) ${yieldRate}% 100%
-              );
-            ">
-              <div class="gaugeValue">${yieldRate}%</div>
-            </div>
-            <div class="gaugeSub">
-              <span style="color:#3ddc84">OK: ${stats.ok}</span> |
-              <span style="color:#ff8080">NG: ${stats.ng}</span>
-            </div>
-          </div>
-        `;
-      }
-
-      if (dynamicRows) {
-        dynamicRows.innerHTML += `
-          <div class="pt-row">
-            <div class="pt-name">${productName}</div>
-            <div class="pt-ok">${stats.ok}</div>
-            <div class="pt-ng">${stats.ng}</div>
-          </div>
-        `;
-      }
-    });
-
-    document.getElementById("table-ok-total").textContent = totalOK;
-    document.getElementById("table-ng-total").textContent = totalNG;
-const totalOkEl = document.getElementById("totalOk");
-const totalNgEl = document.getElementById("totalNg");
-
-if (totalOkEl) totalOkEl.textContent = totalOK;
-if (totalNgEl) totalNgEl.textContent = totalNG;
-   
-
-    showError("");
-  } catch (e) {
-    console.error(e);
-    showError("讀取統計資料失敗");
-  }
-}
-
-async function loadDefects() {
-  try {
-    const data = await apiFetch(buildDefectsUrl());
-    const list = document.getElementById("defect-list");
-    if (!list) return;
-
-    list.innerHTML = "";
-
-    if (!Array.isArray(data) || data.length === 0) {
-      const empty = document.createElement("div");
-      empty.style.color = "rgba(155,176,207,.9)";
-      empty.style.padding = "12px";
-      empty.textContent = "目前沒有資料";
-      list.appendChild(empty);
-      return;
-    }
-
-    data.slice(0, 10).forEach(item => {
-      const row = document.createElement("div");
-      row.className = "defect-row";
-
-      const statusText = (item.status || "-").toString().toUpperCase();
-      const statusClass =
-        statusText === "NG" ? "status-ng" :
-        statusText === "OK" ? "status-ok" : "";
-
-      row.innerHTML = `
-        <div class="defect-id">${item.id || "-"}</div>
-        <div class="defect-status ${statusClass}">
-          ${statusText} ${item.product ? `(${item.product})` : ""}
-        </div>
-        <div class="defect-time">
-          ${item.timestamp ? new Date(item.timestamp).toLocaleString("zh-TW") : "-"}
-        </div>
-      `;
-
-      list.appendChild(row);
-    });
-  } catch (e) {
-    console.error(e);
-    showError("讀取瑕疵資料失敗");
-  }
-}
-
-async function loadLatestMqtt() {
-  try {
-    const result = await apiFetch("/api/mqtt/latest");
-    const liveHint = document.querySelector(".liveHint");
-    if (!liveHint) return;
-
-    if (result?.data?.payload) {
-      const p = result.data.payload;
-      liveHint.textContent =
-        `最新 MQTT：ID=${p.id || "-"} / STATUS=${p.status || "-"} / PRODUCT=${p.product || "-"} / 時間=${result.data.receivedAt || "-"}`;
-    } else {
-      liveHint.textContent = "目前尚未收到 MQTT 資料";
-    }
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-async function loadSummary() {
-  try {
-    const systemId = getCurrentSystemId();
-    const tenantId = getCurrentTenantId();
-
-    const params = new URLSearchParams();
-    if (tenantId) params.append("tenant_id", tenantId);
-    if (systemId) params.append("system_id", systemId);
-
-    const data = await apiFetch(`/api/summary?${params.toString()}`);
-    if (!data) return;
-
-    document.getElementById("summaryTotal").textContent = `總數：${data.total}`;
-    document.getElementById("summaryOk").textContent = `OK：${data.okCount}`;
-    document.getElementById("summaryNg").textContent = `NG：${data.ngCount}`;
-    document.getElementById("summaryYield").textContent = `良率：${data.yieldRate}%`;
-    document.getElementById("summaryDefect").textContent = `瑕疵率：${data.defectRate}%`;
-    document.getElementById("summaryLast20").textContent = `最近20筆異常：${data.last20Ng}`;
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function downloadCSV(){
-  apiFetch(buildDefectsUrl())
-    .then(data => {
-      if (!Array.isArray(data)) data = [];
-
-      let csv = "\uFEFF";
-      csv += "id,status,product,time\r\n";
-
-      data.forEach(d => {
-        const id = d.id || "";
-        const status = d.status || "";
-        const product = d.product || "";
-
-        const time = d.timestamp
-          ? new Date(d.timestamp).toLocaleString("zh-TW", {
-              year: "numeric",
-              month: "2-digit",
-              day: "2-digit",
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-              hour12: false
-            }).replace(/\//g, "-")
-          : "";
-
-        csv += `"${id}","${status}","${product}","${time}"\r\n`;
-      });
-
-      const blob = new Blob([csv], {
-        type: "text/csv;charset=utf-8;"
-      });
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-
-      a.href = url;
-      a.download = "瑕疵檢測報表.csv";
-      a.click();
-
-      URL.revokeObjectURL(url);
-    });
-}
-
-async function loadSiteConfig() {
-  try {
-    const tenantId = getCurrentTenantId();
-    if (!tenantId) return;
-
-    const result = await apiFetch(`/api/site-config?tenant_id=${tenantId}`);
-    const config = result?.data;
-    if (!config) return;
-
-    document.title = config.site_title || "瑕疵辨識與分流系統";
-
-    const mainTitle = document.querySelector(".pageTitle b");
-    if (mainTitle && config.site_title) {
-      mainTitle.textContent = config.site_title;
-    }
-
-    const subTitle = document.getElementById("pageSubTitle");
-    if (subTitle && config.site_subtitle) {
-      subTitle.textContent = config.site_subtitle;
-    }
-
-  } catch (e) {
-    console.warn("載入網站設定失敗", e);
-  }
-}
-
-async function getCurrentSystemInfo() {
-  const tenantId = getCurrentTenantId();
-  const systemId = getCurrentSystemId();
-
-  if (!tenantId || !systemId) return null;
-
-  const systems = await apiFetch(`/api/systems?tenant_id=${encodeURIComponent(tenantId)}`);
-
-  return (Array.isArray(systems) ? systems : []).find(x => x.system_id === systemId) || null;
-}
-
-async function startCamera() {
-  const img = document.getElementById("camera");
-  const hint = document.getElementById("liveHint");
-
-  if (!img) return;
-
-  try {
-    const systemInfo = await getCurrentSystemInfo();
-
-    if (!systemInfo) {
-      img.removeAttribute("src");
-      if (hint) hint.textContent = "找不到機台設定";
-      return;
-    }
-
-    if (!systemInfo.cam_ip) {
-      img.removeAttribute("src");
-      if (hint) hint.textContent = "此機台尚未連接 ESP32-CAM";
-      return;
-    }
-
-    const camUrl = `http://${systemInfo.cam_ip}:81/stream`;
-
-    img.onload = () => {
-      if (hint) hint.textContent = `CAM 即時畫面連線成功（${systemInfo.system_id}）`;
-    };
-
-    img.onerror = () => {
-      img.removeAttribute("src");
-      if (hint) hint.textContent = `CAM 連線失敗：${systemInfo.cam_ip}`;
-    };
-
-    img.src = camUrl;
-  } catch (e) {
-    console.error(e);
-    img.removeAttribute("src");
-    if (hint) hint.textContent = "CAM 啟動失敗";
-  }
-}
-
-async function loadSystemOptionsByTenant(tenantId) {
-  const systemSelect = document.getElementById("systemSelect");
-  const systemSwitchWrap = document.getElementById("systemSwitchWrap");
-
-  if (systemSwitchWrap) {
-    systemSwitchWrap.style.display = canOpenAdmin ? "flex" : "none";
-  }
-
-  if (!systemSelect || !tenantId) return;
-
-  const result = await apiFetch(`/api/systems?tenant_id=${encodeURIComponent(tenantId)}`);
-  const systems = Array.isArray(result) ? result : [];
-
-  systemSelect.innerHTML = "";
-
-  const seenSystems = new Set();
-
-systems.forEach(sys => {
-  if (!sys.system_id) return;
-
-  // 避免同一台機台重複顯示
-  if (seenSystems.has(sys.system_id)) return;
-  seenSystems.add(sys.system_id);
-
-  const opt = document.createElement("option");
-  opt.value = sys.system_id;
-
-  opt.textContent = sys.system_name
-    ? `${sys.system_id}｜${sys.system_name}`
-    : sys.name
-      ? `${sys.system_id}｜${sys.name}`
-      : `機台 ${sys.system_id}`;
-
-  systemSelect.appendChild(opt);
-});
-  let systemId = getCurrentSystemId();
-
-  if (!systemId || !systems.some(x => x.system_id === systemId)) {
-    systemId = systems[0]?.system_id || "";
-    setCurrentSystemId(systemId);
-  }
-
-  systemSelect.value = systemId;
-}
-
-async function loadTenantOptions() {
-  if (!isSuperAdmin) return;
-
-  const tenantWrap = document.getElementById("tenantSwitchWrap");
-  const tenantSelect = document.getElementById("tenantSelect");
-  if (!tenantWrap || !tenantSelect) return;
-
-  tenantWrap.style.display = "flex";
-
-  const tenants = await apiFetch("/api/admin/tenants");
-  const list = Array.isArray(tenants) ? tenants : [];
-
-  tenantSelect.innerHTML = "";
-
-  const seenTenants = new Set();
-
-list.forEach(t => {
-  if (!t.tenant_id) return;
-
-  // 避免同一個 tenant_id 重複顯示
-  if (seenTenants.has(t.tenant_id)) return;
-  seenTenants.add(t.tenant_id);
-
-  const opt = document.createElement("option");
-  opt.value = t.tenant_id;
-
-  const companyName = t.company || t.tenant_name || "未命名客戶";
-
-  // 顯示公司名稱 + tenant_id 後幾碼，方便分辨不同客戶
-  opt.textContent = `${companyName}｜${t.tenant_id}`;
-
-  tenantSelect.appendChild(opt);
-});
-
-  let currentTenantId = getCurrentTenantId();
-
-  if (!currentTenantId && list.length > 0) {
-    currentTenantId = list[0].tenant_id;
-    setCurrentTenantId(currentTenantId);
-  }
-
-  tenantSelect.value = currentTenantId;
-
-  tenantSelect.addEventListener("change", async (e) => {
-  const newTenantId = e.target.value;
-  setCurrentTenantId(newTenantId);
-  setCurrentSystemId("");
-
-  await loadSystemOptionsByTenant(newTenantId);
-
-  loadSelectedProducts();
-  renderProductList();
-
-  await loadSiteConfig();
-  await startCamera();
-  await window.refreshDashboard();
-});
-}
-
-window.refreshDashboard = async function() {
-  try {
-    showError("");
-    await loadHealth();
-    await loadDashboardStats();
-    await loadDefects();
-    await loadLatestMqtt();
-    await loadSummary();
-  } catch (e) {
-    console.warn("刷新失敗（已忽略）", e);
-  }
-
-  forceCloseErrorOverlay();
-};
-
-window.demoEstop = async function() {
-  try {
-    const result = await apiFetch("/api/estop", {
-      method: "POST",
-      body: JSON.stringify({
-        tenant_id: getCurrentTenantId(),
-        system_id: getCurrentSystemId()
-      })
-    });
-
-    alert(result?.message || "已觸發緊急停止");
-  } catch (e) {
-    console.error(e);
-    showError("急停失敗");
-  }
-};
-
-document.addEventListener("DOMContentLoaded", async () => {
-  forceCloseErrorOverlay();
-
-  const titleSpan = document.getElementById("pageSubTitle");
-  const userChip = document.getElementById("userChip");
-  const systemSelect = document.getElementById("systemSelect");
-
-  const currentUserId = sessionStorage.getItem("loginUser") || "";
-  const displayName = sessionStorage.getItem("loginName") || getDisplayUserName(currentUserId);
-
-  if (userChip) {
-    userChip.textContent = `目前登入：${displayName}`;
-  }
-
-  const adminNavLink = document.getElementById("adminNavLink");
-  const adminNavLinkDrawer = document.getElementById("adminNavLinkDrawer");
-
-  if (adminNavLink) {
-    adminNavLink.style.display = canOpenAdmin ? "flex" : "none";
-  }
-  if (adminNavLinkDrawer) {
-    adminNavLinkDrawer.style.display = canOpenAdmin ? "flex" : "none";
-  }
-
-  const systemSwitchWrap = document.getElementById("systemSwitchWrap");
-  if (systemSwitchWrap) {
-    systemSwitchWrap.style.display = canOpenAdmin ? "flex" : "none";
-  }
-
-  if (isSuperAdmin) {
-    await loadTenantOptions();
-
-    const tenantId = getCurrentTenantId();
-    if (tenantId) {
-      await loadSystemOptionsByTenant(tenantId);
-    }
-  } else {
-    const tenantId = getCurrentTenantId() || sessionStorage.getItem("tenant_id") || "";
-    if (tenantId) {
-      await loadSystemOptionsByTenant(tenantId);
-    }
-  }
-loadSelectedProducts();
-renderProductList();
-
-  if (systemSelect) {
-    systemSelect.addEventListener("change", async (e) => {
-  const newSystemId = e.target.value;
-  setCurrentSystemId(newSystemId);
-
-  loadSelectedProducts();
-  renderProductList();
-
-  await loadSiteConfig();
-  await window.refreshDashboard();
-  await startCamera();
-});
-  }
-
-  if (titleSpan) {
-    titleSpan.textContent =
-      `使用者：${displayName}｜系統：${getDisplaySystemName(getCurrentSystemId())}`;
-  }
-
-  if (dashboardTimer) clearInterval(dashboardTimer);
-
-  dashboardTimer = setInterval(() => {
-    loadDashboardStats();
-    loadDefects();
-    loadSummary();
-    loadLatestMqtt();
-  }, 3000);
-
-  await loadSiteConfig();
-  await window.refreshDashboard();
-  await startCamera();
-});
-// ---------------------
-// 即時事件刷新（Server-Sent Events / SSE）
-// ---------------------
-function startRealtimeUpdates() {
-  if (!!window.eventSource) window.eventSource.close();
-
-  const tenantId = getCurrentTenantId() || "defaultTenant";
-  const systemId = getCurrentSystemId() || "defaultSystem";
-
-  // SSE 後端接口，需要你在 server.js 提供 /api/defects/stream
-  const url = `${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`;
-  window.eventSource = new EventSource(url);
-window.eventSource.onmessage = (e) => {
-  const defect = JSON.parse(e.data);
-  updateProductStats(defect);
-  appendEventRow(defect);
-};
-  window.eventSource.onmessage = (e) => {
-    try {
-      const data = JSON.parse(e.data); // 新增 defect 資料
-      console.log("SSE 收到資料:", data);
-
-      // 重新刷新 defect list 與統計
-      if(typeof window.refreshDashboard === "function"){
-        window.refreshDashboard();
-      }
-    } catch(err) {
-      console.error("SSE 資料處理失敗", err);
-    }
-  };
-
-  window.eventSource.onerror = (err) => {
-    console.warn("SSE 連線錯誤，會自動重試", err);
-  };
-}
-
-// 在 DOMContentLoaded 裡呼叫
-document.addEventListener("DOMContentLoaded", () => {
-  startRealtimeUpdates();
-});
-
-// ===== 新增程式碼開始 =====
+// 新增產品
 function addProductDynamic(name){
-  name = normalizeProductName(name);
-  if (!name) return;
+  name = normalizeProductName(name.trim());
+  if(!name) return;
 
-  if (!selectedProducts.includes(name)){
-    selectedProducts.push(name);
-    renderProductList();
-  }
+  if(!selectedProducts.includes(name)) selectedProducts.push(name);
+  if(!productStats[name]) productStats[name] = { ok:0, ng:0, total:0 };
 
-  if (!productStats[name]){
-    productStats[name] = { ok:0, ng:0, total:0 };
-  }
-
-  renderProductStats();
   updateDetectedProducts();
+  renderProductStats();
   renderCategoryButtons();
 }
 
-function initProductStat(product){
-  if(!productStats[product]) productStats[product]={ok:0, ng:0, total:0};
-  renderProductStats();
+// 更新已偵測產品清單
+function updateDetectedProducts(){
+  const el = document.getElementById("currentProductsText");
+  if(!el) return;
+  el.textContent = selectedProducts.join("、");
 }
 
-function renderCategoryButtons() {
-  const container = document.getElementById("categoryButtons");
-  if(!container) return;
-  container.innerHTML = "";
+// 更新產品統計
+function updateProductStats(defect){
+  try {
+    const product = normalizeProductName(defect.product || "未知");
+    const status = (defect.status || "").toUpperCase();
 
-  const categories = Object.keys(productStats);
-  const allBtn = document.createElement("button");
-  allBtn.textContent = "全部";
-  allBtn.onclick = () => filterByCategory(null);
-  container.appendChild(allBtn);
-
-  categories.forEach(cat => {
-    const btn = document.createElement("button");
-    btn.textContent = cat;
-    btn.onclick = () => filterByCategory(cat);
-    container.appendChild(btn);
-  });
-}
-
-function filterByCategory(category) {
-  const rows = document.querySelectorAll(".defect-row");
-  rows.forEach(row => {
-    const text = row.querySelector("div:nth-child(2)").textContent;
-    row.style.display = (!category || text.includes(category)) ? "flex" : "none";
-  });
-}
-
-function filterByCategory(category) {
-  const rows = document.querySelectorAll(".defect-row");
-  rows.forEach(row => {
-    const text = row.querySelector("div:nth-child(2)").textContent;
-    row.style.display = (!category || text.includes(category)) ? "flex" : "none";
-  });
-}
-
-document.addEventListener("DOMContentLoaded", async () => {
-  await initSelectedProductsFromDB(); // 從 MongoDB 初始化產品
-  renderCategoryButtons();            // 生成分類按鈕
-  startRealtimeUpdates();             // 啟動 SSE
-  renderProductStats();               // 顯示初始統計
-  updateDetectedProducts();           // 顯示已偵測產品
-});
-
-// ===== 新增：更新事件紀錄上方已偵測產品清單 =====
-function updateDetectedProducts() {
-  const detectedEl = document.getElementById("currentProductsText");
-  if (!detectedEl) return;
-  detectedEl.textContent = selectedProducts.join("、");
-}
-
-function appendEventRow(defect) {
-  const list = document.getElementById("defect-list");
-  if (!list) return;
-  const row = document.createElement("div");
-  row.className = "defect-row";
-
-  const statusClass = (defect.status || "").toUpperCase() === "OK" ? "status-ok" : "status-ng";
-
-  row.innerHTML = `
-    <div>${defect.id || "-"}</div>
-    <div class="${statusClass}">${defect.status || "-"} (${defect.product || "-"})</div>
-    <div>${defect.timestamp ? new Date(defect.timestamp).toLocaleString() : "-"}</div>
-  `;
-  list.prepend(row);
-  while (list.children.length > 10) list.removeChild(list.lastChild);
-}
-
-function renderProductStats(){
-  const gaugeArea = document.getElementById("dynamicProductGaugeArea");
-  const tableArea = document.getElementById("dynamicProductRows");
-  if (!gaugeArea || !tableArea) return;
-
-  gaugeArea.innerHTML = "";
-  tableArea.innerHTML = "";
-
-  let totalOK = 0;
-  let totalNG = 0;
-
-  Object.keys(productStats).forEach(productName => {
-    const stats = productStats[productName];
-    const totalCount = stats.ok + stats.ng;
-    const yieldRate = totalCount > 0 ? Math.round(stats.ok / totalCount * 100) : 0;
-
-    totalOK += stats.ok;
-    totalNG += stats.ng;
-
-    gaugeArea.innerHTML += `
-      <div class="gaugeBox">
-        <div class="gaugeLabel">${productName}</div>
-        <div class="gauge" style="--p:${yieldRate}">
-          <div class="gaugeValue">${yieldRate}%</div>
-        </div>
-        <div class="gaugeSub">OK:${stats.ok} | NG:${stats.ng}</div>
-      </div>
-    `;
-
-    tableArea.innerHTML += `
-      <div class="pt-row">
-        <div class="pt-name">${productName}</div>
-        <div class="pt-ok">${stats.ok}</div>
-        <div class="pt-ng">${stats.ng}</div>
-        <div class="pt-total">${totalCount}</div>
-        <div class="pt-okRate">${yieldRate}%</div>
-        <div class="pt-ngRate">${totalCount>0?Math.round(stats.ng/totalCount*100):0}%</div>
-      </div>
-    `;
-  });
-
-  document.getElementById("totalOk").textContent = totalOK;
-  document.getElementById("totalNg").textContent = totalNG;
-}
-// SSE 即時刷新
-function startRealtimeUpdates(){
-  if (window.eventSource) window.eventSource.close();
-
-  const tenantId = getCurrentTenantId() || 'defaultTenant';
-  const systemId = getCurrentSystemId() || 'defaultSystem';
-
-  const url = `${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`;
-  window.eventSource = new EventSource(url);
-
-  window.eventSource.onmessage = (e) => {
-    try {
-      const defect = JSON.parse(e.data);
-      appendEventRow(defect);          // 事件紀錄同步
-      updateProductStats(defect);      // 統計表、良率同步更新
-    } catch (err) {
-      console.error("SSE資料處理失敗", err);
+    if(!productStats[product]){
+      productStats[product] = { ok:0, ng:0, total:0 };
+      if(!selectedProducts.includes(product)) selectedProducts.push(product);
     }
-  };
 
-  window.eventSource.onerror = (err) => {
-    console.warn("SSE連線錯誤，會自動重試", err);
-  };
+    if(status === "OK") productStats[product].ok++;
+    if(status === "NG") productStats[product].ng++;
+    productStats[product].total = productStats[product].ok + productStats[product].ng;
+
+    updateDetectedProducts();
+    renderProductStats();
+    renderCategoryButtons();
+  } catch(err) {
+    console.error("更新統計表錯誤", err);
+  }
 }
 
-
-
-document.addEventListener("DOMContentLoaded", async () => {
-  await initSelectedProductsFromDB(); // 從 MongoDB defect 初始化產品
-  startRealtimeUpdates();             // 啟動 SSE
-});
-// ===== 新增程式碼結束 =====
-async function initSelectedProductsFromDB(){
-  const list = await apiFetch(buildDefectsUrl());
-  const dbProducts = [...new Set(list.map(x => normalizeProductName(x.product)))];
-  dbProducts.forEach(p => addProductDynamic(p));
-}
-
-function renderProductStats() {
+// 渲染產品統計表與 Gauge
+function renderProductStats(){
   const gaugeArea = document.getElementById("dynamicProductGaugeArea");
   const tableArea = document.getElementById("dynamicProductRows");
   if(!gaugeArea || !tableArea) return;
@@ -2414,36 +1270,37 @@ function renderProductStats() {
   gaugeArea.innerHTML = "";
   tableArea.innerHTML = "";
 
-  let totalOK = 0, totalNG = 0;
+  let totalOK = 0;
+  let totalNG = 0;
 
-  Object.keys(productStats).forEach(p => {
-    const s = productStats[p];
-    const totalCount = s.ok + s.ng;
-    const yieldRate = totalCount > 0 ? Math.round(s.ok / totalCount * 100) : 0;
+  Object.keys(productStats).forEach(product => {
+    const stats = productStats[product];
+    const total = stats.total || 0;
+    const yieldRate = total ? Math.round(stats.ok / total * 100) : 0;
 
-    totalOK += s.ok;
-    totalNG += s.ng;
+    totalOK += stats.ok;
+    totalNG += stats.ng;
 
     // Gauge
     gaugeArea.innerHTML += `
       <div class="gaugeBox">
-        <div class="gaugeLabel">${p}</div>
+        <div class="gaugeLabel">${product}</div>
         <div class="gauge" style="--p:${yieldRate}">
           <div class="gaugeValue">${yieldRate}%</div>
         </div>
-        <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
+        <div class="gaugeSub">OK:${stats.ok} | NG:${stats.ng}</div>
       </div>
     `;
 
     // 表格
     tableArea.innerHTML += `
       <div class="pt-row">
-        <div class="pt-name">${p}</div>
-        <div class="pt-ok">${s.ok}</div>
-        <div class="pt-ng">${s.ng}</div>
-        <div class="pt-total">${totalCount}</div>
+        <div class="pt-name">${product}</div>
+        <div class="pt-ok">${stats.ok}</div>
+        <div class="pt-ng">${stats.ng}</div>
+        <div class="pt-total">${total}</div>
         <div class="pt-okRate">${yieldRate}%</div>
-        <div class="pt-ngRate">${totalCount>0?Math.round(s.ng/totalCount*100):0}%</div>
+        <div class="pt-ngRate">${total?Math.round(stats.ng/total*100):0}%</div>
       </div>
     `;
   });
@@ -2451,6 +1308,81 @@ function renderProductStats() {
   document.getElementById("totalOk").textContent = totalOK;
   document.getElementById("totalNg").textContent = totalNG;
 }
+
+// 事件紀錄
+function appendEventRow(defect){
+  const list = document.getElementById("defect-list");
+  if(!list) return;
+  const row = document.createElement("div");
+  row.className = "defect-row";
+
+  const statusClass = (defect.status||"").toUpperCase()==="OK"?"status-ok":"status-ng";
+
+  row.innerHTML = `
+    <div>${defect.id||"-"}</div>
+    <div class="${statusClass}">${defect.status||"-"} (${defect.product||"-"})</div>
+    <div>${defect.timestamp?new Date(defect.timestamp).toLocaleString():"-"}</div>
+  `;
+  list.prepend(row);
+  while(list.children.length>10) list.removeChild(list.lastChild);
+}
+
+// 分類按鈕
+function renderCategoryButtons(){
+  const container = document.getElementById("categoryButtons");
+  if(!container) return;
+  container.innerHTML = "";
+
+  const categories = Object.keys(productStats);
+  const allBtn = document.createElement("button");
+  allBtn.textContent="全部";
+  allBtn.onclick = ()=>filterByCategory(null);
+  container.appendChild(allBtn);
+
+  categories.forEach(cat=>{
+    const btn = document.createElement("button");
+    btn.textContent=cat;
+    btn.onclick=()=>filterByCategory(cat);
+    container.appendChild(btn);
+  });
+}
+
+function filterByCategory(category){
+  const rows=document.querySelectorAll(".defect-row");
+  rows.forEach(row=>{
+    const text=row.querySelector("div:nth-child(2)").textContent;
+    row.style.display = (!category || text.includes(category))?"flex":"none";
+  });
+}
+
+// SSE 即時刷新
+function startRealtimeUpdates(){
+  if(eventSource) eventSource.close();
+
+  const tenantId = getCurrentTenantId()||"defaultTenant";
+  const systemId = getCurrentSystemId()||"defaultSystem";
+
+  eventSource = new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
+
+  eventSource.onmessage = (e)=>{
+    try{
+      const defect=JSON.parse(e.data);
+      appendEventRow(defect);
+      updateProductStats(defect);
+    } catch(err){ console.error("SSE資料處理失敗",err);}
+  };
+
+  eventSource.onerror = err => console.warn("SSE連線錯誤", err);
+}
+
+// DOMContentLoaded 初始化
+document.addEventListener("DOMContentLoaded", async ()=>{
+  await initSelectedProductsFromDB();
+  renderProductStats();
+  updateDetectedProducts();
+  renderCategoryButtons();
+  startRealtimeUpdates();
+});
 </script>
 
 </body>
