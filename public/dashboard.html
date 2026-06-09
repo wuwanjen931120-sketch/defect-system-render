@@ -32,7 +32,9 @@ window.eventSource.onmessage = e => {
   updateProductStats(defect);  // 內部會呼叫 updateDetectedProducts()
 };
 
-let productStats = {}; // 一定要放在函式上方
+// 在 DOMContentLoaded 之前
+let selectedProducts = [];
+let productStats = {}; 
 
 function initProductStat(product){
   if(!productStats[product]) productStats[product] = { ok:0, ng:0, total:0 };
@@ -1292,7 +1294,7 @@ console.log("JS 已啟動");
 
 const API_BASE = window.location.origin;
 let dashboardTimer = null;
-let selectedProducts = [];
+
 
  function addProductDynamic(name) {
     name = name.trim();
@@ -1381,7 +1383,16 @@ let selectedProducts = [];
   document.addEventListener("DOMContentLoaded", () => {
     startRealtimeUpdates();
   });
-
+document.addEventListener("DOMContentLoaded", () => {
+  loadSelectedProducts();
+  renderProductList();
+  startRealtimeUpdates(); // 保證 SSE 在 DOMContentLoaded 後呼叫
+  dashboardTimer = setInterval(() => {
+    loadDashboardStats();
+    loadDefects();
+    loadSummary();
+  }, 3000);
+});
 function getProductStorageKey() {
   const tenantId = sessionStorage.getItem("tenant_id") || "defaultTenant";
   return `selectedProducts_${tenantId}`;
