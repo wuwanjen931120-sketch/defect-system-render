@@ -369,16 +369,11 @@ app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admi
 
 // 📧 Gmail 郵差機車與鑰匙設定
 const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: 2525,           // Render 可用端口
-  secure: false,
+  service: "gmail",
   auth: {
-    user: process.env.BREVO_SMTP_LOGIN,
-    pass: process.env.BREVO_SMTP_KEY
-  },
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 20000
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS
+  }
 });
 
 // ================= 寄送登入驗證碼 =================
@@ -1033,4 +1028,46 @@ app.post("/api/current-product", auth, async (req, res) => {
   }
 });
 
+app.get("/api/defects/stream", auth, async (req, res) => {
+  try {
+    const tenantId = req.query.tenant_id;
+    const systemId = req.query.system_id;
 
+    res.set({
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive"
+    });
+    res.flushHeaders();
+
+    console.log(`SSE connected: tenant=${tenantId}, system=${systemId}`);
+
+    // 🔔 建立 change stream 監控 MongoDB defects collection
+    const pipeline = [
+      { $match: { "fullDocument.tenant_id": tenantId, "fullDocument.system_id": systemId } }
+    ];
+
+    const changeStream = Defect.watch(pipeline, { fullDocument: "updateLookup" });
+
+    const sendEvent = (defect) => {
+      res.write(`data: ${JSON.stringify(defect)}\n\n`);
+    };
+
+    changeStream.on("change", (change) => {
+      if (change.fullDocument) {
+        sendEvent(change.fullDocument);
+      }
+    });
+
+    // 前端關閉連線時
+    req.on("close", () => {
+      console.log("SSE disconnected");
+      changeStream.close();
+      res.end();
+    });
+
+  } catch (err) {
+    console.error("SSE stream error:", err);
+    res.status(500).end();
+  }
+});
