@@ -11,6 +11,103 @@ if (!token) {
   alert("請先登入");
   window.location.replace("login.html");
 }
+
+// ===== 新增程式碼開始 =====
+function addProductDynamic(name){
+  name=name.trim();
+  if(!name) return;
+  if(!selectedProducts.includes(name)){
+    selectedProducts.push(name);
+    renderProductList();
+    initProductStat(name);
+    if(typeof window.refreshDashboard==='function'){
+      window.refreshDashboard();
+    }
+  }
+}
+
+let productStats = {};
+
+function initProductStat(product){
+  if(!productStats[product]) productStats[product]={ok:0, ng:0, total:0};
+  renderProductStats();
+}
+
+function updateProductStats(defect){
+  if(!productStats[defect.product]) initProductStat(defect.product);
+  const s=productStats[defect.product];
+  s.total++;
+  if(defect.status==='OK') s.ok++;
+  if(defect.status==='NG') s.ng++;
+  renderProductStats();
+}
+
+function appendEventRow(defect){
+  const list=document.getElementById('defect-list');
+  if(!list) return;
+  const row=document.createElement('div');
+  row.className='defect-row';
+  const statusClass=defect.status==='OK'?'status-ok':'status-ng';
+  row.innerHTML=`<div>${defect.id||'-'}</div><div class="${statusClass}">${defect.status} (${defect.product})</div><div>${new Date(defect.timestamp).toLocaleString()}</div>`;
+  list.prepend(row);
+  while(list.children.length>10) list.removeChild(list.lastChild);
+}
+
+function renderProductStats(){
+  const gaugeArea=document.getElementById('dynamicProductGaugeArea');
+  const tableArea=document.getElementById('dynamicProductRows');
+  if(!gaugeArea || !tableArea) return;
+  gaugeArea.innerHTML=''; tableArea.innerHTML='';
+
+  let totalOK=0, totalNG=0;
+
+  Object.keys(productStats).forEach(p=>{
+    const s=productStats[p];
+    totalOK+=s.ok; totalNG+=s.ng;
+    if(gaugeArea){
+      gaugeArea.innerHTML+=`
+      <div class="gaugeBox">
+        <div class="gaugeLabel">${p}</div>
+        <div class="gauge" style="--p:${s.total>0?Math.round(s.ok/s.total*100):0}">
+          <div class="gaugeValue">${s.total>0?Math.round(s.ok/s.total*100):0}%</div>
+        </div>
+        <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
+      </div>`;
+    }
+    if(tableArea){
+      tableArea.innerHTML+=`
+      <div class="pt-row">
+        <div class="pt-name">${p}</div>
+        <div class="pt-ok">${s.ok}</div>
+        <div class="pt-ng">${s.ng}</div>
+      </div>`;
+    }
+  });
+  const totalOkEl=document.getElementById('totalOk');
+  const totalNgEl=document.getElementById('totalNg');
+  if(totalOkEl) totalOkEl.textContent=totalOK;
+  if(totalNgEl) totalNgEl.textContent=totalNG;
+}
+
+// SSE 即時刷新
+function startRealtimeUpdates(){
+  if(window.eventSource) window.eventSource.close();
+  const tenantId=getCurrentTenantId()||'defaultTenant';
+  const systemId=getCurrentSystemId()||'defaultSystem';
+  window.eventSource=new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
+  window.eventSource.onmessage=e=>{
+    const defect=JSON.parse(e.data);
+    appendEventRow(defect);
+    updateProductStats(defect);
+  };
+  window.eventSource.onerror=err=>console.warn('SSE error',err);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  startRealtimeUpdates();
+});
+// ===== 新增程式碼結束 =====
+
 </script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>瑕疵辨識與分流系統 - 首頁</title>
@@ -2111,6 +2208,103 @@ function startRealtimeUpdates() {
 document.addEventListener("DOMContentLoaded", () => {
   startRealtimeUpdates();
 });
+
+// ===== 新增程式碼開始 =====
+function addProductDynamic(name){
+  name=name.trim();
+  if(!name) return;
+  if(!selectedProducts.includes(name)){
+    selectedProducts.push(name);
+    renderProductList();
+    initProductStat(name);
+    if(typeof window.refreshDashboard==='function'){
+      window.refreshDashboard();
+    }
+  }
+}
+
+let productStats = {};
+
+function initProductStat(product){
+  if(!productStats[product]) productStats[product]={ok:0, ng:0, total:0};
+  renderProductStats();
+}
+
+function updateProductStats(defect){
+  if(!productStats[defect.product]) initProductStat(defect.product);
+  const s=productStats[defect.product];
+  s.total++;
+  if(defect.status==='OK') s.ok++;
+  if(defect.status==='NG') s.ng++;
+  renderProductStats();
+}
+
+function appendEventRow(defect){
+  const list=document.getElementById('defect-list');
+  if(!list) return;
+  const row=document.createElement('div');
+  row.className='defect-row';
+  const statusClass=defect.status==='OK'?'status-ok':'status-ng';
+  row.innerHTML=`<div>${defect.id||'-'}</div><div class="${statusClass}">${defect.status} (${defect.product})</div><div>${new Date(defect.timestamp).toLocaleString()}</div>`;
+  list.prepend(row);
+  while(list.children.length>10) list.removeChild(list.lastChild);
+}
+
+function renderProductStats(){
+  const gaugeArea=document.getElementById('dynamicProductGaugeArea');
+  const tableArea=document.getElementById('dynamicProductRows');
+  if(!gaugeArea || !tableArea) return;
+  gaugeArea.innerHTML=''; tableArea.innerHTML='';
+
+  let totalOK=0, totalNG=0;
+
+  Object.keys(productStats).forEach(p=>{
+    const s=productStats[p];
+    totalOK+=s.ok; totalNG+=s.ng;
+    if(gaugeArea){
+      gaugeArea.innerHTML+=`
+      <div class="gaugeBox">
+        <div class="gaugeLabel">${p}</div>
+        <div class="gauge" style="--p:${s.total>0?Math.round(s.ok/s.total*100):0}">
+          <div class="gaugeValue">${s.total>0?Math.round(s.ok/s.total*100):0}%</div>
+        </div>
+        <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
+      </div>`;
+    }
+    if(tableArea){
+      tableArea.innerHTML+=`
+      <div class="pt-row">
+        <div class="pt-name">${p}</div>
+        <div class="pt-ok">${s.ok}</div>
+        <div class="pt-ng">${s.ng}</div>
+      </div>`;
+    }
+  });
+  const totalOkEl=document.getElementById('totalOk');
+  const totalNgEl=document.getElementById('totalNg');
+  if(totalOkEl) totalOkEl.textContent=totalOK;
+  if(totalNgEl) totalNgEl.textContent=totalNG;
+}
+
+// SSE 即時刷新
+function startRealtimeUpdates(){
+  if(window.eventSource) window.eventSource.close();
+  const tenantId=getCurrentTenantId()||'defaultTenant';
+  const systemId=getCurrentSystemId()||'defaultSystem';
+  window.eventSource=new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
+  window.eventSource.onmessage=e=>{
+    const defect=JSON.parse(e.data);
+    appendEventRow(defect);
+    updateProductStats(defect);
+  };
+  window.eventSource.onerror=err=>console.warn('SSE error',err);
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  startRealtimeUpdates();
+});
+// ===== 新增程式碼結束 =====
+
 </script>
 
 </body>
