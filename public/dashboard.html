@@ -4,6 +4,8 @@
   
   <meta charset="UTF-8" />
   <script>
+    let selectedProducts = [];
+let productStats = {}; 
 const token = sessionStorage.getItem("token");
 
 // ⭐ 沒登入直接踢回去
@@ -13,19 +15,7 @@ if (!token) {
 }
 
 // ===== 新增程式碼開始 =====
-function addProductDynamic(name){
-  name=name.trim();
-  if(!name) return;
-  if(!selectedProducts.includes(name)){
-    selectedProducts.push(name);
-    renderProductList();
-    initProductStat(name);
-     updateDetectedProducts(); 
-    if(typeof window.refreshDashboard==='function'){
-      window.refreshDashboard();
-    }
-  }
-}
+
 // SSE 收到 defect
 window.eventSource.onmessage = e => {
   const defect = JSON.parse(e.data);
@@ -40,10 +30,8 @@ window.eventSource.onmessage = e => {
   }
 };
 
-
 // 在 DOMContentLoaded 之前
-let selectedProducts = [];
-let productStats = {}; 
+
 async function initSelectedProductsFromDB() {
   const list = await apiFetch(buildDefectsUrl());
   const dbProducts = [...new Set(list.map(x => normalizeProductName(x.product)))];
@@ -83,60 +71,7 @@ function appendEventRow(defect){
   list.prepend(row);
   while(list.children.length>10) list.removeChild(list.lastChild);
 }
-function renderProductStats(){
-  const tableBody = document.getElementById("dynamicProductRows");
-  if(!tableBody) return;
 
-  tableBody.innerHTML = "";
-  for(const product in productStats){
-    const s = productStats[product];
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${product}</td>
-      <td>${s.ok}</td>
-      <td>${s.ng}</td>
-      <td>${s.total}</td>
-      <td>${((s.ok/s.total)*100||0).toFixed(1)}%</td>
-      <td>${((s.ng/s.total)*100||0).toFixed(1)}%</td>
-    `;
-    tableBody.appendChild(tr);
-  }
-}
-function renderProductStats(){
-  const gaugeArea=document.getElementById('dynamicProductGaugeArea');
-  const tableArea=document.getElementById('dynamicProductRows');
-  if(!gaugeArea || !tableArea) return;
-  gaugeArea.innerHTML=''; tableArea.innerHTML='';
-
-  let totalOK=0, totalNG=0;
-
-  Object.keys(productStats).forEach(p=>{
-    const s=productStats[p];
-    totalOK+=s.ok; totalNG+=s.ng;
-    if(gaugeArea){
-      gaugeArea.innerHTML+=`
-      <div class="gaugeBox">
-        <div class="gaugeLabel">${p}</div>
-        <div class="gauge" style="--p:${s.total>0?Math.round(s.ok/s.total*100):0}">
-          <div class="gaugeValue">${s.total>0?Math.round(s.ok/s.total*100):0}%</div>
-        </div>
-        <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
-      </div>`;
-    }
-    if(tableArea){
-      tableArea.innerHTML+=`
-      <div class="pt-row">
-        <div class="pt-name">${p}</div>
-        <div class="pt-ok">${s.ok}</div>
-        <div class="pt-ng">${s.ng}</div>
-      </div>`;
-    }
-  });
-  const totalOkEl=document.getElementById('totalOk');
-  const totalNgEl=document.getElementById('totalNg');
-  if(totalOkEl) totalOkEl.textContent=totalOK;
-  if(totalNgEl) totalNgEl.textContent=totalNG;
-}
 
 // SSE 即時刷新
 function startRealtimeUpdates(){
@@ -1196,15 +1131,22 @@ document.addEventListener('DOMContentLoaded',()=>{
     <span id="currentProductsText">尚未設定</span>
   </div>
 
-  <div class="productInputRow">
-    <input id="productInput"
-           placeholder="輸入產品（例如：立可帶、手機殼、螺帽）">
+<div id="productInputRow">
+  <input id="productInput" type="text" placeholder="輸入產品 (例如：手機殼、書本)">
+  <button onclick="addProductDynamic(document.getElementById('productInput').value)">加入</button>
+</div>
 
     <button class="btn btnPrimary" onclick="addProduct()">加入</button>
   </div>
 
+
+  <input id="productInput" type="text">
+<button onclick="addProductDynamic(document.getElementById('productInput').value)">加入</button>
+
   <div id="productList"></div>
 
+
+  
 </div>
         <div class="heroGrid">
           <section class="liveCard">
@@ -1352,19 +1294,6 @@ console.log("JS 已啟動");
 const API_BASE = window.location.origin;
 let dashboardTimer = null;
 
-
- function addProductDynamic(name){
-  name = name.trim();
-  if(!name) return;
-  if(!selectedProducts.includes(name)){
-    selectedProducts.push(name);
-    renderProductList();           // 更新右側產品列表
-    if(!productStats[name]) productStats[name] = { ok:0, ng:0, total:0 };
-    renderProductStats();          // 更新統計表與 gauge
-    updateDetectedProducts();      // 更新上方已偵測產品清單
-  }
-}
-
    function initProductStat(product) {
     if (!productStats[product]) productStats[product] = { ok: 0, ng: 0, total: 0 };
     renderProductStats();
@@ -1398,48 +1327,6 @@ let dashboardTimer = null;
   list.prepend(row);
   while(list.children.length>10) list.removeChild(list.lastChild);
 }
-
-  // 7️⃣ 渲染右側良率表
- function renderProductStats(){
-  const gaugeArea = document.getElementById("dynamicProductGaugeArea");
-  const tableArea = document.getElementById("dynamicProductRows");
-  if(!gaugeArea || !tableArea) return;
-  gaugeArea.innerHTML = "";
-  tableArea.innerHTML = "";
-
-  let totalOK = 0, totalNG = 0;
-
-  Object.keys(productStats).forEach(p=>{
-    const s = productStats[p];
-    totalOK += s.ok;
-    totalNG += s.ng;
-    const yieldRate = s.total>0?Math.round(s.ok/s.total*100):0;
-
-    gaugeArea.innerHTML += `
-      <div class="gaugeBox">
-        <div class="gaugeLabel">${p}</div>
-        <div class="gauge" style="--p:${yieldRate}">
-          <div class="gaugeValue">${yieldRate}%</div>
-        </div>
-        <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
-      </div>
-    `;
-
-    tableArea.innerHTML += `
-      <div class="pt-row">
-        <div class="pt-name">${p}</div>
-        <div class="pt-ok">${s.ok}</div>
-        <div class="pt-ng">${s.ng}</div>
-        <div class="pt-total">${s.total}</div>
-        <div class="pt-okRate">${yieldRate}%</div>
-        <div class="pt-ngRate">${s.total>0?Math.round(s.ng/s.total*100):0}%</div>
-      </div>`;
-  });
-
-  document.getElementById("totalOk").textContent = totalOK;
-  document.getElementById("totalNg").textContent = totalNG;
-}
-
   // 8️⃣ SSE 即時更新
   function startRealtimeUpdates(){
   if(window.eventSource) window.eventSource.close();
@@ -2403,8 +2290,8 @@ document.addEventListener("DOMContentLoaded", () => {
 // ===== 新增程式碼開始 =====
 function addProductDynamic(name){
   name = name.trim();
-  if(!name) return;
-  if(!selectedProducts.includes(name)){
+  if (!name) return;
+  if (!selectedProducts.includes(name)) {
     selectedProducts.push(name);
     renderProductList();
     if(!productStats[name]) productStats[name] = { ok:0, ng:0, total:0 };
@@ -2412,7 +2299,6 @@ function addProductDynamic(name){
     updateDetectedProducts();
   }
 }
-
 function initProductStat(product){
   if(!productStats[product]) productStats[product]={ok:0, ng:0, total:0};
   renderProductStats();
@@ -2449,7 +2335,7 @@ function appendEventRow(defect){
 function renderProductStats(){
   const gaugeArea = document.getElementById("dynamicProductGaugeArea");
   const tableArea = document.getElementById("dynamicProductRows");
-  if(!gaugeArea || !tableArea) return;
+  if (!gaugeArea || !tableArea) return;
   gaugeArea.innerHTML = "";
   tableArea.innerHTML = "";
 
@@ -2459,13 +2345,14 @@ function renderProductStats(){
     const s = productStats[p];
     totalOK += s.ok;
     totalNG += s.ng;
+    const yieldRate = s.total>0?Math.round(s.ok/s.total*100):0;
 
     // 渲染 gauge
     gaugeArea.innerHTML += `
       <div class="gaugeBox">
         <div class="gaugeLabel">${p}</div>
-        <div class="gauge" style="--p:${s.total>0?Math.round(s.ok/s.total*100):0}">
-          <div class="gaugeValue">${s.total>0?Math.round(s.ok/s.total*100):0}%</div>
+        <div class="gauge" style="--p:${yieldRate}">
+          <div class="gaugeValue">${yieldRate}%</div>
         </div>
         <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
       </div>
@@ -2477,8 +2364,10 @@ function renderProductStats(){
         <div class="pt-name">${p}</div>
         <div class="pt-ok">${s.ok}</div>
         <div class="pt-ng">${s.ng}</div>
-      </div>
-    `;
+        <div class="pt-total">${s.total}</div>
+        <div class="pt-okRate">${yieldRate}%</div>
+        <div class="pt-ngRate">${s.total>0?Math.round(s.ng/s.total*100):0}%</div>
+      </div>`;
   });
 
   document.getElementById("totalOk").textContent = totalOK;
