@@ -1,3 +1,15 @@
+// 引入套件
+const express = require("express");
+const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
+const nodemailer = require("nodemailer");
+const mqtt = require("mqtt");
+
+// 建立 Express app
+const app = express();
+
+// 處理 JSON body
+app.use(express.json());
 app.post("/api/current-product", auth, async (req, res) => {
   try {
     const { tenant_id, system_id, product } = req.body;
