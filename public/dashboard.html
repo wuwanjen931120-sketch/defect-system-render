@@ -28,8 +28,17 @@ function addProductDynamic(name){
 }
 window.eventSource.onmessage = e => {
   const defect = JSON.parse(e.data);
+
+  // 事件紀錄
   appendEventRow(defect);
-  updateProductStats(defect);  // 內部會呼叫 updateDetectedProducts()
+
+  // 如果 defect.product 還沒在 selectedProducts，加入
+  if(!selectedProducts.includes(defect.product)) {
+    addProductDynamic(defect.product);
+  }
+
+  // 更新統計表
+  updateProductStats(defect);
 };
 
 // 在 DOMContentLoaded 之前
@@ -37,19 +46,23 @@ let selectedProducts = [];
 let productStats = {}; 
 
 function initProductStat(product){
-  if(!productStats[product]) productStats[product] = { ok:0, ng:0, total:0 };
+  if(!productStats[product]){
+    productStats[product] = { ok:0, ng:0, total:0 };
+  }
   renderProductStats();
 }
 
 function updateProductStats(defect){
   if(!productStats[defect.product]) initProductStat(defect.product);
+
   const s = productStats[defect.product];
   s.total++;
-  if(defect.status==='OK') s.ok++;
-  if(defect.status==='NG') s.ng++;
+  if(defect.status === 'OK') s.ok++;
+  if(defect.status === 'NG') s.ng++;
+
   renderProductStats();
-  updateDetectedProducts();
 }
+
 
 function updateDetectedProducts(){
   const el = document.getElementById("currentProductsText");
@@ -66,7 +79,25 @@ function appendEventRow(defect){
   list.prepend(row);
   while(list.children.length>10) list.removeChild(list.lastChild);
 }
+function renderProductStats(){
+  const tableBody = document.getElementById("dynamicProductRows");
+  if(!tableBody) return;
 
+  tableBody.innerHTML = "";
+  for(const product in productStats){
+    const s = productStats[product];
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${product}</td>
+      <td>${s.ok}</td>
+      <td>${s.ng}</td>
+      <td>${s.total}</td>
+      <td>${((s.ok/s.total)*100||0).toFixed(1)}%</td>
+      <td>${((s.ng/s.total)*100||0).toFixed(1)}%</td>
+    `;
+    tableBody.appendChild(tr);
+  }
+}
 function renderProductStats(){
   const gaugeArea=document.getElementById('dynamicProductGaugeArea');
   const tableArea=document.getElementById('dynamicProductRows');
