@@ -1,10 +1,26 @@
-const currentProduct = await CurrentProduct.create({
-    tenant_id: finalTenantId,
-    system_id,
-    name: "預設機台",
-    createdAt: new Date()
-}, { session });
+app.post("/api/current-product", auth, async (req, res) => {
+  try {
+    const { tenant_id, system_id, product } = req.body;
 
+    if (!tenant_id || !system_id || !product) {
+      return res.status(400).json({ message: "缺少參數" });
+    }
+
+    // ✅ 將 await 包在 async function 裡
+    const currentProduct = await CurrentProduct.create({
+      tenant_id,
+      system_id,
+      name: product,
+      createdAt: new Date()
+    });
+
+    res.json({ success: true, currentProduct });
+
+  } catch (err) {
+    console.error("current-product error:", err);
+    res.status(500).json({ message: "設定失敗" });
+  }
+});
     if (req.user.role === "tenant_admin") {
       finalTenantId = req.user.tenant_id;
 
