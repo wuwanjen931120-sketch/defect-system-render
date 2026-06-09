@@ -30,17 +30,15 @@ function addProductDynamic(name){
 window.eventSource.onmessage = e => {
   const defect = JSON.parse(e.data);
 
-  // 事件紀錄
-  appendEventRow(defect);
+  appendEventRow(defect); // 事件紀錄
 
-  // 保證 defect.product 在 selectedProducts
-  if(!selectedProducts.includes(defect.product)){
-    addProductDynamic(defect.product); // 會更新 productStats 與 renderProductStats
+  // 確保 defect.product 在 selectedProducts
+  if (!selectedProducts.includes(defect.product)) {
+    addProductDynamic(defect.product); // 會初始化 productStats 並渲染統計表
   } else {
-    updateProductStats(defect); // 已存在則只更新統計數字
+    updateProductStats(defect);
   }
 };
-  
 
 
 // 在 DOMContentLoaded 之前
@@ -1798,7 +1796,8 @@ const totalCount = filteredList.length;
       x => String(x.status || "").toUpperCase() === "NG"
     ).length;
 
-const productStats = {};
+// 使用全域 productStats
+Object.keys(productStats).forEach(key => delete productStats[key]); // 清空舊資料
 
 // 先把要顯示的產品建立出來
 // 包含：手動加入的產品 + MongoDB 裡實際存在的產品
@@ -2360,7 +2359,8 @@ function addProductDynamic(name){
   if(!selectedProducts.includes(name)){
     selectedProducts.push(name);
     renderProductList();
-    initProductStat(name);
+    if(!productStats[name]) productStats[name] = { ok:0, ng:0, total:0 };
+    renderProductStats();
     updateDetectedProducts();
   }
 }
@@ -2399,39 +2399,42 @@ function appendEventRow(defect){
 }
 
 function renderProductStats(){
-  const gaugeArea=document.getElementById('dynamicProductGaugeArea');
-  const tableArea=document.getElementById('dynamicProductRows');
+  const gaugeArea = document.getElementById("dynamicProductGaugeArea");
+  const tableArea = document.getElementById("dynamicProductRows");
   if(!gaugeArea || !tableArea) return;
-  gaugeArea.innerHTML=''; tableArea.innerHTML='';
+  gaugeArea.innerHTML = "";
+  tableArea.innerHTML = "";
 
-  let totalOK=0, totalNG=0;
+  let totalOK = 0, totalNG = 0;
 
   Object.keys(productStats).forEach(p=>{
-    const s=productStats[p];
-    totalOK+=s.ok; totalNG+=s.ng;
-    if(gaugeArea){
-      gaugeArea.innerHTML+=`
+    const s = productStats[p];
+    totalOK += s.ok;
+    totalNG += s.ng;
+
+    // 渲染 gauge
+    gaugeArea.innerHTML += `
       <div class="gaugeBox">
         <div class="gaugeLabel">${p}</div>
         <div class="gauge" style="--p:${s.total>0?Math.round(s.ok/s.total*100):0}">
           <div class="gaugeValue">${s.total>0?Math.round(s.ok/s.total*100):0}%</div>
         </div>
         <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
-      </div>`;
-    }
-    if(tableArea){
-      tableArea.innerHTML+=`
+      </div>
+    `;
+
+    // 渲染表格
+    tableArea.innerHTML += `
       <div class="pt-row">
         <div class="pt-name">${p}</div>
         <div class="pt-ok">${s.ok}</div>
         <div class="pt-ng">${s.ng}</div>
-      </div>`;
-    }
+      </div>
+    `;
   });
-  const totalOkEl=document.getElementById('totalOk');
-  const totalNgEl=document.getElementById('totalNg');
-  if(totalOkEl) totalOkEl.textContent=totalOK;
-  if(totalNgEl) totalNgEl.textContent=totalNG;
+
+  document.getElementById("totalOk").textContent = totalOK;
+  document.getElementById("totalNg").textContent = totalNG;
 }
 
 // SSE 即時刷新
@@ -2448,8 +2451,9 @@ function startRealtimeUpdates(){
   window.eventSource.onerror=err=>console.warn('SSE error',err);
 }
 
-document.addEventListener('DOMContentLoaded',()=>{
-  startRealtimeUpdates();
+document.addEventListener("DOMContentLoaded", async () => {
+  await initSelectedProductsFromDB(); // 從 MongoDB defect 初始化產品
+  startRealtimeUpdates();             // 啟動 SSE
 });
 // ===== 新增程式碼結束 =====
 async function initSelectedProductsFromDB(){
