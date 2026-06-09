@@ -435,12 +435,8 @@ td:first-child{
     </div>
   </div>
 
-  <div class="filterBar">
-    <button class="filterBtn active" data-filter="all">全部</button>
-    <button class="filterBtn" data-filter="立可帶">立可帶</button>
-    <button class="filterBtn" data-filter="橡皮擦">橡皮擦</button>
-    <button class="filterBtn" data-filter="螺帽">螺帽</button>
-  </div>
+ <!-- 原本按鈕的位置 -->
+<div id="categoryButtons"></div>
 
   <div class="rightTop">
     <button class="btn btnPrimary" onclick="window.location.reload()">⟳ 重新整理</button>
@@ -474,6 +470,16 @@ td:first-child{
 
 
 <script>
+  function renderCategoryButtons() {
+  const container = document.getElementById("categoryButtons");
+  container.innerHTML = ""; // 先清空
+  Object.keys(productStats).forEach(product => {
+    const btn = document.createElement("button");
+    btn.textContent = product;
+    btn.onclick = () => filterCategory(product);
+    container.appendChild(btn);
+  });
+}
   (function(){
  
   const token = sessionStorage.getItem("token");
