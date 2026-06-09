@@ -1,10 +1,9 @@
-enant_id: finalTenantId,
-          system_id,
-          name: "預設機台",
-          createdAt: new Date()
-        }, { session });
-      }
-    }
+const currentProduct = await CurrentProduct.create({
+    tenant_id: finalTenantId,
+    system_id,
+    name: "預設機台",
+    createdAt: new Date()
+}, { session });
 
     if (req.user.role === "tenant_admin") {
       finalTenantId = req.user.tenant_id;
