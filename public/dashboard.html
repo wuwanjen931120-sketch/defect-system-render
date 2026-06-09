@@ -951,6 +951,33 @@ function appendEventRow(defect){
   margin-top:0;
   width:100%;
 }
+/* 調整輸入欄 */
+#productInput {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #555;
+  background-color: #1f1f2f; /* 深色背景跟 dashboard 融合 */
+  color: #fff;
+  font-size: 14px;
+  width: 200px; /* 調整寬度 */
+  margin-right: 6px;
+}
+
+/* 調整加入按鈕 */
+#productInput + button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  background-color: #3344ff;
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+#productInput + button:hover {
+  background-color: #5566ff;
+}
   </style>
 
   <link rel="manifest" href="manifest.webmanifest">
@@ -1247,12 +1274,15 @@ let dashboardTimer = null;
 
    function updateProductStats(defect){
   const product = normalizeProductName(defect.product);
-  if (!productStats[product]) initProductStat(product);
+  if(!productStats[product]) initProductStat(product);
 
   const s = productStats[product];
-  s.total++;
-  if (defect.status.toUpperCase() === 'OK') s.ok++;
-  if (defect.status.toUpperCase() === 'NG') s.ng++;
+  // 使用 OK + NG 計算總數
+  const totalCount = s.ok + s.ng;
+  if((defect.status || "").toUpperCase() === "OK") s.ok++;
+  if((defect.status || "").toUpperCase() === "NG") s.ng++;
+
+  const yieldRate = totalCount>0 ? Math.round(s.ok / totalCount * 100) : 0;
 
   renderProductStats();
   updateDetectedProducts();
@@ -1697,7 +1727,8 @@ const product = normalizeProductName(item.product);
 
   const stats = productStats[productName];
   const total = stats.ok + stats.ng;
-  const yieldRate = total > 0 ? Math.round((stats.ok / total) * 100) : 0;
+  const totalCount = s.ok + s.ng;
+const yieldRate = totalCount > 0 ? Math.round(s.ok / totalCount * 100) : 0;
       totalOK += stats.ok;
       totalNG += stats.ng;
 
@@ -2208,15 +2239,18 @@ document.addEventListener("DOMContentLoaded", () => {
 // ===== 新增程式碼開始 =====
 function addProductDynamic(name){
   name = normalizeProductName(name);
-  if (!name) return;
-  if (!selectedProducts.includes(name)){
+  if(!name) return;
+
+  if(!selectedProducts.includes(name)){
     selectedProducts.push(name);
     renderProductList();
   }
-  if(!productStats[name]) productStats[name] = { ok:0, ng:0, total:0 };
+
+  if(!productStats[name]) productStats[name] = { ok:0, ng:0 };
   renderProductStats();
   updateDetectedProducts();
 }
+
 function initProductStat(product){
   if(!productStats[product]) productStats[product]={ok:0, ng:0, total:0};
   renderProductStats();
@@ -2254,7 +2288,8 @@ function renderProductStats(){
     const s = productStats[p];
     totalOK += s.ok;
     totalNG += s.ng;
-    const yieldRate = s.total>0?Math.round(s.ok/s.total*100):0;
+    const totalCount = s.ok + s.ng;
+const yieldRate = totalCount>0 ? Math.round(s.ok/totalCount*100) : 0;
 
     // 渲染 gauge
     gaugeArea.innerHTML += `
@@ -2299,14 +2334,14 @@ window.eventSource.onmessage = e => {
 
     appendEventRow({ ...defect, product: productName, status });
 
-    if (!selectedProducts.includes(productName)) {
+    if(!selectedProducts.includes(productName)){
       addProductDynamic(productName); // 新產品初始化統計 + 渲染
     } else {
       updateProductStats({ ...defect, product: productName, status });
-      renderProductStats();           // 更新 gauge + table
-      updateDetectedProducts();       // 更新上方產品清單
+      renderProductStats();         // gauge + 表格更新
+      updateDetectedProducts();     // 上方已偵測產品清單更新
     }
-  } catch(err) {
+  } catch(err){
     console.error("SSE 資料處理失敗", err);
   }
 };
