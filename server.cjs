@@ -21,10 +21,48 @@ app.post("/api/current-product", auth, async (req, res) => {
     res.status(500).json({ message: "設定失敗" });
   }
 });
+app.post("/api/defects/mock", auth, async (req, res) => {
+  try {
+    const { product, status, system_id } = req.body;
+
+    if (!product || !status) {
+      return res.status(400).json({ message: "缺少 product 或 status" });
+    }
+
+    const tenant_id = req.user.tenant_id;
+
+    const defect = {
+      id: "mock-" + Date.now(),
+      product,
+      status: status.toUpperCase(),
+      tenant_id,
+      system_id: system_id || "defaultSystem",
+      user_id: req.user.id,
+      timestamp: new Date(),
+      isTest: true
+    };
+
+    await Defect.create(defect);
+
+    // SSE 推送給前端
+    sseClients.forEach(fn => fn(defect));
+
+    res.json({ success: true, defect });
+  } catch (err) {
+    console.error("mock defect error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+app.post("/api/create-user", auth, async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
     if (req.user.role === "tenant_admin") {
-      finalTenantId = req.user.tenant_id;
+      const finalTenantId = req.user.tenant_id;
 
       if (role !== "user") {
+        // ✅ 把 await 放在 async 函式裡
         await session.abortTransaction();
         session.endSession();
         return res.status(403).json({
@@ -53,6 +91,7 @@ app.post("/api/current-product", auth, async (req, res) => {
     });
 
   } catch (err) {
+    // ✅ 把 await 放在 async 函式裡
     await session.abortTransaction();
     session.endSession();
 
@@ -60,8 +99,6 @@ app.post("/api/current-product", auth, async (req, res) => {
     res.status(500).json({ message: "建立帳號失敗（已回滾）" });
   }
 });
-
-
 
 // 📧 Gmail 郵差機車與鑰匙設定
 // 強制使用 IPv4 連線 Gmail SMTP，避免 Render 發生 IPv6 ENETUNREACH
