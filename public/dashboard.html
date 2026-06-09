@@ -1201,44 +1201,55 @@
       </div>
     </main>
   </div>
- <script>
+<script>
 const API_BASE = window.location.origin;
+
+// 全域變數
 let selectedProducts = [];
 let productStats = {};
 let eventSource = null;
 
-// 初始化 MongoDB 產品
+// ------------------ 初始化 MongoDB 產品 ------------------
 async function initSelectedProductsFromDB() {
   try {
     const list = await apiFetch(buildDefectsUrl());
     const dbProducts = [...new Set(list.map(x => normalizeProductName(x.product)))];
-    dbProducts.forEach(p => addProductDynamic(p));
+    dbProducts.forEach(p => addProductDynamic(p, false)); // false 表示不重渲染
+    renderCategoryButtons();       // 初始化一次分類按鈕
+    renderProductStats();          // 初始化一次統計表與 Gauge
+    updateDetectedProducts();      // 更新已偵測產品清單
   } catch(err) {
     console.error("初始化產品清單失敗", err);
   }
 }
 
-// 新增產品
-function addProductDynamic(name){
+// ------------------ 新增產品 ------------------
+function addProductDynamic(name, render=true){
   name = normalizeProductName(name.trim());
   if(!name) return;
 
-  if(!selectedProducts.includes(name)) selectedProducts.push(name);
-  if(!productStats[name]) productStats[name] = { ok:0, ng:0, total:0 };
+  if(!selectedProducts.includes(name)){
+    selectedProducts.push(name);
+  }
+  if(!productStats[name]){
+    productStats[name] = { ok:0, ng:0, total:0 };
+  }
 
-  updateDetectedProducts();
-  renderProductStats();
-  renderCategoryButtons();
+  if(render){
+    renderProductStats();
+    updateDetectedProducts();
+    renderCategoryButtons();
+  }
 }
 
-// 更新已偵測產品清單
+// ------------------ 更新已偵測產品清單 ------------------
 function updateDetectedProducts(){
-  const el = document.getElementById("currentProductsText");
-  if(!el) return;
-  el.textContent = selectedProducts.join("、");
+  const detectedEl = document.getElementById("currentProductsText");
+  if(!detectedEl) return;
+  detectedEl.textContent = selectedProducts.join("、");
 }
 
-// 更新產品統計
+// ------------------ 更新產品統計 ------------------
 function updateProductStats(defect){
   try {
     const product = normalizeProductName(defect.product || "未知");
@@ -1251,17 +1262,18 @@ function updateProductStats(defect){
 
     if(status === "OK") productStats[product].ok++;
     if(status === "NG") productStats[product].ng++;
+
     productStats[product].total = productStats[product].ok + productStats[product].ng;
 
-    updateDetectedProducts();
-    renderProductStats();
-    renderCategoryButtons();
-  } catch(err) {
+    renderProductStats();       // 統計表與 Gauge
+    updateDetectedProducts();   // 上方已偵測產品清單
+    renderCategoryButtons();    // 分類按鈕
+  } catch(err){
     console.error("更新統計表錯誤", err);
   }
 }
 
-// 渲染產品統計表與 Gauge
+// ------------------ 渲染產品統計表與 Gauge ------------------
 function renderProductStats(){
   const gaugeArea = document.getElementById("dynamicProductGaugeArea");
   const tableArea = document.getElementById("dynamicProductRows");
@@ -1275,7 +1287,7 @@ function renderProductStats(){
 
   Object.keys(productStats).forEach(product => {
     const stats = productStats[product];
-    const total = stats.total || 0;
+    const total = stats.ok + stats.ng;
     const yieldRate = total ? Math.round(stats.ok / total * 100) : 0;
 
     totalOK += stats.ok;
@@ -1309,7 +1321,7 @@ function renderProductStats(){
   document.getElementById("totalNg").textContent = totalNG;
 }
 
-// 事件紀錄
+// ------------------ 事件紀錄 ------------------
 function appendEventRow(defect){
   const list = document.getElementById("defect-list");
   if(!list) return;
@@ -1321,13 +1333,13 @@ function appendEventRow(defect){
   row.innerHTML = `
     <div>${defect.id||"-"}</div>
     <div class="${statusClass}">${defect.status||"-"} (${defect.product||"-"})</div>
-    <div>${defect.timestamp?new Date(defect.timestamp).toLocaleString():"-"}</div>
+    <div>${defect.timestamp ? new Date(defect.timestamp).toLocaleString():"-"}</div>
   `;
   list.prepend(row);
   while(list.children.length>10) list.removeChild(list.lastChild);
 }
 
-// 分類按鈕
+// ------------------ 分類按鈕 ------------------
 function renderCategoryButtons(){
   const container = document.getElementById("categoryButtons");
   if(!container) return;
@@ -1355,32 +1367,36 @@ function filterByCategory(category){
   });
 }
 
-// SSE 即時刷新
+// ------------------ SSE 即時更新 ------------------
 function startRealtimeUpdates(){
   if(eventSource) eventSource.close();
 
   const tenantId = getCurrentTenantId()||"defaultTenant";
   const systemId = getCurrentSystemId()||"defaultSystem";
 
-  eventSource = new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
+  const url = `${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`;
+  eventSource = new EventSource(url);
 
   eventSource.onmessage = (e)=>{
     try{
-      const defect=JSON.parse(e.data);
+      const defect = JSON.parse(e.data);
+
+      // 事件紀錄
       appendEventRow(defect);
+
+      // 加入清單並更新統計表
+      addProductDynamic(defect.product);
       updateProductStats(defect);
+
     } catch(err){ console.error("SSE資料處理失敗",err);}
   };
 
   eventSource.onerror = err => console.warn("SSE連線錯誤", err);
 }
 
-// DOMContentLoaded 初始化
+// ------------------ DOMContentLoaded 初始化 ------------------
 document.addEventListener("DOMContentLoaded", async ()=>{
   await initSelectedProductsFromDB();
-  renderProductStats();
-  updateDetectedProducts();
-  renderCategoryButtons();
   startRealtimeUpdates();
 });
 </script>
