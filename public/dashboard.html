@@ -1262,19 +1262,21 @@ let dashboardTimer = null;
     if (!productStats[product]) productStats[product] = { ok: 0, ng: 0, total: 0 };
     renderProductStats();
   }
-
-  function updateProductStats(defect){
+function updateProductStats(defect) {
   const product = normalizeProductName(defect.product);
-  if (!productStats[product]) initProductStat(product);
+  if (!productStats[product]) {
+    productStats[product] = { ok: 0, ng: 0, total: 0 };
+    selectedProducts.push(product);
+  }
 
-  const s = productStats[product];
-  // 更新數字
-  if ((defect.status || "").toUpperCase() === "OK") s.ok++;
-  if ((defect.status || "").toUpperCase() === "NG") s.ng++;
-  s.total = s.ok + s.ng;
+  if ((defect.status || "").toUpperCase() === "OK") productStats[product].ok++;
+  if ((defect.status || "").toUpperCase() === "NG") productStats[product].ng++;
 
-  renderProductStats();               // 更新表格與 gauge
-  updateDetectedProducts();           // 更新上方已偵測產品清單
+  productStats[product].total = productStats[product].ok + productStats[product].ng;
+
+  renderProductStats();
+  updateDetectedProducts();
+  renderCategoryButtons();
 }
 
   // 5️⃣ 更新事件紀錄上方已偵測產品清單
@@ -2189,7 +2191,11 @@ function startRealtimeUpdates() {
   // SSE 後端接口，需要你在 server.js 提供 /api/defects/stream
   const url = `${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`;
   window.eventSource = new EventSource(url);
-
+window.eventSource.onmessage = (e) => {
+  const defect = JSON.parse(e.data);
+  updateProductStats(defect);
+  appendEventRow(defect);
+};
   window.eventSource.onmessage = (e) => {
     try {
       const data = JSON.parse(e.data); // 新增 defect 資料
@@ -2243,7 +2249,7 @@ function renderCategoryButtons() {
   if(!container) return;
   container.innerHTML = "";
 
-  const categories = [...new Set(selectedProducts)];
+  const categories = Object.keys(productStats);
   const allBtn = document.createElement("button");
   allBtn.textContent = "全部";
   allBtn.onclick = () => filterByCategory(null);
@@ -2254,6 +2260,14 @@ function renderCategoryButtons() {
     btn.textContent = cat;
     btn.onclick = () => filterByCategory(cat);
     container.appendChild(btn);
+  });
+}
+
+function filterByCategory(category) {
+  const rows = document.querySelectorAll(".defect-row");
+  rows.forEach(row => {
+    const text = row.querySelector("div:nth-child(2)").textContent;
+    row.style.display = (!category || text.includes(category)) ? "flex" : "none";
   });
 }
 
@@ -2302,34 +2316,32 @@ function renderProductStats(){
   let totalOK = 0, totalNG = 0;
 
   Object.keys(productStats).forEach(p => {
-    const s = productStats[p];
-    totalOK += s.ok;
-    totalNG += s.ng;
+  const s = productStats[p];
+  const totalCount = s.ok + s.ng;
+  const yieldRate = totalCount > 0 ? Math.round(s.ok / totalCount * 100) : 0;
 
-    const totalCount = s.ok + s.ng;
-    const yieldRate = totalCount > 0 ? Math.round(s.ok / totalCount * 100) : 0;
+  totalOK += s.ok;
+  totalNG += s.ng;
 
-    // Gauge
-    gaugeArea.innerHTML += `
-      <div class="gaugeBox">
-        <div class="gaugeLabel">${p}</div>
-        <div class="gauge" style="--p:${yieldRate}">
-          <div class="gaugeValue">${yieldRate}%</div>
-        </div>
-        <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
-      </div>`;
+  gaugeArea.innerHTML += `
+    <div class="gaugeBox">
+      <div class="gaugeLabel">${p}</div>
+      <div class="gauge" style="--p:${yieldRate}">
+        <div class="gaugeValue">${yieldRate}%</div>
+      </div>
+      <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
+    </div>`;
 
-    // 表格
-    tableArea.innerHTML += `
-      <div class="pt-row">
-        <div class="pt-name">${p}</div>
-        <div class="pt-ok">${s.ok}</div>
-        <div class="pt-ng">${s.ng}</div>
-        <div class="pt-total">${totalCount}</div>
-        <div class="pt-okRate">${yieldRate}%</div>
-        <div class="pt-ngRate">${totalCount>0?Math.round(s.ng/totalCount*100):0}%</div>
-      </div>`;
-  });
+  tableArea.innerHTML += `
+    <div class="pt-row">
+      <div class="pt-name">${p}</div>
+      <div class="pt-ok">${s.ok}</div>
+      <div class="pt-ng">${s.ng}</div>
+      <div class="pt-total">${totalCount}</div>
+      <div class="pt-okRate">${yieldRate}%</div>
+      <div class="pt-ngRate">${totalCount > 0 ? Math.round(s.ng / totalCount * 100) : 0}%</div>
+    </div>`;
+});
 
   document.getElementById("totalOk").textContent = totalOK;
   document.getElementById("totalNg").textContent = totalNG;
