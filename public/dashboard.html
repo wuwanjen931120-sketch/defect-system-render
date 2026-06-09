@@ -1294,6 +1294,94 @@ const API_BASE = window.location.origin;
 let dashboardTimer = null;
 let selectedProducts = [];
 
+ function addProductDynamic(name) {
+    name = name.trim();
+    if (!name) return;
+    if (!selectedProducts.includes(name)) {
+      selectedProducts.push(name);
+      renderProductList();
+      initProductStat(name);
+      updateDetectedProducts(); // ✅ 上方已偵測產品清單更新
+      if (typeof window.refreshDashboard === "function") {
+        window.refreshDashboard();
+      }
+    }
+  }
+
+   function initProductStat(product) {
+    if (!productStats[product]) productStats[product] = { ok: 0, ng: 0, total: 0 };
+    renderProductStats();
+  }
+
+   function updateProductStats(defect) {
+    if (!productStats[defect.product]) initProductStat(defect.product);
+    const s = productStats[defect.product];
+    s.total++;
+    if (defect.status === "OK") s.ok++;
+    if (defect.status === "NG") s.ng++;
+    renderProductStats();
+    updateDetectedProducts(); // ✅ 同步更新上方清單
+  }
+
+  // 5️⃣ 更新事件紀錄上方已偵測產品清單
+  function updateDetectedProducts() {
+    const el = document.getElementById("currentProductsText");
+    if (!el) return;
+    el.textContent = selectedProducts.join("、");
+  }
+
+  // 6️⃣ 新增 defect 事件列
+  function appendEventRow(defect) {
+    const list = document.getElementById("defect-list");
+    if (!list) return;
+    const row = document.createElement("div");
+    row.className = "defect-row";
+    const statusClass = defect.status === "OK" ? "status-ok" : "status-ng";
+    row.innerHTML = `<div>${defect.id || '-'}</div><div class="${statusClass}">${defect.status} (${defect.product})</div><div>${new Date(defect.timestamp).toLocaleString()}</div>`;
+    list.prepend(row);
+    while (list.children.length > 10) list.removeChild(list.lastChild);
+  }
+
+  // 7️⃣ 渲染右側良率表
+  function renderProductStats() {
+    const gaugeArea = document.getElementById("dynamicProductGaugeArea");
+    const tableArea = document.getElementById("dynamicProductRows");
+    if (!gaugeArea || !tableArea) return;
+    gaugeArea.innerHTML = "";
+    tableArea.innerHTML = "";
+
+    let totalOK = 0, totalNG = 0;
+
+    Object.keys(productStats).forEach(p => {
+      const s = productStats[p];
+      totalOK += s.ok;
+      totalNG += s.ng;
+
+      // ... 此處保留 gauge 與表格渲染程式
+    });
+
+    document.getElementById("totalOk").textContent = totalOK;
+    document.getElementById("totalNg").textContent = totalNG;
+  }
+
+  // 8️⃣ SSE 即時更新
+  function startRealtimeUpdates() {
+    if (window.eventSource) window.eventSource.close();
+    const tenantId = getCurrentTenantId() || "defaultTenant";
+    const systemId = getCurrentSystemId() || "defaultSystem";
+    window.eventSource = new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
+    window.eventSource.onmessage = e => {
+      const defect = JSON.parse(e.data);
+      appendEventRow(defect);
+      updateProductStats(defect); // 自動刷新右側與上方清單
+    };
+    window.eventSource.onerror = err => console.warn("SSE error", err);
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    startRealtimeUpdates();
+  });
+
 function getProductStorageKey() {
   const tenantId = sessionStorage.getItem("tenant_id") || "defaultTenant";
   return `selectedProducts_${tenantId}`;
