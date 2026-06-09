@@ -1033,3 +1033,115 @@ app.post("/api/current-product", auth, async (req, res) => {
   }
 });
 
+client.on("message", async (topic, message) => {
+  if (topic === "factory/defect/report") {
+    const data = JSON.parse(message.toString());
+
+    // 處理多產品寫入 MongoDB
+    const systemId = data.system_id;
+    const systemDoc = await mongoose.connection.collection("systems").findOne({ system_id: systemId });
+    const userDoc = await mongoose.connection.collection("users").findOne({ tenant_id: systemDoc.tenant_id });
+
+    const owner = { user_id: userDoc?.username || "unknown", tenant_id: systemDoc.tenant_id };
+
+    let insertedDefects;
+    if (Array.isArray(data.items)) {
+      insertedDefects = await Defect.insertMany(
+        data.items.map(item => ({
+          tenant_id: owner.tenant_id,
+          user_id: owner.user_id,
+          system_id: systemId,
+          id: item.id,
+          status: item.status,
+          product: item.product,
+          timestamp: new Date()
+        }))
+      );
+    } else {
+      const newDefect = new Defect({
+        tenant_id: owner.tenant_id,
+        user_id: owner.user_id,
+        system_id: systemId,
+        id: data.id,
+        status: data.status,
+        product: data.product || "未分類",
+        timestamp: new Date()
+      });
+      insertedDefects = [await newDefect.save()];
+    }
+
+    // 🔹 新增 SSE 推送事件
+    insertedDefects.forEach(d => {
+      // 如果你有一個全域的 SSE clients list，例如 sseClients[]
+      sseClients.forEach(res => {
+        res.write(`data: ${JSON.stringify(d)}\n\n`);
+      });
+    });
+  }
+});
+
+// 假設你有一個全域的 SSE clients list
+const sseClients = [];
+
+// 1️⃣ 新增 SSE endpoint，前端會訂閱
+app.get("/api/defects/stream", auth, (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive"
+  });
+  res.flushHeaders();
+
+  // 將前端連線加到 clients list
+  sseClients.push(res);
+
+  req.on("close", () => {
+    const index = sseClients.indexOf(res);
+    if(index !== -1) sseClients.splice(index,1);
+  });
+});
+
+// 2️⃣ MQTT 收到 defect 後推送 SSE
+client.on("message", async (topic, message) => {
+  if(topic === "factory/defect/report"){
+    const data = JSON.parse(message.toString());
+
+    const systemId = data.system_id;
+    const systemDoc = await mongoose.connection.collection("systems").findOne({ system_id: systemId });
+    const userDoc = await mongoose.connection.collection("users").findOne({ tenant_id: systemDoc.tenant_id });
+    const owner = { user_id: userDoc?.username || "unknown", tenant_id: systemDoc.tenant_id };
+
+    let insertedDefects;
+    if(Array.isArray(data.items)){
+      insertedDefects = await Defect.insertMany(
+        data.items.map(item => ({
+          tenant_id: owner.tenant_id,
+          user_id: owner.user_id,
+          system_id: systemId,
+          id: item.id,
+          status: item.status,
+          product: item.product,
+          timestamp: new Date()
+        }))
+      );
+    } else {
+      const newDefect = new Defect({
+        tenant_id: owner.tenant_id,
+        user_id: owner.user_id,
+        system_id: systemId,
+        id: data.id,
+        status: data.status,
+        product: data.product || "未分類",
+        timestamp: new Date()
+      });
+      insertedDefects = [await newDefect.save()];
+    }
+
+    // 🔹 這裡是新增 SSE 推送
+    insertedDefects.forEach(d => {
+      sseClients.forEach(res => {
+        res.write(`data: ${JSON.stringify(d)}\n\n`);
+      });
+    });
+  }
+});
