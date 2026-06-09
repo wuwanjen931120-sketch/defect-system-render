@@ -11,103 +11,6 @@ if (!token) {
   alert("請先登入");
   window.location.replace("login.html");
 }
-
-// ===== 新增程式碼開始 =====
-function addProductDynamic(name){
-  name=name.trim();
-  if(!name) return;
-  if(!selectedProducts.includes(name)){
-    selectedProducts.push(name);
-    renderProductList();
-    initProductStat(name);
-    if(typeof window.refreshDashboard==='function'){
-      window.refreshDashboard();
-    }
-  }
-}
-
-let productStats = {};
-
-function initProductStat(product){
-  if(!productStats[product]) productStats[product]={ok:0, ng:0, total:0};
-  renderProductStats();
-}
-
-function updateProductStats(defect){
-  if(!productStats[defect.product]) initProductStat(defect.product);
-  const s=productStats[defect.product];
-  s.total++;
-  if(defect.status==='OK') s.ok++;
-  if(defect.status==='NG') s.ng++;
-  renderProductStats();
-}
-
-function appendEventRow(defect){
-  const list=document.getElementById('defect-list');
-  if(!list) return;
-  const row=document.createElement('div');
-  row.className='defect-row';
-  const statusClass=defect.status==='OK'?'status-ok':'status-ng';
-  row.innerHTML=`<div>${defect.id||'-'}</div><div class="${statusClass}">${defect.status} (${defect.product})</div><div>${new Date(defect.timestamp).toLocaleString()}</div>`;
-  list.prepend(row);
-  while(list.children.length>10) list.removeChild(list.lastChild);
-}
-
-function renderProductStats(){
-  const gaugeArea=document.getElementById('dynamicProductGaugeArea');
-  const tableArea=document.getElementById('dynamicProductRows');
-  if(!gaugeArea || !tableArea) return;
-  gaugeArea.innerHTML=''; tableArea.innerHTML='';
-
-  let totalOK=0, totalNG=0;
-
-  Object.keys(productStats).forEach(p=>{
-    const s=productStats[p];
-    totalOK+=s.ok; totalNG+=s.ng;
-    if(gaugeArea){
-      gaugeArea.innerHTML+=`
-      <div class="gaugeBox">
-        <div class="gaugeLabel">${p}</div>
-        <div class="gauge" style="--p:${s.total>0?Math.round(s.ok/s.total*100):0}">
-          <div class="gaugeValue">${s.total>0?Math.round(s.ok/s.total*100):0}%</div>
-        </div>
-        <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
-      </div>`;
-    }
-    if(tableArea){
-      tableArea.innerHTML+=`
-      <div class="pt-row">
-        <div class="pt-name">${p}</div>
-        <div class="pt-ok">${s.ok}</div>
-        <div class="pt-ng">${s.ng}</div>
-      </div>`;
-    }
-  });
-  const totalOkEl=document.getElementById('totalOk');
-  const totalNgEl=document.getElementById('totalNg');
-  if(totalOkEl) totalOkEl.textContent=totalOK;
-  if(totalNgEl) totalNgEl.textContent=totalNG;
-}
-
-// SSE 即時刷新
-function startRealtimeUpdates(){
-  if(window.eventSource) window.eventSource.close();
-  const tenantId=getCurrentTenantId()||'defaultTenant';
-  const systemId=getCurrentSystemId()||'defaultSystem';
-  window.eventSource=new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
-  window.eventSource.onmessage=e=>{
-    const defect=JSON.parse(e.data);
-    appendEventRow(defect);
-    updateProductStats(defect);
-  };
-  window.eventSource.onerror=err=>console.warn('SSE error',err);
-}
-
-document.addEventListener('DOMContentLoaded',()=>{
-  startRealtimeUpdates();
-});
-// ===== 新增程式碼結束 =====
-
 </script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>瑕疵辨識與分流系統 - 首頁</title>
@@ -1302,38 +1205,30 @@ function loadSelectedProducts() {
     if (!Array.isArray(selectedProducts)) {
       selectedProducts = [];
     }
-
-    // 清除舊版留下的「未分類」、空白資料與重複產品
-    const seen = new Set();
-
-    selectedProducts = selectedProducts
-      .map(product => normalizeProductName(product))
-      .filter(product => {
-        if (!product || product === "未分類") return false;
-
-        const key = product.toLowerCase();
-        if (seen.has(key)) return false;
-
-        seen.add(key);
-        return true;
-      });
-
-    saveSelectedProducts();
-  } catch (error) {
-    console.warn("載入產品清單失敗：", error);
+  } catch (e) {
     selectedProducts = [];
   }
 }
 
 function normalizeProductName(name) {
-  if (name === null || name === undefined) return "";
+  if (!name) return "未分類"; // ⭐ 先擋掉 null/undefined
 
-  // 允許輸入任何產品名稱，只整理控制字元、前後空白與連續空格。
-  // 顯示時使用 textContent，避免產品名稱中的符號破壞 HTML。
-  return String(name)
-    .replace(/[\u0000-\u001F\u007F]/g, "")
-    .trim()
-    .replace(/\s+/g, " ");
+  const s = String(name)
+  .trim()
+  .toLowerCase()
+  .replace(/\s+/g, "")
+  .replace(/[^\u4e00-\u9fa5a-z0-9]/g, ""); // ⭐ 清掉奇怪符號
+
+  // ⭐ 再次保險
+  if (s === "" || s === "null" || s === "undefined") {
+    return "未分類";
+  }
+
+  if (s.includes("橡皮") || s.includes("eraser")) return "橡皮擦";
+  if (s.includes("立可帶") || s.includes("修正帶") || s.includes("tape")) return "立可帶";
+  if (s.includes("螺帽") || s.includes("螺母") || s.includes("nut")) return "螺帽";
+
+  return "未分類";
 }
 
 async function apiFetch(url, options = {}) {
@@ -1492,50 +1387,31 @@ function showError(msg) {
 
 function addProduct() {
   const input = document.getElementById("productInput");
+  const name = input.value.trim();
 
-  if (!input) {
-    alert("找不到產品輸入框");
-    return;
+  if (!name) return;
+
+  const normalized = normalizeProductName(name);
+
+  if (!selectedProducts.includes(normalized)) {
+    selectedProducts.push(normalized);
   }
 
-  const productName = normalizeProductName(input.value);
-
-  if (!productName) {
-    alert("請先輸入產品名稱");
-    return;
-  }
-
-  const alreadyExists = selectedProducts.some(
-    product => normalizeProductName(product).toLowerCase() === productName.toLowerCase()
-  );
-
-  if (alreadyExists) {
-    alert("這個產品已經加入");
-    return;
-  }
-
-  selectedProducts.push(productName);
   saveSelectedProducts();
 
   input.value = "";
   renderProductList();
-
-  if (typeof window.refreshDashboard === "function") {
-    window.refreshDashboard();
-  }
+  window.refreshDashboard();
 }
 
-function removeProduct(name) {
-  selectedProducts = selectedProducts.filter(product => product !== name);
+function removeProduct(name){
+  selectedProducts = selectedProducts.filter(p => p !== name);
 
   saveSelectedProducts();
+
   renderProductList();
-
-  if (typeof window.refreshDashboard === "function") {
-    window.refreshDashboard();
-  }
+  window.refreshDashboard();
 }
-
 function renderProductList() {
   const div = document.getElementById("productList");
   const text = document.getElementById("currentProductsText");
@@ -1548,27 +1424,18 @@ function renderProductList() {
 
   if (!div) return;
 
-  div.innerHTML = "";
-
-  selectedProducts.forEach(productName => {
-    const tag = document.createElement("span");
-
-    tag.style.display = "inline-block";
-    tag.style.padding = "6px 12px";
-    tag.style.margin = "4px";
-    tag.style.borderRadius = "10px";
-    tag.style.background = "#2563eb";
-    tag.style.cursor = "pointer";
-
-    tag.textContent = `${productName} ❌`;
-    tag.title = `點擊移除 ${productName}`;
-
-    tag.addEventListener("click", () => {
-      removeProduct(productName);
-    });
-
-    div.appendChild(tag);
-  });
+  div.innerHTML = selectedProducts.map(p => `
+    <span style="
+      display:inline-block;
+      padding:6px 12px;
+      margin:4px;
+      border-radius:10px;
+      background:#2563eb;
+      cursor:pointer;
+    " onclick="removeProduct('${p}')">
+      ${p} ❌
+    </span>
+  `).join("");
 }
 
 function updateMqttStatus(ok, textMsg = "") {
@@ -2172,139 +2039,6 @@ renderProductList();
   await window.refreshDashboard();
   await startCamera();
 });
-// ---------------------
-// 即時事件刷新（Server-Sent Events / SSE）
-// ---------------------
-function startRealtimeUpdates() {
-  if (!!window.eventSource) window.eventSource.close();
-
-  const tenantId = getCurrentTenantId() || "defaultTenant";
-  const systemId = getCurrentSystemId() || "defaultSystem";
-
-  // SSE 後端接口，需要你在 server.js 提供 /api/defects/stream
-  const url = `${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`;
-  window.eventSource = new EventSource(url);
-
-  window.eventSource.onmessage = (e) => {
-    try {
-      const data = JSON.parse(e.data); // 新增 defect 資料
-      console.log("SSE 收到資料:", data);
-
-      // 重新刷新 defect list 與統計
-      if(typeof window.refreshDashboard === "function"){
-        window.refreshDashboard();
-      }
-    } catch(err) {
-      console.error("SSE 資料處理失敗", err);
-    }
-  };
-
-  window.eventSource.onerror = (err) => {
-    console.warn("SSE 連線錯誤，會自動重試", err);
-  };
-}
-
-// 在 DOMContentLoaded 裡呼叫
-document.addEventListener("DOMContentLoaded", () => {
-  startRealtimeUpdates();
-});
-
-// ===== 新增程式碼開始 =====
-function addProductDynamic(name){
-  name=name.trim();
-  if(!name) return;
-  if(!selectedProducts.includes(name)){
-    selectedProducts.push(name);
-    renderProductList();
-    initProductStat(name);
-    if(typeof window.refreshDashboard==='function'){
-      window.refreshDashboard();
-    }
-  }
-}
-
-let productStats = {};
-
-function initProductStat(product){
-  if(!productStats[product]) productStats[product]={ok:0, ng:0, total:0};
-  renderProductStats();
-}
-
-function updateProductStats(defect){
-  if(!productStats[defect.product]) initProductStat(defect.product);
-  const s=productStats[defect.product];
-  s.total++;
-  if(defect.status==='OK') s.ok++;
-  if(defect.status==='NG') s.ng++;
-  renderProductStats();
-}
-
-function appendEventRow(defect){
-  const list=document.getElementById('defect-list');
-  if(!list) return;
-  const row=document.createElement('div');
-  row.className='defect-row';
-  const statusClass=defect.status==='OK'?'status-ok':'status-ng';
-  row.innerHTML=`<div>${defect.id||'-'}</div><div class="${statusClass}">${defect.status} (${defect.product})</div><div>${new Date(defect.timestamp).toLocaleString()}</div>`;
-  list.prepend(row);
-  while(list.children.length>10) list.removeChild(list.lastChild);
-}
-
-function renderProductStats(){
-  const gaugeArea=document.getElementById('dynamicProductGaugeArea');
-  const tableArea=document.getElementById('dynamicProductRows');
-  if(!gaugeArea || !tableArea) return;
-  gaugeArea.innerHTML=''; tableArea.innerHTML='';
-
-  let totalOK=0, totalNG=0;
-
-  Object.keys(productStats).forEach(p=>{
-    const s=productStats[p];
-    totalOK+=s.ok; totalNG+=s.ng;
-    if(gaugeArea){
-      gaugeArea.innerHTML+=`
-      <div class="gaugeBox">
-        <div class="gaugeLabel">${p}</div>
-        <div class="gauge" style="--p:${s.total>0?Math.round(s.ok/s.total*100):0}">
-          <div class="gaugeValue">${s.total>0?Math.round(s.ok/s.total*100):0}%</div>
-        </div>
-        <div class="gaugeSub">OK:${s.ok} | NG:${s.ng}</div>
-      </div>`;
-    }
-    if(tableArea){
-      tableArea.innerHTML+=`
-      <div class="pt-row">
-        <div class="pt-name">${p}</div>
-        <div class="pt-ok">${s.ok}</div>
-        <div class="pt-ng">${s.ng}</div>
-      </div>`;
-    }
-  });
-  const totalOkEl=document.getElementById('totalOk');
-  const totalNgEl=document.getElementById('totalNg');
-  if(totalOkEl) totalOkEl.textContent=totalOK;
-  if(totalNgEl) totalNgEl.textContent=totalNG;
-}
-
-// SSE 即時刷新
-function startRealtimeUpdates(){
-  if(window.eventSource) window.eventSource.close();
-  const tenantId=getCurrentTenantId()||'defaultTenant';
-  const systemId=getCurrentSystemId()||'defaultSystem';
-  window.eventSource=new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
-  window.eventSource.onmessage=e=>{
-    const defect=JSON.parse(e.data);
-    appendEventRow(defect);
-    updateProductStats(defect);
-  };
-  window.eventSource.onerror=err=>console.warn('SSE error',err);
-}
-
-document.addEventListener('DOMContentLoaded',()=>{
-  startRealtimeUpdates();
-});
-// ===== 新增程式碼結束 =====
-
 </script>
 
 </body>
