@@ -26,20 +26,22 @@ function addProductDynamic(name){
     }
   }
 }
+// SSE 收到 defect
 window.eventSource.onmessage = e => {
   const defect = JSON.parse(e.data);
 
   // 事件紀錄
   appendEventRow(defect);
 
-  // 如果 defect.product 還沒在 selectedProducts，加入
-  if(!selectedProducts.includes(defect.product)) {
-    addProductDynamic(defect.product);
+  // 保證 defect.product 在 selectedProducts
+  if(!selectedProducts.includes(defect.product)){
+    addProductDynamic(defect.product); // 會更新 productStats 與 renderProductStats
+  } else {
+    updateProductStats(defect); // 已存在則只更新統計數字
   }
-
-  // 更新統計表
-  updateProductStats(defect);
 };
+  
+
 
 // 在 DOMContentLoaded 之前
 let selectedProducts = [];
@@ -2353,15 +2355,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // ===== 新增程式碼開始 =====
 function addProductDynamic(name){
-  name=name.trim();
+  name = name.trim();
   if(!name) return;
   if(!selectedProducts.includes(name)){
     selectedProducts.push(name);
     renderProductList();
     initProductStat(name);
-    if(typeof window.refreshDashboard==='function'){
-      window.refreshDashboard();
-    }
+    updateDetectedProducts();
   }
 }
 
@@ -2452,7 +2452,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   startRealtimeUpdates();
 });
 // ===== 新增程式碼結束 =====
-
+async function initSelectedProductsFromDB(){
+  const list = await apiFetch(buildDefectsUrl());
+  const dbProducts = [...new Set(list.map(x => normalizeProductName(x.product)))];
+  dbProducts.forEach(p => addProductDynamic(p));
+}
 </script>
 
 </body>
