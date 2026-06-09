@@ -44,7 +44,11 @@ window.eventSource.onmessage = e => {
 // 在 DOMContentLoaded 之前
 let selectedProducts = [];
 let productStats = {}; 
-
+async function initSelectedProductsFromDB() {
+  const list = await apiFetch(buildDefectsUrl());
+  const dbProducts = [...new Set(list.map(x => normalizeProductName(x.product)))];
+  dbProducts.forEach(p => addProductDynamic(p));
+}
 function initProductStat(product){
   if(!productStats[product]){
     productStats[product] = { ok:0, ng:0, total:0 };
@@ -140,11 +144,20 @@ function startRealtimeUpdates(){
   const tenantId=getCurrentTenantId()||'defaultTenant';
   const systemId=getCurrentSystemId()||'defaultSystem';
   window.eventSource=new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
-  window.eventSource.onmessage=e=>{
-    const defect=JSON.parse(e.data);
-    appendEventRow(defect);
-    updateProductStats(defect);
-  };
+  window.eventSource.onmessage = e => {
+  const defect = JSON.parse(e.data);
+
+  appendEventRow(defect); // 事件紀錄
+
+  // defect.product 沒在 selectedProducts 就加入
+  if (!selectedProducts.includes(defect.product)) {
+    addProductDynamic(defect.product); // 新增產品 + render
+  } else {
+    updateProductStats(defect);        // 已存在產品更新統計
+    renderProductStats();               // 🔥 加這行更新 gauge 與表格
+    updateDetectedProducts();           // 同步上方已偵測產品清單
+  }
+};
   window.eventSource.onerror=err=>console.warn('SSE error',err);
 }
 
@@ -1270,6 +1283,19 @@ document.addEventListener('DOMContentLoaded',()=>{
       <div id="summaryLast20">最近20筆異常：0</div>
     </div>
   </div>
+</div>
+
+
+<div id="detectedProducts">
+  已偵測產品：
+  <span id="currentProductsText"></span>
+</div>
+
+<!-- 放在右側產品統計表上方或 gauge 區附近 -->
+<div id="totalStats">
+  總計：
+  OK：<span id="totalOk">0</span> |
+  NG：<span id="totalNg">0</span>
 </div>
 
   <div id="dynamicProductGaugeArea"></div>
@@ -2483,6 +2509,10 @@ async function initSelectedProductsFromDB(){
   const dbProducts = [...new Set(list.map(x => normalizeProductName(x.product)))];
   dbProducts.forEach(p => addProductDynamic(p));
 }
+
+if (!productStats[name]) productStats[name] = { ok:0, ng:0, total:0 };
+renderProductStats();  // 更新統計表
+updateDetectedProducts();  // 更新上方已偵測清單
 </script>
 
 </body>
