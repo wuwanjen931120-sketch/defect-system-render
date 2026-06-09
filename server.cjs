@@ -589,6 +589,8 @@ const mqttOptions = {
 // 用來記錄 MQTT 狀態供前端查詢
 let isMqttConnected = false;
 let latestMqttMessage = null;
+// 存放所有 SSE 訂閱者
+const sseClients = [];
 
 const client = mqtt.connect(
   "mqtts://487b901642cc4a189a7c7dfd277110a8.s1.eu.hivemq.cloud",
@@ -609,7 +611,6 @@ client.on("error", (err) => {
   isMqttConnected = false;
   console.error("❌ MQTT 錯誤：", err);
 });
-
 
 
 client.on("message", async (topic, message) => {
@@ -663,6 +664,26 @@ client.on("message", async (topic, message) => {
     }))
   );
 
+  // 推送給所有訂閱 SSE 的前端
+if (Array.isArray(data.items)) {
+  data.items.forEach(defect => {
+    sseClients.forEach(fn => fn({
+      ...defect,
+      tenant_id: owner.tenant_id,
+      system_id: systemId
+    }));
+  });
+} else {
+  sseClients.forEach(fn => fn({
+    id: data.id,
+    status: data.status,
+    product: data.product,
+    tenant_id: owner.tenant_id,
+    system_id: systemId,
+    timestamp: new Date()
+  }));
+}
+
   latestMqttMessage = {
   payload: {
     ...data.items[data.items.length - 1],
@@ -694,6 +715,8 @@ client.on("message", async (topic, message) => {
   timestamp: new Date()
 };
 }
+
+
 
 // ⭐⭐⭐ 補這段 ⭐⭐⭐
 console.log("✅ 已存入 MongoDB");
@@ -920,6 +943,28 @@ app.get("/api/defects", auth, async (req, res) => {
   }
 });
 
+app.get("/api/defects/stream", auth, (req, res) => {
+  const tenantId = req.query.tenant_id;
+  const systemId = req.query.system_id;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const sendDefect = (defect) => {
+    if (defect.tenant_id === tenantId && defect.system_id === systemId) {
+      res.write(`data: ${JSON.stringify(defect)}\n\n`);
+    }
+  };
+
+  sseClients.push(sendDefect);
+
+  req.on("close", () => {
+    const idx = sseClients.indexOf(sendDefect);
+    if (idx > -1) sseClients.splice(idx, 1);
+  });
+});
+
 app.post("/api/estop", auth, (req, res) => {
   try {
     const stopPayload = JSON.stringify({ command: "STOP" });
@@ -1025,6 +1070,28 @@ if (system_id) {
     console.error("summary error:", err);
     res.status(500).json({ message: "統計失敗" });
   }
+});
+
+app.get("/api/defects/stream", auth, (req, res) => {
+  const tenantId = req.query.tenant_id;
+  const systemId = req.query.system_id;
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+
+  const sendDefect = (defect) => {
+    if (defect.tenant_id === tenantId && defect.system_id === systemId) {
+      res.write(`data: ${JSON.stringify(defect)}\n\n`);
+    }
+  };
+
+  sseClients.push(sendDefect);
+
+  req.on("close", () => {
+    const idx = sseClients.indexOf(sendDefect);
+    if (idx > -1) sseClients.splice(idx, 1);
+  });
 });
 
 app.post("/api/current-product", auth, async (req, res) => {
