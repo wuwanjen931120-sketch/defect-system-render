@@ -1,80 +1,334 @@
-// 引入套件
+// ==========================================
+// 1. 套件引入與環境設定 (地基)
+// ==========================================
+const dns = require("dns");
+dns.setServers(["8.8.8.8", "1.1.1.1"]); // 解決手機熱點 DNS 阻擋
+require("dotenv").config(); // 讀取保險箱 .env
+
 const express = require("express");
+const cors = require("cors");
+const path = require("path");
+
+
 const mongoose = require("mongoose");
-const jwt = require("jsonwebtoken");
-const nodemailer = require("nodemailer");
 const mqtt = require("mqtt");
 
-// 建立 Express app
+const nodemailer = require("nodemailer");
+
+// 🔥 在這裡加
+const jwt = require("jsonwebtoken");
+
+// ==========================================
+// 2. 伺服器、資料庫與寄信系統設定 (內部部門)
+// ==========================================
 const app = express();
+// ================= 信箱驗證碼暫存 =================
+// 注意：這是本機測試版，重開 server 後驗證碼會消失
+const loginCodeStore = new Map();
 
-// 處理 JSON body
+function makeLoginCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+// ================= 登入系統 =================
+const JWT_SECRET = process.env.JWT_SECRET;
+
+
+app.use(cors());
 app.use(express.json());
-app.post("/api/current-product", auth, async (req, res) => {
+
+// Render 部署：由同一個 Node.js 服務提供前端網頁
+app.use(express.static(path.join(__dirname, "public")));
+
+
+app.post("/api/register", async (req, res) => {
+  const session = await mongoose.startSession();
+
   try {
-    const { tenant_id, system_id, product } = req.body;
+    session.startTransaction();
 
-    if (!tenant_id || !system_id || !product) {
-      return res.status(400).json({ message: "缺少參數" });
-    }
+  const { company, username, password } = req.body;
 
-    // ✅ 將 await 包在 async function 裡
-    const currentProduct = await CurrentProduct.create({
+if (!company || !username || !password) {
+  await session.abortTransaction();
+  session.endSession();
+  return res.status(400).json({ message: "資料不完整" });
+}
+
+const normalizedUsername = username.toLowerCase().trim();
+
+    const usersCol = mongoose.connection.collection("users");
+    const tenantsCol = mongoose.connection.collection("tenants");
+    const systemsCol = mongoose.connection.collection("systems");
+
+const exist = await usersCol.findOne({
+  $or: [
+    { username: normalizedUsername },
+    { email: normalizedUsername }
+  ]
+});
+    if (exist) {
+  await session.abortTransaction();
+  session.endSession();
+  return res.status(400).json({ message: "帳號已存在" });
+}
+
+    const tenant_id = "T" + Date.now();
+    const system_id = "S" + Date.now();
+
+    // 🔥 建立 tenant
+    await tenantsCol.insertOne({
+      tenant_id,
+      company,
+      createdAt: new Date()
+    }, { session });
+
+    // 🔥 密碼加密
+    const bcrypt = require("bcrypt");
+    const hash = await bcrypt.hash(password, 10);
+
+    // 🔥 建立 user
+    await usersCol.insertOne({
+  username: normalizedUsername,
+  email: normalizedUsername,
+  password: hash,
+  tenant_id,
+  role: "tenant_admin",
+  createdAt: new Date()
+}, { session });
+
+    // 🔥 建立 system
+    await systemsCol.insertOne({
       tenant_id,
       system_id,
-      name: product,
+      name: "預設機台",
       createdAt: new Date()
+    }, { session });
+
+    // ✅ 成功提交
+    await session.commitTransaction();
+    session.endSession();
+
+    res.json({
+      success: true,
+      tenant_id,
+      system_id
     });
 
-    res.json({ success: true, currentProduct });
-
   } catch (err) {
-    console.error("current-product error:", err);
-    res.status(500).json({ message: "設定失敗" });
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error(err);
+    res.status(500).json({ message: "註冊失敗（已回滾）" });
   }
 });
-app.post("/api/defects/mock", auth, async (req, res) => {
-  try {
-    const { product, status, system_id } = req.body;
 
-    if (!product || !status) {
-      return res.status(400).json({ message: "缺少 product 或 status" });
+
+
+
+
+app.post("/api/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "請輸入信箱與密碼" });
     }
 
-    const tenant_id = req.user.tenant_id;
+    const usersCol = mongoose.connection.collection("users");
+    const systemsCol = mongoose.connection.collection("systems");
 
-    const defect = {
-      id: "mock-" + Date.now(),
-      product,
-      status: status.toUpperCase(),
-      tenant_id,
-      system_id: system_id || "defaultSystem",
-      user_id: req.user.id,
-      timestamp: new Date(),
-      isTest: true
+    const user = await usersCol.findOne({
+      email: email.toLowerCase().trim()
+    });
+
+    if (!user) {
+      return res.status(401).json({ message: "信箱不存在，請先註冊" });
+    }
+
+    const bcrypt = require("bcrypt");
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({ message: "密碼錯誤" });
+    }
+
+    let systems = [];
+
+    if (user.role === "super_admin") {
+      systems = await systemsCol.find({}).toArray();
+    } else {
+      systems = await systemsCol.find({
+        tenant_id: user.tenant_id
+      }).toArray();
+    }
+
+    const systemIds = systems.map(s => s.system_id);
+
+    const tokenPayload = {
+      id: user._id,
+      email: user.email,
+      name: user.name,
+      company: user.company,
+      tenant_id: user.tenant_id,
+      role: user.role,
+      systems: systemIds
     };
 
-    await Defect.create(defect);
+    const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: "8h" });
 
-    // SSE 推送給前端
-    sseClients.forEach(fn => fn(defect));
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+        company: user.company,
+        tenant_id: user.tenant_id,
+        role: user.role
+      },
+      systems: systemIds
+    });
 
-    res.json({ success: true, defect });
   } catch (err) {
-    console.error("mock defect error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    console.error("登入錯誤：", err);
+    res.status(500).json({ message: "登入失敗" });
   }
 });
-app.post("/api/create-user", auth, async (req, res) => {
+app.get("/api/admin/users", auth, requireRole("super_admin", "tenant_admin"), async (req, res) => {
+  try {
+    const usersCol = mongoose.connection.collection("users");
+    const tenantsCol = mongoose.connection.collection("tenants");
+
+    const query = {};
+
+    // 客戶管理員只能看自己公司的帳號
+    if (req.user.role === "tenant_admin") {
+      query.tenant_id = req.user.tenant_id;
+    }
+
+    const users = await usersCol.find(query).toArray();
+    const tenants = await tenantsCol.find().toArray();
+
+    const result = users.map(u => {
+      const t = tenants.find(x => x.tenant_id === u.tenant_id);
+
+      return {
+        username: u.username,
+        tenant_id: u.tenant_id,
+        company: t?.company || "未知",
+        role: u.role
+      };
+    });
+
+    res.json(result);
+
+  } catch (err) {
+    console.error("admin users error:", err);
+    res.status(500).json({ message: "取得使用者失敗" });
+  }
+});
+
+
+app.get("/api/admin/collections", auth, requireRole("super_admin"), async (req, res) => {
+  const allowed = ["users", "tenants", "systems", "defects"];
+  res.json(allowed);
+});
+
+app.get("/api/admin/collection/:name", auth, requireRole("super_admin"), async (req, res) => {
+  try {
+    const { name } = req.params;
+
+    const allowed = ["users", "tenants", "systems", "defects"];
+
+    if (!allowed.includes(name)) {
+      return res.status(403).json({ message: "不允許讀取此 collection" });
+    }
+
+    const data = await mongoose.connection
+      .collection(name)
+      .find({})
+      .sort({ _id: -1 })
+      .limit(200)
+      .toArray();
+
+    res.json(data);
+
+  } catch (err) {
+    console.error("Mongo admin error:", err);
+    res.status(500).json({ message: "讀取資料失敗" });
+  }
+});
+
+app.get("/api/predict", async (req,res)=>{
+  const data = await Defect.find().sort({timestamp:-1}).limit(20);
+
+  let ng = data.filter(d=>d.status==="NG").length;
+
+  let risk = ng > 5 ? "高風險" : "正常";
+
+  res.json({
+    ng_count: ng,
+    prediction: risk
+  });
+});
+app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admin"), async (req, res) => {
   const session = await mongoose.startSession();
-  session.startTransaction();
 
   try {
+    session.startTransaction();
+
+    const { company, username, password, role, tenant_id } = req.body;
+
+    const usersCol = mongoose.connection.collection("users");
+    const tenantsCol = mongoose.connection.collection("tenants");
+    const systemsCol = mongoose.connection.collection("systems");
+
+    if (!username || !password || !role) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "資料不完整" });
+    }
+
+    const exist = await usersCol.findOne({ username });
+    if (exist) {
+      await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ message: "帳號已存在" });
+    }
+
+    let finalTenantId = tenant_id;
+
+    if (req.user.role === "super_admin") {
+      if (!finalTenantId) {
+        if (!company) {
+          await session.abortTransaction();
+          session.endSession();
+          return res.status(400).json({ message: "缺少公司名稱" });
+        }
+
+        finalTenantId = "T" + Date.now();
+        const system_id = "S" + Date.now();
+
+        await tenantsCol.insertOne({
+          tenant_id: finalTenantId,
+          company,
+          createdAt: new Date()
+        }, { session });
+
+        await systemsCol.insertOne({
+          tenant_id: finalTenantId,
+          system_id,
+          name: "預設機台",
+          createdAt: new Date()
+        }, { session });
+      }
+    }
+
     if (req.user.role === "tenant_admin") {
-      const finalTenantId = req.user.tenant_id;
+      finalTenantId = req.user.tenant_id;
 
       if (role !== "user") {
-        // ✅ 把 await 放在 async 函式裡
         await session.abortTransaction();
         session.endSession();
         return res.status(403).json({
@@ -103,7 +357,6 @@ app.post("/api/create-user", auth, async (req, res) => {
     });
 
   } catch (err) {
-    // ✅ 把 await 放在 async 函式裡
     await session.abortTransaction();
     session.endSession();
 
@@ -112,28 +365,15 @@ app.post("/api/create-user", auth, async (req, res) => {
   }
 });
 
+
+
 // 📧 Gmail 郵差機車與鑰匙設定
-// 強制使用 IPv4 連線 Gmail SMTP，避免 Render 發生 IPv6 ENETUNREACH
-// =====================================================
-// 📧 Brevo SMTP Relay 寄信設定
-// 保留 Nodemailer，不使用 Brevo HTTPS API
-// 使用 2525 避開 Render 免費方案封鎖的 SMTP 連接埠
-// =====================================================
-// =====================================================
-// 📧 Brevo SMTP Relay 寄信設定
-// Render 免費方案封鎖 25、465、587，因此改用 2525
-// =====================================================
 const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: 2525,
-  secure: false,
+  service: "gmail",
   auth: {
-    user: process.env.BREVO_SMTP_LOGIN,
-    pass: process.env.BREVO_SMTP_KEY
-  },
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 20000
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS
+  }
 });
 
 // ================= 寄送登入驗證碼 =================
@@ -174,12 +414,12 @@ app.post("/api/login/send-code", async (req, res) => {
       expiresAt: Date.now() + 5 * 60 * 1000
     });
 
-  await transporter.sendMail({
-  from: `"瑕疵辨識與分流系統" <${process.env.BREVO_SENDER_EMAIL}>`,
-  to: user.email || user.username,
-  subject: "瑕疵辨識與分流系統登入驗證碼",
-  text: `您的登入驗證碼是：${code}\n\n此驗證碼 5 分鐘內有效。`
-});
+    await transporter.sendMail({
+      from: process.env.GMAIL_USER,
+      to: user.email || user.username,
+      subject: "瑕疵辨識與分流系統登入驗證碼",
+      text: `您的登入驗證碼是：${code}\n\n此驗證碼 5 分鐘內有效。`
+    });
 
     res.json({
       success: true,
@@ -329,8 +569,6 @@ const mqttOptions = {
 // 用來記錄 MQTT 狀態供前端查詢
 let isMqttConnected = false;
 let latestMqttMessage = null;
-// 存放所有 SSE 訂閱者
-const sseClients = [];
 
 const client = mqtt.connect(
   "mqtts://487b901642cc4a189a7c7dfd277110a8.s1.eu.hivemq.cloud",
@@ -351,6 +589,7 @@ client.on("error", (err) => {
   isMqttConnected = false;
   console.error("❌ MQTT 錯誤：", err);
 });
+
 
 
 client.on("message", async (topic, message) => {
@@ -404,26 +643,6 @@ client.on("message", async (topic, message) => {
     }))
   );
 
-  // 推送給所有訂閱 SSE 的前端
-if (Array.isArray(data.items)) {
-  data.items.forEach(defect => {
-    sseClients.forEach(fn => fn({
-      ...defect,
-      tenant_id: owner.tenant_id,
-      system_id: systemId
-    }));
-  });
-} else {
-  sseClients.forEach(fn => fn({
-    id: data.id,
-    status: data.status,
-    product: data.product,
-    tenant_id: owner.tenant_id,
-    system_id: systemId,
-    timestamp: new Date()
-  }));
-}
-
   latestMqttMessage = {
   payload: {
     ...data.items[data.items.length - 1],
@@ -456,8 +675,6 @@ if (Array.isArray(data.items)) {
 };
 }
 
-
-
 // ⭐⭐⭐ 補這段 ⭐⭐⭐
 console.log("✅ 已存入 MongoDB");
 
@@ -482,11 +699,11 @@ if (ngCounterMap[counterKey] >= ALERT_THRESHOLD) {
   console.log("🚨 連續NG警報");
 
   await transporter.sendMail({
-  from: `"瑕疵辨識與分流系統" <${process.env.BREVO_SENDER_EMAIL}>`,
-  to: process.env.ALERT_EMAIL,
-  subject: "🚨 產線異常",
-  text: `機台 ${systemId} 已連續 ${ALERT_THRESHOLD} 次 NG`
-});
+    from: process.env.GMAIL_USER,
+    to: process.env.GMAIL_USER,
+    subject: "🚨 產線異常",
+    text: `機台 ${systemId} 已連續 ${ALERT_THRESHOLD} 次 NG`
+  });
 
   ngCounterMap[counterKey] = 0;
 }
@@ -683,28 +900,6 @@ app.get("/api/defects", auth, async (req, res) => {
   }
 });
 
-app.get("/api/defects/stream", auth, (req, res) => {
-  const tenantId = req.query.tenant_id;
-  const systemId = req.query.system_id;
-
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-
-  const sendDefect = (defect) => {
-    if (defect.tenant_id === tenantId && defect.system_id === systemId) {
-      res.write(`data: ${JSON.stringify(defect)}\n\n`);
-    }
-  };
-
-  sseClients.push(sendDefect);
-
-  req.on("close", () => {
-    const idx = sseClients.indexOf(sendDefect);
-    if (idx > -1) sseClients.splice(idx, 1);
-  });
-});
-
 app.post("/api/estop", auth, (req, res) => {
   try {
     const stopPayload = JSON.stringify({ command: "STOP" });
@@ -812,28 +1007,6 @@ if (system_id) {
   }
 });
 
-app.get("/api/defects/stream", auth, (req, res) => {
-  const tenantId = req.query.tenant_id;
-  const systemId = req.query.system_id;
-
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-
-  const sendDefect = (defect) => {
-    if (defect.tenant_id === tenantId && defect.system_id === systemId) {
-      res.write(`data: ${JSON.stringify(defect)}\n\n`);
-    }
-  };
-
-  sseClients.push(sendDefect);
-
-  req.on("close", () => {
-    const idx = sseClients.indexOf(sendDefect);
-    if (idx > -1) sseClients.splice(idx, 1);
-  });
-});
-
 app.post("/api/current-product", auth, async (req, res) => {
   try {
     const { tenant_id, system_id, product } = req.body;
@@ -854,39 +1027,4 @@ app.post("/api/current-product", auth, async (req, res) => {
     res.status(500).json({ message: "設定失敗" });
   }
 });
-// 🔹 模擬測試 defect API（不影響正式統計）
-app.post("/api/defects/mock", auth, async (req, res) => {
-  try {
-    const { product, status, system_id } = req.body;
 
-    if (!product || !status) {
-      return res.status(400).json({ message: "缺少 product 或 status" });
-    }
-
-    const tenant_id = req.user.tenant_id;
-
-    // defect 物件加上 isTest 標記
-    const defect = {
-      id: "mock-" + Date.now(),
-      product,
-      status: status.toUpperCase(),
-      tenant_id,
-      system_id: system_id || "defaultSystem",
-      user_id: req.user.id,
-      timestamp: new Date(),
-      isTest: true  // ⭐ 標記為測試
-    };
-
-    // 寫入 MongoDB
-    await Defect.create(defect);
-
-    // SSE 推送給前端
-    sseClients.forEach(fn => fn(defect));
-
-    res.json({ success: true, defect });
-
-  } catch (err) {
-    console.error("mock defect error:", err);
-    res.status(500).json({ success: false, message: err.message });
-  }
-});
