@@ -14,25 +14,12 @@ if (!token) {
   window.location.replace("login.html");
 }
 
-// ===== 新增程式碼開始 =====
-
-// SSE 收到 defect
-window.eventSource.onmessage = e => {
-  const defect = JSON.parse(e.data);
-
-  appendEventRow(defect); // 事件紀錄
-
-  // 確保 defect.product 在 selectedProducts
-  if (!selectedProducts.includes(defect.product)) {
-    addProductDynamic(defect.product); // 會初始化 productStats 並渲染統計表
-  } else {
-    updateProductStats(defect);
-  }
-};
 
 // 在 DOMContentLoaded 之前
 
 async function initSelectedProductsFromDB() {
+  selectedProducts = [];
+  productStats = {};
   const list = await apiFetch(buildDefectsUrl());
   const dbProducts = [...new Set(list.map(x => normalizeProductName(x.product)))];
   dbProducts.forEach(p => addProductDynamic(p));
@@ -41,17 +28,6 @@ function initProductStat(product){
   if(!productStats[product]){
     productStats[product] = { ok:0, ng:0, total:0 };
   }
-  renderProductStats();
-}
-
-function updateProductStats(defect){
-  if(!productStats[defect.product]) initProductStat(defect.product);
-
-  const s = productStats[defect.product];
-  s.total++;
-  if(defect.status === 'OK') s.ok++;
-  if(defect.status === 'NG') s.ng++;
-
   renderProductStats();
 }
 
@@ -74,31 +50,7 @@ function appendEventRow(defect){
 
 
 // SSE 即時刷新
-function startRealtimeUpdates(){
-  if(window.eventSource) window.eventSource.close();
-  const tenantId=getCurrentTenantId()||'defaultTenant';
-  const systemId=getCurrentSystemId()||'defaultSystem';
-  window.eventSource=new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
-  window.eventSource.onmessage = e => {
-  const defect = JSON.parse(e.data);
 
-  appendEventRow(defect); // 事件紀錄
-
-  // defect.product 沒在 selectedProducts 就加入
-  if (!selectedProducts.includes(defect.product)) {
-    addProductDynamic(defect.product); // 新增產品 + render
-  } else {
-    updateProductStats(defect);        // 已存在產品更新統計
-    renderProductStats();               // 🔥 加這行更新 gauge 與表格
-    updateDetectedProducts();           // 同步上方已偵測產品清單
-  }
-};
-  window.eventSource.onerror=err=>console.warn('SSE error',err);
-}
-
-document.addEventListener('DOMContentLoaded',()=>{
-  startRealtimeUpdates();
-});
 // ===== 新增程式碼結束 =====
 
 </script>
@@ -1136,12 +1088,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   <button onclick="addProductDynamic(document.getElementById('productInput').value)">加入</button>
 </div>
 
-    <button class="btn btnPrimary" onclick="addProduct()">加入</button>
-  </div>
-
-
-  <input id="productInput" type="text">
-<button onclick="addProductDynamic(document.getElementById('productInput').value)">加入</button>
 
   <div id="productList"></div>
 
@@ -1300,11 +1246,14 @@ let dashboardTimer = null;
   }
 
    function updateProductStats(defect){
-  if(!productStats[defect.product]) initProductStat(defect.product);
-  const s = productStats[defect.product];
+  const product = normalizeProductName(defect.product);
+  if (!productStats[product]) initProductStat(product);
+
+  const s = productStats[product];
   s.total++;
-  if(defect.status==='OK') s.ok++;
-  if(defect.status==='NG') s.ng++;
+  if (defect.status.toUpperCase() === 'OK') s.ok++;
+  if (defect.status.toUpperCase() === 'NG') s.ng++;
+
   renderProductStats();
   updateDetectedProducts();
 }
@@ -1327,38 +1276,7 @@ let dashboardTimer = null;
   list.prepend(row);
   while(list.children.length>10) list.removeChild(list.lastChild);
 }
-  // 8️⃣ SSE 即時更新
-  function startRealtimeUpdates(){
-  if(window.eventSource) window.eventSource.close();
-  const tenantId=getCurrentTenantId()||'defaultTenant';
-  const systemId=getCurrentSystemId()||'defaultSystem';
-  window.eventSource=new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
-  window.eventSource.onmessage=e=>{
-    const defect=JSON.parse(e.data);
-    appendEventRow(defect);
-    // defect.product 沒在 selectedProducts 就加入
-    if(!selectedProducts.includes(defect.product)){
-      addProductDynamic(defect.product);
-    } else {
-      updateProductStats(defect);
-    }
-  };
-  window.eventSource.onerror=err=>console.warn('SSE error',err);
-}
 
-  document.addEventListener("DOMContentLoaded", () => {
-    startRealtimeUpdates();
-  });
-document.addEventListener("DOMContentLoaded", () => {
-  loadSelectedProducts();
-  renderProductList();
-  startRealtimeUpdates(); // 保證 SSE 在 DOMContentLoaded 後呼叫
-  dashboardTimer = setInterval(() => {
-    loadDashboardStats();
-    loadDefects();
-    loadSummary();
-  }, 3000);
-});
 function getProductStorageKey() {
   const tenantId = sessionStorage.getItem("tenant_id") || "defaultTenant";
   return `selectedProducts_${tenantId}`;
@@ -2289,30 +2207,21 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // ===== 新增程式碼開始 =====
 function addProductDynamic(name){
-  name = name.trim();
+  name = normalizeProductName(name);
   if (!name) return;
-  if (!selectedProducts.includes(name)) {
+  if (!selectedProducts.includes(name)){
     selectedProducts.push(name);
     renderProductList();
-    if(!productStats[name]) productStats[name] = { ok:0, ng:0, total:0 };
-    renderProductStats();
-    updateDetectedProducts();
   }
+  if(!productStats[name]) productStats[name] = { ok:0, ng:0, total:0 };
+  renderProductStats();
+  updateDetectedProducts();
 }
 function initProductStat(product){
   if(!productStats[product]) productStats[product]={ok:0, ng:0, total:0};
   renderProductStats();
 }
 
-function updateProductStats(defect){
-  if(!productStats[defect.product]) initProductStat(defect.product);
-  const s=productStats[defect.product];
-  s.total++;
-  if(defect.status==='OK') s.ok++;
-  if(defect.status==='NG') s.ng++;
-  renderProductStats();
-   updateDetectedProducts();
-}
 
 // ===== 新增：更新事件紀錄上方已偵測產品清單 =====
 function updateDetectedProducts() {
@@ -2377,15 +2286,31 @@ function renderProductStats(){
 // SSE 即時刷新
 function startRealtimeUpdates(){
   if(window.eventSource) window.eventSource.close();
-  const tenantId=getCurrentTenantId()||'defaultTenant';
-  const systemId=getCurrentSystemId()||'defaultSystem';
-  window.eventSource=new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
-  window.eventSource.onmessage=e=>{
-    const defect=JSON.parse(e.data);
-    appendEventRow(defect);
-    updateProductStats(defect);
-  };
-  window.eventSource.onerror=err=>console.warn('SSE error',err);
+  const tenantId = getCurrentTenantId() || 'defaultTenant';
+  const systemId = getCurrentSystemId() || 'defaultSystem';
+
+  window.eventSource = new EventSource(`${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`);
+
+window.eventSource.onmessage = e => {
+  try {
+    const defect = JSON.parse(e.data);
+    const productName = normalizeProductName(defect.product);
+    const status = (defect.status || "").toUpperCase();
+
+    appendEventRow({ ...defect, product: productName, status });
+
+    if (!selectedProducts.includes(productName)) {
+      addProductDynamic(productName); // 新產品初始化統計 + 渲染
+    } else {
+      updateProductStats({ ...defect, product: productName, status });
+      renderProductStats();           // 更新 gauge + table
+      updateDetectedProducts();       // 更新上方產品清單
+    }
+  } catch(err) {
+    console.error("SSE 資料處理失敗", err);
+  }
+};
+  window.eventSource.onerror = err => console.warn('SSE error', err);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -2399,9 +2324,6 @@ async function initSelectedProductsFromDB(){
   dbProducts.forEach(p => addProductDynamic(p));
 }
 
-if (!productStats[name]) productStats[name] = { ok:0, ng:0, total:0 };
-renderProductStats();  // 更新統計表
-updateDetectedProducts();  // 更新上方已偵測清單
 </script>
 
 </body>
