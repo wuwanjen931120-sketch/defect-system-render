@@ -2075,6 +2075,42 @@ renderProductList();
   await window.refreshDashboard();
   await startCamera();
 });
+// ---------------------
+// 即時事件刷新（Server-Sent Events / SSE）
+// ---------------------
+function startRealtimeUpdates() {
+  if (!!window.eventSource) window.eventSource.close();
+
+  const tenantId = getCurrentTenantId() || "defaultTenant";
+  const systemId = getCurrentSystemId() || "defaultSystem";
+
+  // SSE 後端接口，需要你在 server.js 提供 /api/defects/stream
+  const url = `${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`;
+  window.eventSource = new EventSource(url);
+
+  window.eventSource.onmessage = (e) => {
+    try {
+      const data = JSON.parse(e.data); // 新增 defect 資料
+      console.log("SSE 收到資料:", data);
+
+      // 重新刷新 defect list 與統計
+      if(typeof window.refreshDashboard === "function"){
+        window.refreshDashboard();
+      }
+    } catch(err) {
+      console.error("SSE 資料處理失敗", err);
+    }
+  };
+
+  window.eventSource.onerror = (err) => {
+    console.warn("SSE 連線錯誤，會自動重試", err);
+  };
+}
+
+// 在 DOMContentLoaded 裡呼叫
+document.addEventListener("DOMContentLoaded", () => {
+  startRealtimeUpdates();
+});
 </script>
 
 </body>
