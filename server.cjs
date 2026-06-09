@@ -369,11 +369,16 @@ app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admi
 
 // 📧 Gmail 郵差機車與鑰匙設定
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp-relay.brevo.com",
+  port: 2525,           // Render 可用端口
+  secure: false,
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS
-  }
+    user: process.env.BREVO_SMTP_LOGIN,
+    pass: process.env.BREVO_SMTP_KEY
+  },
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 20000
 });
 
 // ================= 寄送登入驗證碼 =================
@@ -1027,4 +1032,5 @@ app.post("/api/current-product", auth, async (req, res) => {
     res.status(500).json({ message: "設定失敗" });
   }
 });
+
 
