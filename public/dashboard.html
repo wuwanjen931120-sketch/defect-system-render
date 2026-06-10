@@ -1029,28 +1029,6 @@
       font-size:12px;
       font-weight:700;
     }
-    .rateOk{
-      color:#7fb3ff;
-      font-weight:900;
-    }
-    .rateNg{
-      color:#ff6b6b;
-      font-weight:900;
-    }
-    .rateFormula{
-      margin-top:5px;
-      color:rgba(231,238,252,.58);
-      font-size:11px;
-      line-height:1.45;
-    }
-    #summaryYield{
-      color:#7fb3ff;
-      font-weight:900;
-    }
-    #summaryDefect{
-      color:#ff6b6b;
-      font-weight:900;
-    }
     .defect-row{
       grid-template-columns:minmax(0,1fr) 150px 200px;
     }
@@ -1185,7 +1163,7 @@
                   <div id="summaryOk">OK：0</div>
                   <div id="summaryNg">NG：0</div>
                   <div id="summaryYield">良率：0%</div>
-                  <div id="summaryDefect">NG率：0%</div>
+                  <div id="summaryDefect">瑕疵率：0%</div>
                   <div id="summaryLast20">最近20筆異常：0</div>
                 </div>
               </div>
@@ -1349,20 +1327,6 @@ function applyDefectRecord(record, { appendEvent = true, render = true } = {}){
   if(render) renderAll();
 }
 
-function calculateRates(ok, ng){
-  const okCount = Number(ok) || 0;
-  const ngCount = Number(ng) || 0;
-  const total = okCount + ngCount;
-
-  // 良率 = OK ÷ (OK + NG) × 100%
-  // NG率 = NG ÷ (OK + NG) × 100%
-  return {
-    total,
-    yieldRate: total ? Number(((okCount / total) * 100).toFixed(1)) : 0,
-    ngRate: total ? Number(((ngCount / total) * 100).toFixed(1)) : 0
-  };
-}
-
 function renderProductStats(){
   const gaugeArea = document.getElementById("dynamicProductGaugeArea");
   const tableArea = document.getElementById("dynamicProductRows");
@@ -1377,21 +1341,25 @@ function renderProductStats(){
 
   for(const product of products){
     const stats = productStats[product] || { ok:0, ng:0, total:0 };
-    const { total, yieldRate, ngRate } = calculateRates(stats.ok, stats.ng);
+    const total = stats.ok + stats.ng;
+    // OK 率：OK / (OK + NG) × 100%
+    // NG 率：NG / (OK + NG) × 100%
+    const okRate = total ? Math.round((stats.ok / total) * 100) : 0;
+    const ngRate = total ? Math.round((stats.ng / total) * 100) : 0;
+    const yieldRate = okRate;
     totalOK += stats.ok;
     totalNG += stats.ng;
 
     gaugeHtml.push(`
       <div class="gaugeBox">
         <div class="gaugeLabel">${escapeHtml(product)}</div>
-        <div class="gauge productGauge ${total === 0 ? 'gaugeEmpty' : ''}" style="--ok-p:${yieldRate}; --ng-p:${ngRate}"><div class="gaugeValue rateOk">${yieldRate}%</div></div>
-        <div class="gaugeSub"><span class="rateOk">良率：${stats.ok}（${yieldRate}%）</span>　|　<span class="rateNg">NG率：${stats.ng}（${ngRate}%）</span></div>
-        <div class="rateFormula">良率 = OK ÷ (OK + NG) × 100%<br>NG率 = NG ÷ (OK + NG) × 100%</div>
+        <div class="gauge productGauge ${total === 0 ? 'gaugeEmpty' : ''}" style="--ok-p:${okRate}; --ng-p:${ngRate}"><div class="gaugeValue">${okRate}%</div></div>
+        <div class="gaugeSub">OK：${stats.ok}（${okRate}%）　|　NG：${stats.ng}（${ngRate}%）</div>
       </div>`);
 
     rowHtml.push(`
       <div class="pt-row">
-        <div class="pt-name">${escapeHtml(product)}<div class="productYieldText"><span class="rateOk">良率：${yieldRate}%</span>　<span class="rateNg">NG率：${ngRate}%</span>　總數：${total}</div></div>
+        <div class="pt-name">${escapeHtml(product)}<div class="productYieldText">OK率：${okRate}%　NG率：${ngRate}%　總數：${total}</div></div>
         <div class="pt-ok">${stats.ok}</div>
         <div class="pt-ng">${stats.ng}</div>
       </div>`);
@@ -1400,7 +1368,9 @@ function renderProductStats(){
   gaugeArea.innerHTML = gaugeHtml.length ? gaugeHtml.join("") : '<div class="emptyState">尚未加入產品。請先在上方輸入品項。</div>';
   tableArea.innerHTML = rowHtml.length ? rowHtml.join("") : '<div class="emptyState" style="margin:12px; width:auto;">尚未有產品資料</div>';
 
-  const { total, yieldRate, ngRate } = calculateRates(totalOK, totalNG);
+  const total = totalOK + totalNG;
+  const yieldRate = total ? Math.round((totalOK / (totalOK + totalNG)) * 100) : 0;
+  const defectRate = total ? Math.round((totalNG / total) * 100) : 0;
   const latest20Ng = sortNewestFirst(defectRecords).slice(0,20).filter(item => item.status === "NG").length;
 
   setText("table-ok-total", totalOK);
@@ -1411,7 +1381,7 @@ function renderProductStats(){
   setText("summaryOk", `OK：${totalOK}`);
   setText("summaryNg", `NG：${totalNG}`);
   setText("summaryYield", `良率：${yieldRate}%`);
-  setText("summaryDefect", `NG率：${ngRate}%`);
+  setText("summaryDefect", `瑕疵率：${defectRate}%`);
   setText("summaryLast20", `最近20筆異常：${latest20Ng}`);
 
   const overallGauge = document.getElementById("gauge");
@@ -1577,11 +1547,13 @@ function demoEstop(){
 }
 
 function downloadCSV(){
-  const rows = [["產品", "OK", "NG", "總數", "良率", "NG率"]];
+  const rows = [["產品", "OK", "NG", "總數", "OK率", "NG率"]];
   for(const product of selectedProducts){
     const stats = productStats[product] || { ok:0, ng:0 };
-    const { total, yieldRate, ngRate } = calculateRates(stats.ok, stats.ng);
-    rows.push([product, stats.ok, stats.ng, total, `${yieldRate}%`, `${ngRate}%`]);
+    const total = stats.ok + stats.ng;
+    const okRate = total ? Math.round(stats.ok / total * 100) : 0;
+    const ngRate = total ? Math.round(stats.ng / total * 100) : 0;
+    rows.push([product, stats.ok, stats.ng, total, `${okRate}%`, `${ngRate}%`]);
   }
   const csv = "\uFEFF" + rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const blob = new Blob([csv], { type:"text/csv;charset=utf-8" });
