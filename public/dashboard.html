@@ -245,6 +245,27 @@
     .imageModal{display:none;position:fixed;inset:0;z-index:80;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.72)}.imageModal.show{display:flex}.imageModalCard{width:min(900px,96vw);max-height:92vh;overflow:auto;padding:12px;border-radius:15px;background:#0d1b2e;border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.55)}.imageModalHeader{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.imageModalHeader b{font-size:15px}.imageModal img{display:block;width:100%;max-height:72vh;object-fit:contain;border-radius:10px;background:#07101d}.imageModalMeta{margin-top:9px;color:var(--muted);font-size:12px;line-height:1.7}
     @media(max-width:1100px){.enhancementGrid{grid-template-columns:1fr}.featureCard.full{grid-column:auto}}@media(max-width:640px){.alertSettingGrid{grid-template-columns:1fr}.trendCanvasWrap{height:220px}}
 
+
+    /* ===== 新增：生產批次／工單管理、各機台比較排行 ===== */
+    .operationsGrid{grid-column:1/-1;display:grid;grid-template-columns:1.15fr .85fr;gap:12px}
+    .opsCard{min-width:0;padding:12px;border-radius:16px;background:rgba(18,35,59,.76);border:1px solid var(--line);box-shadow:var(--shadow)}
+    .opsCard.full{grid-column:1/-1}.opsHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}.opsTitle{font-size:16px;font-weight:900}.opsSub{margin-top:4px;color:var(--muted);font-size:11px;line-height:1.55}
+    .workOrderForm{display:grid;grid-template-columns:1fr 1fr 1fr 120px auto;gap:8px;align-items:end;padding:10px;border-radius:12px;background:rgba(0,0,0,.15);border:1px solid var(--line)}
+    .workOrderForm label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:11px;font-weight:900}.opsInput,.opsSelect{width:100%;height:32px;padding:0 8px;border-radius:8px;color:#fff;background:#0b1220;border:1px solid rgba(255,255,255,.17);font-size:12px}
+    .activeOrderCard{margin-top:10px;padding:11px;border-radius:12px;background:linear-gradient(90deg,rgba(23,62,116,.38),rgba(15,32,55,.42));border:1px solid rgba(96,165,250,.27)}
+    .activeOrderTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}.activeOrderName{font-size:14px;font-weight:900}.activeOrderMeta{margin-top:5px;color:var(--muted);font-size:11px;line-height:1.65}.orderStatusBadge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900;border:1px solid rgba(255,255,255,.15)}
+    .order-running{color:#bbf7d0;background:rgba(34,197,94,.13);border-color:rgba(74,222,128,.28)}.order-paused{color:#fde68a;background:rgba(245,158,11,.12);border-color:rgba(251,191,36,.28)}.order-completed{color:#bfdbfe;background:rgba(59,130,246,.13);border-color:rgba(96,165,250,.28)}.order-planned{color:#d1d5db;background:rgba(148,163,184,.11)}
+    .orderStats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-top:9px}.orderStat{padding:8px;border-radius:9px;text-align:center;background:rgba(0,0,0,.16);border:1px solid rgba(255,255,255,.08)}.orderStat b{display:block;font-size:17px}.orderStat span{display:block;margin-top:3px;color:var(--muted);font-size:10px}
+    .orderProgress{height:10px;margin-top:9px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.10)}.orderProgress>div{height:100%;border-radius:999px;background:linear-gradient(90deg,#2563eb,#22c55e);transition:width .3s ease}.orderProgressText{margin-top:5px;color:var(--muted);font-size:11px;text-align:right}
+    .orderActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+    .orderTableWrap,.rankingTableWrap{margin-top:10px;overflow:auto;border-radius:12px;border:1px solid var(--line)}.orderTable{min-width:900px}.rankingTable{min-width:620px}
+    .orderRow{display:grid;grid-template-columns:1.1fr .9fr .85fr .9fr .7fr .7fr .7fr 1.28fr;gap:7px;align-items:center;padding:9px 10px;border-top:1px solid rgba(255,255,255,.06);font-size:11px}.orderRow.head{border-top:0;background:rgba(255,255,255,.04);font-weight:900;color:#dbeafe}.orderRow.active{background:rgba(37,99,235,.12)}.orderCellMuted{color:var(--muted)}
+    .rankingRow{display:grid;grid-template-columns:48px 1.35fr .75fr .75fr .75fr .8fr .86fr;gap:8px;align-items:center;padding:10px;border-top:1px solid rgba(255,255,255,.06);font-size:12px}.rankingRow.head{border-top:0;background:rgba(255,255,255,.04);font-weight:900;color:#dbeafe}.rankingRow.current{background:rgba(37,99,235,.13)}.rankNo{font-size:15px;font-weight:900}.rankYield{font-weight:900}.rankGood{color:var(--good)}.rankWarn{color:#fde68a}.rankBad{color:var(--bad)}
+    .rankingBadge{display:inline-flex;padding:4px 7px;border-radius:999px;font-size:10px;font-weight:900;border:1px solid rgba(255,255,255,.14)}.ranking-good{color:#bbf7d0;background:rgba(34,197,94,.12)}.ranking-warn{color:#fde68a;background:rgba(245,158,11,.12)}.ranking-bad{color:#fecaca;background:rgba(239,68,68,.12)}.ranking-empty{padding:16px;color:var(--muted);font-size:12px;text-align:center}
+    .opsHint{margin-top:8px;color:var(--muted);font-size:11px;line-height:1.6}.opsTinyBtn{min-height:27px;padding:0 7px;border-radius:7px;color:#fff;background:#173e74;border:1px solid rgba(96,165,250,.34);font-size:10px;font-weight:900}.opsTinyBtn.warn{background:rgba(146,64,14,.8);border-color:rgba(251,191,36,.35)}.opsTinyBtn.danger{background:rgba(127,29,29,.86);border-color:rgba(248,113,113,.34)}
+    @media(max-width:1180px){.operationsGrid{grid-template-columns:1fr}.opsCard.full{grid-column:auto}.workOrderForm{grid-template-columns:1fr 1fr}.workOrderForm .btn{width:100%}}
+    @media(max-width:640px){.workOrderForm{grid-template-columns:1fr}.orderStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
   </style>
 </head>
 <body>
@@ -476,6 +497,64 @@
               <div class="ngImageGrid" id="ngImageGrid"><div class="alertEmpty">尚未留存 NG 瑕疵圖片。</div></div>
             </div>
           </section>
+
+          <!-- ===== 新增功能區：生產批次／工單管理、各機台比較排行 ===== -->
+          <section class="operationsGrid">
+            <div class="opsCard">
+              <div class="opsHeader">
+                <div>
+                  <div class="opsTitle">📋 生產批次與工單管理</div>
+                  <div class="opsSub">為目前客戶建立工單，並指定目前機台開始生產。工單進度會依 OK／NG 事件即時計算。</div>
+                </div>
+              </div>
+
+              <div class="workOrderForm">
+                <label>工單編號
+                  <input id="workOrderIdInput" class="opsInput" type="text" autocomplete="off" placeholder="例如：WO-20260610-001" />
+                </label>
+                <label>生產批次
+                  <input id="batchIdInput" class="opsInput" type="text" autocomplete="off" placeholder="例如：BATCH-A01" />
+                </label>
+                <label>產品
+                  <select id="workOrderProductSelect" class="opsSelect"><option value="">請選擇產品</option></select>
+                </label>
+                <label>目標數量
+                  <input id="workOrderTargetInput" class="opsInput" type="number" min="1" step="1" value="100" />
+                </label>
+                <button type="button" class="btn btnPrimary" id="createWorkOrderBtn">建立並啟用</button>
+              </div>
+
+              <div class="activeOrderCard" id="activeWorkOrderCard">
+                <div class="ranking-empty">目前機台尚未啟用工單。</div>
+              </div>
+
+              <div class="orderTableWrap">
+                <div class="orderTable">
+                  <div class="orderRow head"><div>工單編號</div><div>批次</div><div>產品</div><div>機台</div><div>目標</div><div>完成</div><div>良率</div><div>操作</div></div>
+                  <div id="workOrderRows"><div class="ranking-empty">尚未建立生產工單。</div></div>
+                </div>
+              </div>
+              <div class="opsHint">建議 MQTT 資料加入 <b>work_order_id</b> 與 <b>batch_id</b>，即可永久精準歸類。未附欄位時，網頁也會將啟用後收到且產品相同的資料暫時歸入目前工單。</div>
+            </div>
+
+            <div class="opsCard">
+              <div class="opsHeader">
+                <div>
+                  <div class="opsTitle">🏆 各機台比較排行</div>
+                  <div class="opsSub">依目前客戶的 MongoDB 資料，即時計算每台機台的 OK、NG 與良率排行。</div>
+                </div>
+                <button type="button" class="btn" id="refreshRankingBtn">重新讀取排行</button>
+              </div>
+              <div class="rankingTableWrap">
+                <div class="rankingTable">
+                  <div class="rankingRow head"><div>排名</div><div>機台</div><div>總數</div><div>OK</div><div>NG</div><div>良率</div><div>狀態</div></div>
+                  <div id="machineRankingRows"><div class="ranking-empty">正在載入各機台資料...</div></div>
+                </div>
+              </div>
+              <div class="opsHint" id="rankingUpdatedText">尚未載入排行。</div>
+            </div>
+          </section>
+
         </div>
       </div>
 
@@ -1516,6 +1595,220 @@ document.addEventListener("DOMContentLoaded",() => {
   byId("trendRangeSelect")?.addEventListener("change",event => { ENH.trendRange=Number(event.target.value || 50); enhDrawTrend(); });
   window.addEventListener("resize",() => { clearTimeout(window.__enhTrendTimer); window.__enhTrendTimer=setTimeout(enhDrawTrend,120); });
 });
+</script>
+
+
+<script>
+"use strict";
+
+/* =========================================================
+ * 新增功能模組
+ * - 生產批次與工單管理
+ * - 各機台比較排行
+ * 原本 Dashboard、NG 圖片、趨勢圖、警報功能全部保留。
+ * ========================================================= */
+
+const OPS_RANK_POLL_MS = 5000;
+const OPS_MAX_ORDERS = 80;
+const OPS = {
+  scope:"",
+  tenant:"",
+  orders:[],
+  assignments:{},
+  rankingRecords:[],
+  rankingTimer:null,
+  rankingBusy:false
+};
+
+function opsScope(){ return `${getCurrentTenantId()}.${getCurrentSystemId()}`; }
+function opsTenant(){ return getCurrentTenantId(); }
+function opsKey(name,tenantWide=false){ return tenantWide ? `dashboard.${name}.${opsTenant()}` : `dashboard.${name}.${opsScope()}`; }
+function opsReadArray(key){ try{ const value=JSON.parse(localStorage.getItem(key)||"[]"); return Array.isArray(value)?value:[]; }catch{return [];} }
+function opsReadObject(key){ try{ const value=JSON.parse(localStorage.getItem(key)||"{}"); return value&&typeof value==="object"&&!Array.isArray(value)?value:{}; }catch{return {};} }
+function opsWrite(key,value){ try{ localStorage.setItem(key,JSON.stringify(value)); return true; }catch(error){ console.warn("工單資料儲存失敗",error); return false; } }
+function opsNow(){ return new Date().toISOString(); }
+function opsMakeId(prefix){ return `${prefix}-${new Date().toISOString().replace(/[-:TZ.]/g,"").slice(0,14)}`; }
+function opsRecordWorkOrderId(record){ return asText(record?.work_order_id ?? record?.workOrderId ?? record?.order_id ?? record?.orderId ?? record?.wo_id ?? record?.woId); }
+function opsRecordBatchId(record){ return asText(record?.batch_id ?? record?.batchId ?? record?.lot_id ?? record?.lotId ?? record?.batch); }
+function opsOrderStatusText(status){ return ({running:"生產中",paused:"已暫停",completed:"已完成",planned:"待啟用"})[status] || "待啟用"; }
+function opsOrderStatusClass(status){ return `order-${["running","paused","completed","planned"].includes(status)?status:"planned"}`; }
+function opsActiveOrderId(){ return asText(localStorage.getItem(opsKey("activeWorkOrder"))); }
+function opsActiveOrder(){ const id=opsActiveOrderId(); return OPS.orders.find(order=>order.id===id)||null; }
+function opsSaveOrders(){ OPS.orders=OPS.orders.slice(0,OPS_MAX_ORDERS); opsWrite(opsKey("workOrders",true),OPS.orders); }
+function opsSaveAssignments(){ opsWrite(opsKey("workOrderAssignments"),OPS.assignments); }
+function opsSetActiveOrder(id){
+  const order=OPS.orders.find(item=>item.id===id);
+  if(!order){ localStorage.removeItem(opsKey("activeWorkOrder")); return; }
+  OPS.orders.forEach(item=>{ if(item.systemId===getCurrentSystemId() && item.status==="running" && item.id!==id) item.status="paused"; });
+  order.systemId=getCurrentSystemId(); order.status="running"; order.activatedAt=opsNow(); order.updatedAt=opsNow();
+  localStorage.setItem(opsKey("activeWorkOrder"),id); opsSaveOrders(); opsAutoAssignCurrentRecords(); opsRenderAllLocal();
+}
+function opsStopActiveOrder(nextStatus="paused"){
+  const order=opsActiveOrder(); if(!order) return;
+  order.status=nextStatus; order.updatedAt=opsNow();
+  localStorage.removeItem(opsKey("activeWorkOrder")); opsSaveOrders(); opsRenderAllLocal();
+}
+function opsLoadScope(){
+  const tenant=opsTenant(); const scope=opsScope();
+  if(OPS.tenant!==tenant){ OPS.tenant=tenant; OPS.orders=opsReadArray(opsKey("workOrders",true)); }
+  if(OPS.scope!==scope){ OPS.scope=scope; OPS.assignments=opsReadObject(opsKey("workOrderAssignments")); }
+  opsNormalizeOrders(); opsRenderAllLocal();
+}
+function opsEnsureScope(){ if(OPS.scope!==opsScope()||OPS.tenant!==opsTenant()) opsLoadScope(); }
+function opsNormalizeOrders(){
+  OPS.orders=safeArray(OPS.orders).filter(item=>item&&typeof item==="object").map(item=>({
+    id:asText(item.id)||opsMakeId("WO"), batchId:asText(item.batchId)||"未設定", product:normalizeProductName(item.product),
+    targetQty:Math.max(1,Math.round(Number(item.targetQty)||1)), tenantId:asText(item.tenantId)||opsTenant(), systemId:asText(item.systemId),
+    status:["running","paused","completed","planned"].includes(item.status)?item.status:"planned", createdAt:item.createdAt||opsNow(), activatedAt:item.activatedAt||"", updatedAt:item.updatedAt||""
+  })).filter(item=>item.tenantId===opsTenant());
+}
+function opsRecordTimeMs(record){ const value=new Date(recordTime(record)||record?._dashboardReceivedAt||0).getTime(); return Number.isFinite(value)?value:0; }
+function opsOrderStartedMs(order){ const value=new Date(order.activatedAt||order.createdAt||0).getTime(); return Number.isFinite(value)?value:0; }
+function opsOrderForRecord(record){
+  const explicitId=opsRecordWorkOrderId(record); const explicitBatch=opsRecordBatchId(record);
+  if(explicitId){ const found=OPS.orders.find(order=>order.id===explicitId); if(found) return found; }
+  if(explicitBatch){ const found=OPS.orders.find(order=>order.batchId===explicitBatch && order.product===recordProduct(record)); if(found) return found; }
+  const assigned=asText(OPS.assignments[recordKey(record)]); if(assigned) return OPS.orders.find(order=>order.id===assigned)||null;
+  return null;
+}
+function opsAutoAssignCurrentRecords(){
+  const active=opsActiveOrder(); if(!active||active.status!=="running") return;
+  let changed=false;
+  safeArray(state.defects).forEach(record=>{
+    if(opsRecordWorkOrderId(record)||opsRecordBatchId(record)||OPS.assignments[recordKey(record)]) return;
+    if(recordProduct(record)!==active.product) return;
+    if(opsRecordTimeMs(record)<opsOrderStartedMs(active)) return;
+    OPS.assignments[recordKey(record)]=active.id; changed=true;
+  });
+  if(changed) opsSaveAssignments();
+}
+function opsOrderRecords(order){
+  return safeArray(state.defects).filter(record=>{
+    const explicitId=opsRecordWorkOrderId(record); const explicitBatch=opsRecordBatchId(record);
+    if(explicitId) return explicitId===order.id;
+    if(explicitBatch) return explicitBatch===order.batchId && recordProduct(record)===order.product;
+    return asText(OPS.assignments[recordKey(record)])===order.id;
+  });
+}
+function opsOrderStats(order){
+  const records=opsOrderRecords(order); let ok=0,ng=0;
+  records.forEach(record=>{ const status=recordStatus(record); if(status==="OK")ok++; else if(status==="NG")ng++; });
+  const total=ok+ng; return {ok,ng,total,rate:percent(ok,total),progress:Math.min(100,percent(total,order.targetQty))};
+}
+function opsPopulateProductSelect(){
+  const select=byId("workOrderProductSelect"); if(!select) return;
+  const current=select.value; const products=unique([...state.selectedProducts,Object.keys(state.productStats||{})]);
+  select.innerHTML='<option value="">請選擇產品</option>'+products.map(product=>`<option value="${escapeHtml(product)}">${escapeHtml(product)}</option>`).join("");
+  if(products.includes(current)) select.value=current;
+}
+function opsRenderActiveOrder(){
+  const card=byId("activeWorkOrderCard"); if(!card) return;
+  const order=opsActiveOrder();
+  if(!order){ card.innerHTML='<div class="ranking-empty">目前機台尚未啟用工單。</div>'; return; }
+  const stats=opsOrderStats(order);
+  card.innerHTML=`<div class="activeOrderTop"><div><div class="activeOrderName">${escapeHtml(order.id)}｜${escapeHtml(order.product)}</div><div class="activeOrderMeta">批次：${escapeHtml(order.batchId)}<br>目前機台：${escapeHtml(getCurrentSystemId())}<br>啟用時間：${escapeHtml(formatTime(order.activatedAt||order.createdAt))}</div></div><span class="orderStatusBadge ${opsOrderStatusClass(order.status)}">${opsOrderStatusText(order.status)}</span></div>
+    <div class="orderStats"><div class="orderStat"><b>${stats.total}</b><span>已檢測</span></div><div class="orderStat"><b>${order.targetQty}</b><span>目標數量</span></div><div class="orderStat"><b class="rankGood">${stats.ok}</b><span>OK</span></div><div class="orderStat"><b class="rankBad">${stats.ng}</b><span>NG</span></div><div class="orderStat"><b>${percentText(stats.rate)}</b><span>工單良率</span></div></div>
+    <div class="orderProgress"><div style="width:${stats.progress}%"></div></div><div class="orderProgressText">完成進度：${percentText(stats.progress)}（${stats.total} / ${order.targetQty}）</div>
+    <div class="orderActions"><button type="button" class="opsTinyBtn warn" data-order-action="pause" data-order-id="${escapeHtml(order.id)}">暫停工單</button><button type="button" class="opsTinyBtn" data-order-action="complete" data-order-id="${escapeHtml(order.id)}">完成工單</button></div>`;
+  opsBindOrderButtons(card);
+}
+function opsRenderOrderRows(){
+  const rows=byId("workOrderRows"); if(!rows) return;
+  if(!OPS.orders.length){ rows.innerHTML='<div class="ranking-empty">尚未建立生產工單。</div>'; return; }
+  const activeId=opsActiveOrderId();
+  rows.innerHTML=[...OPS.orders].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)).map(order=>{
+    const stats=opsOrderStats(order); const active=order.id===activeId;
+    return `<div class="orderRow ${active?"active":""}"><div><b>${escapeHtml(order.id)}</b><br><span class="orderCellMuted">${escapeHtml(opsOrderStatusText(order.status))}</span></div><div>${escapeHtml(order.batchId)}</div><div>${escapeHtml(order.product)}</div><div>${escapeHtml(order.systemId||"尚未指派")}</div><div>${order.targetQty}</div><div>${stats.total}</div><div>${percentText(stats.rate)}</div><div class="orderActions">${active?'<button type="button" class="opsTinyBtn warn" data-order-action="pause" data-order-id="'+escapeHtml(order.id)+'">暫停</button>':'<button type="button" class="opsTinyBtn" data-order-action="activate" data-order-id="'+escapeHtml(order.id)+'">啟用</button>'}<button type="button" class="opsTinyBtn" data-order-action="complete" data-order-id="${escapeHtml(order.id)}">完成</button><button type="button" class="opsTinyBtn danger" data-order-action="delete" data-order-id="${escapeHtml(order.id)}">刪除</button></div></div>`;
+  }).join("");
+  opsBindOrderButtons(rows);
+}
+function opsBindOrderButtons(root){
+  root.querySelectorAll("[data-order-action]").forEach(button=>button.addEventListener("click",()=>{
+    const id=button.dataset.orderId; const action=button.dataset.orderAction; const order=OPS.orders.find(item=>item.id===id); if(!order)return;
+    if(action==="activate") opsSetActiveOrder(id);
+    if(action==="pause"){ if(opsActiveOrderId()===id) opsStopActiveOrder("paused"); else {order.status="paused";opsSaveOrders();opsRenderAllLocal();} }
+    if(action==="complete"){ if(!confirm(`確定將工單 ${id} 設為已完成嗎？`))return; order.status="completed";order.updatedAt=opsNow();if(opsActiveOrderId()===id)localStorage.removeItem(opsKey("activeWorkOrder"));opsSaveOrders();opsRenderAllLocal(); }
+    if(action==="delete"){ if(!confirm(`確定刪除工單 ${id} 嗎？`))return; OPS.orders=OPS.orders.filter(item=>item.id!==id);if(opsActiveOrderId()===id)localStorage.removeItem(opsKey("activeWorkOrder"));Object.keys(OPS.assignments).forEach(key=>{if(OPS.assignments[key]===id)delete OPS.assignments[key];});opsSaveAssignments();opsSaveOrders();opsRenderAllLocal(); }
+  }));
+}
+function opsCreateWorkOrder(){
+  opsEnsureScope();
+  const id=asText(byId("workOrderIdInput")?.value)||opsMakeId("WO");
+  const batchId=asText(byId("batchIdInput")?.value)||opsMakeId("BATCH");
+  const product=normalizeProductName(byId("workOrderProductSelect")?.value);
+  const targetQty=Math.max(1,Math.round(Number(byId("workOrderTargetInput")?.value)||100));
+  if(!asText(byId("workOrderProductSelect")?.value)){ alert("請先選擇產品。若清單中沒有產品，請先在上方多產品檢測加入產品。"); return; }
+  if(OPS.orders.some(order=>order.id===id)){ alert("此工單編號已存在，請更換工單編號。"); return; }
+  OPS.orders.unshift({id,batchId,product,targetQty,tenantId:opsTenant(),systemId:getCurrentSystemId(),status:"planned",createdAt:opsNow(),activatedAt:"",updatedAt:opsNow()});
+  opsSaveOrders(); opsSetActiveOrder(id);
+  byId("workOrderIdInput").value=""; byId("batchIdInput").value="";
+}
+function opsRenderAllLocal(){ opsEnsureScope(); opsPopulateProductSelect(); opsAutoAssignCurrentRecords(); opsRenderActiveOrder(); opsRenderOrderRows(); }
+
+/* ------------------ 各機台排行 ------------------ */
+async function opsFetchTenantRankingRecords(){
+  const tenantId=opsTenant(); const query=makeQuery({tenant_id:tenantId});
+  const candidates=[`/api/defects${query?`?${query}`:""}`,`/api/logs${query?`?${query}`:""}`,"/api/defects","/api/logs"];
+  let best=[]; let lastError=null;
+  for(const path of unique(candidates)){
+    try{
+      const payload=await fetchJson(`${API_BASE}${path}`); const list=extractArray(payload).filter(record=>!recordTenantId(record)||recordTenantId(record)===tenantId);
+      const systems=new Set(list.map(recordSystemId).filter(Boolean)); const bestSystems=new Set(best.map(recordSystemId).filter(Boolean));
+      if(systems.size>bestSystems.size || (systems.size===bestSystems.size && list.length>best.length)) best=list;
+    }catch(error){ lastError=error; console.debug(`排行資料端點略過：${path}`,error.message); }
+  }
+  if(best.length||!lastError) return best;
+  throw lastError;
+}
+function opsBuildRanking(records){
+  const map=new Map();
+  safeArray(records).forEach(record=>{
+    const systemId=recordSystemId(record)||"未標記機台"; const status=recordStatus(record);
+    if(!map.has(systemId)) map.set(systemId,{systemId,ok:0,ng:0,total:0,rate:0});
+    const item=map.get(systemId); if(status==="OK")item.ok++; else if(status==="NG")item.ng++; item.total=item.ok+item.ng; item.rate=percent(item.ok,item.total);
+  });
+  state.systemOptions.forEach(option=>{ if(option?.id&&!map.has(option.id))map.set(option.id,{systemId:option.id,ok:0,ng:0,total:0,rate:0}); });
+  return [...map.values()].sort((a,b)=>b.rate-a.rate || b.total-a.total || a.systemId.localeCompare(b.systemId));
+}
+function opsRankClass(rate,total){ if(!total)return "rankWarn"; if(rate>=90)return "rankGood"; if(rate>=70)return "rankWarn"; return "rankBad"; }
+function opsRankStatus(rate,total){ if(!total)return {label:"無資料",cls:"ranking-warn"}; if(rate>=90)return {label:"正常",cls:"ranking-good"}; if(rate>=70)return {label:"注意",cls:"ranking-warn"}; return {label:"異常",cls:"ranking-bad"}; }
+function opsRenderRanking(){
+  const rows=byId("machineRankingRows"); if(!rows)return; const ranking=opsBuildRanking(OPS.rankingRecords);
+  if(!ranking.length){ rows.innerHTML='<div class="ranking-empty">目前客戶尚未有可比較的機台資料。</div>'; return; }
+  rows.innerHTML=ranking.map((item,index)=>{ const status=opsRankStatus(item.rate,item.total); const current=item.systemId===getCurrentSystemId(); return `<div class="rankingRow ${current?"current":""}"><div class="rankNo">${index+1}</div><div><b>${escapeHtml(item.systemId)}</b>${current?'<br><span class="orderCellMuted">目前檢視機台</span>':''}</div><div>${item.total}</div><div class="rankGood">${item.ok}</div><div class="rankBad">${item.ng}</div><div class="rankYield ${opsRankClass(item.rate,item.total)}">${percentText(item.rate)}</div><div><span class="rankingBadge ${status.cls}">${status.label}</span></div></div>`; }).join("");
+}
+async function opsRefreshRanking(){
+  if(OPS.rankingBusy)return; OPS.rankingBusy=true;
+  try{ OPS.rankingRecords=await opsFetchTenantRankingRecords(); opsRenderRanking(); if(byId("rankingUpdatedText"))byId("rankingUpdatedText").textContent=`最後更新：${formatTime(opsNow())}｜已讀取 ${OPS.rankingRecords.length} 筆資料。排行依目前客戶 ${opsTenant()} 分開計算。`; }
+  catch(error){ console.warn("機台排行載入失敗",error); if(byId("rankingUpdatedText"))byId("rankingUpdatedText").textContent=`排行讀取失敗：${error.message}`; }
+  finally{ OPS.rankingBusy=false; }
+}
+function opsStartRankingPolling(){ if(OPS.rankingTimer)clearInterval(OPS.rankingTimer); OPS.rankingTimer=setInterval(opsRefreshRanking,OPS_RANK_POLL_MS); }
+function opsStopRankingPolling(){ if(OPS.rankingTimer){clearInterval(OPS.rankingTimer);OPS.rankingTimer=null;} }
+
+/* CSV 增加工單與批次欄位，不刪除原本下載功能 */
+downloadCSV=function(){
+  opsEnsureScope();
+  const header=["tenant_id","system_id","工單編號","生產批次","時間","產品","狀態","事件ID"];
+  const rows=[...state.defects].sort((a,b)=>new Date(recordTime(b)||0)-new Date(recordTime(a)||0)).map(record=>{ const order=opsOrderForRecord(record); return [getCurrentTenantId(),getCurrentSystemId(),opsRecordWorkOrderId(record)||order?.id||"",opsRecordBatchId(record)||order?.batchId||"",formatTime(recordTime(record)),recordProduct(record),recordStatus(record),recordId(record)]; });
+  const csv=[header,...rows].map(row=>row.map(cell=>`"${asText(cell).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob); const anchor=document.createElement("a");anchor.href=url;anchor.download=`瑕疵報表_${getCurrentSystemId()}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(anchor);anchor.click();anchor.remove();URL.revokeObjectURL(url);
+};
+
+/* 接到原本 Dashboard，不刪除原功能 */
+const opsOriginalRenderSummary=renderSummary;
+renderSummary=function(){ const result=opsOriginalRenderSummary.apply(this,arguments); opsRenderAllLocal(); return result; };
+const opsOriginalRealtimeRecord=addRealtimeRecord;
+addRealtimeRecord=function(record){ const result=opsOriginalRealtimeRecord.apply(this,arguments); opsEnsureScope(); opsAutoAssignCurrentRecords(); opsRenderAllLocal(); setTimeout(opsRefreshRanking,250); return result; };
+const opsOriginalReloadMachineData=reloadMachineData;
+reloadMachineData=async function(){ opsLoadScope(); const result=await opsOriginalReloadMachineData.apply(this,arguments); opsLoadScope(); opsRefreshRanking(); return result; };
+
+document.addEventListener("DOMContentLoaded",()=>{
+  byId("createWorkOrderBtn")?.addEventListener("click",opsCreateWorkOrder);
+  byId("refreshRankingBtn")?.addEventListener("click",opsRefreshRanking);
+  opsLoadScope(); opsRefreshRanking(); opsStartRankingPolling();
+});
+window.addEventListener("beforeunload",opsStopRankingPolling);
 </script>
 
 </body>
