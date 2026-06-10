@@ -229,6 +229,22 @@
       .systemSwitchWrap{width:100%;justify-content:space-between}.systemSelect{flex:1;min-width:0}
       .defect-row{grid-template-columns:1fr}.defect-time{text-align:left}
     }
+
+    /* ===== 新增：NG 圖片、趨勢圖、良率警報 ===== */
+    .qualityAlarmBanner{display:none;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:12px 14px;border-radius:14px;color:#ffe6e6;background:linear-gradient(90deg,rgba(127,29,29,.96),rgba(87,22,22,.90));border:1px solid rgba(248,113,113,.65);box-shadow:0 0 24px rgba(239,68,68,.22)}
+    .qualityAlarmBanner.show{display:flex}.qualityAlarmTitle{font-size:14px;font-weight:900}.qualityAlarmText{margin-top:4px;font-size:12px;line-height:1.6}.qualityAlarmBadge{padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.12);font-size:11px;font-weight:900}
+    .enhancementGrid{grid-column:1/-1;display:grid;grid-template-columns:1.15fr .85fr;gap:12px}
+    .featureCard{min-width:0;padding:12px;border-radius:16px;background:rgba(18,35,59,.76);border:1px solid var(--line);box-shadow:var(--shadow)}
+    .featureCard.full{grid-column:1/-1}.featureHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}.featureTitle{font-size:16px;font-weight:900}.featureSub{margin-top:4px;color:var(--muted);font-size:11px;line-height:1.55}
+    .inlineControls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.inlineControls label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:11px;font-weight:800}
+    .miniInput,.miniSelect{height:31px;padding:0 8px;border-radius:8px;color:#fff;background:#0b1220;border:1px solid rgba(255,255,255,.17);font-size:12px}.miniInput{width:72px}.miniSelect{min-width:104px}
+    .trendCanvasWrap{height:270px;padding:8px;border-radius:12px;background:rgba(0,0,0,.16);border:1px solid var(--line)}#yieldTrendCanvas{display:block;width:100%;height:100%}.trendLegend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;color:var(--muted);font-size:11px}.legendDot{display:inline-block;width:9px;height:9px;border-radius:999px;margin-right:5px}.legendBlue{background:#60a5fa}.legendRed{background:#f87171}
+    .alertSettingGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.settingBox{padding:9px;border-radius:10px;background:rgba(0,0,0,.15);border:1px solid var(--line)}.settingBox label{display:block;color:var(--muted);font-size:11px;font-weight:800}.settingBox input{width:100%;height:30px;margin-top:5px;padding:0 8px;border-radius:7px;color:#fff;background:#0b1220;border:1px solid rgba(255,255,255,.16)}.alertActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
+    .alertList{display:flex;flex-direction:column;gap:7px;max-height:192px;overflow:auto;margin-top:10px}.alertItem{padding:8px 9px;border-radius:10px;background:rgba(239,68,68,.09);border:1px solid rgba(248,113,113,.2)}.alertItem.resolved{background:rgba(34,197,94,.07);border-color:rgba(74,222,128,.18)}.alertItemTop{display:flex;justify-content:space-between;gap:8px;font-size:11px;font-weight:900}.alertItemText{margin-top:4px;color:#f8d7da;font-size:11px;line-height:1.5}.alertItem.resolved .alertItemText{color:#c9f7d8}.alertEmpty{padding:14px;color:var(--muted);font-size:12px;text-align:center}
+    .ngImageGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}.ngImageCard{overflow:hidden;border-radius:12px;background:rgba(0,0,0,.16);border:1px solid var(--line)}.ngImagePreview{display:flex;align-items:center;justify-content:center;height:120px;background:#08111f;overflow:hidden}.ngImagePreview img{width:100%;height:100%;object-fit:cover}.ngImagePlaceholder{padding:12px;color:var(--muted);font-size:12px;text-align:center;line-height:1.55}.ngImageBody{padding:9px}.ngImageProduct{font-size:13px;font-weight:900}.ngImageMeta{margin-top:4px;color:var(--muted);font-size:11px;line-height:1.55}.ngImageActions{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap}.tinyBtn{min-height:28px;padding:0 8px;border-radius:7px;color:#fff;background:#173e74;border:1px solid rgba(96,165,250,.34);font-size:11px;font-weight:900}.tinyBtn:disabled{cursor:not-allowed;opacity:.5}.dangerBtn{background:rgba(127,29,29,.86);border-color:rgba(248,113,113,.34)}
+    .imageModal{display:none;position:fixed;inset:0;z-index:80;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.72)}.imageModal.show{display:flex}.imageModalCard{width:min(900px,96vw);max-height:92vh;overflow:auto;padding:12px;border-radius:15px;background:#0d1b2e;border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.55)}.imageModalHeader{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.imageModalHeader b{font-size:15px}.imageModal img{display:block;width:100%;max-height:72vh;object-fit:contain;border-radius:10px;background:#07101d}.imageModalMeta{margin-top:9px;color:var(--muted);font-size:12px;line-height:1.7}
+    @media(max-width:1100px){.enhancementGrid{grid-template-columns:1fr}.featureCard.full{grid-column:auto}}@media(max-width:640px){.alertSettingGrid{grid-template-columns:1fr}.trendCanvasWrap{height:220px}}
+
   </style>
 </head>
 <body>
@@ -292,6 +308,13 @@
       </div>
 
       <div class="page-bg">
+        <div class="qualityAlarmBanner" id="qualityAlarmBanner">
+          <div>
+            <div class="qualityAlarmTitle">⚠️ 良率警報</div>
+            <div class="qualityAlarmText" id="qualityAlarmText">目前沒有警報。</div>
+          </div>
+          <div class="qualityAlarmBadge" id="qualityAlarmBadge">即時監控</div>
+        </div>
         <div class="productInputBar">
           <div class="productInputTitle">多產品檢測 <span id="currentProductsText">尚未設定</span></div>
           <div class="productInputRow">
@@ -379,12 +402,97 @@
               </div>
             </div>
           </section>
+
+          <!-- ===== 新增功能區：保留原本版面，只在下方加入功能 ===== -->
+          <section class="enhancementGrid">
+            <div class="featureCard">
+              <div class="featureHeader">
+                <div>
+                  <div class="featureTitle">📈 良率趨勢折線圖</div>
+                  <div class="featureSub">依目前客戶與機台的事件紀錄即時計算。折線為最近資料的移動良率，紅色虛線為警戒值。</div>
+                </div>
+                <div class="inlineControls">
+                  <label>產品
+                    <select id="trendProductSelect" class="miniSelect">
+                      <option value="">全部產品</option>
+                    </select>
+                  </label>
+                  <label>筆數
+                    <select id="trendRangeSelect" class="miniSelect">
+                      <option value="20">最近 20 筆</option>
+                      <option value="50" selected>最近 50 筆</option>
+                      <option value="100">最近 100 筆</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div class="trendCanvasWrap"><canvas id="yieldTrendCanvas"></canvas></div>
+              <div class="trendLegend">
+                <span><i class="legendDot legendBlue"></i>移動良率</span>
+                <span><i class="legendDot legendRed"></i>警戒值</span>
+                <span id="trendSummaryText">等待資料...</span>
+              </div>
+            </div>
+
+            <div class="featureCard">
+              <div class="featureHeader">
+                <div>
+                  <div class="featureTitle">🚨 良率過低自動警報</div>
+                  <div class="featureSub">符合警戒條件後，首頁會自動顯示紅色警報。設定依不同客戶與機台分開保存。</div>
+                </div>
+              </div>
+              <div class="alertSettingGrid">
+                <div class="settingBox">
+                  <label for="yieldAlarmThreshold">良率警戒值（%）</label>
+                  <input id="yieldAlarmThreshold" type="number" min="0" max="100" step="1" value="90" />
+                </div>
+                <div class="settingBox">
+                  <label for="yieldAlarmMinSamples">最少檢測筆數</label>
+                  <input id="yieldAlarmMinSamples" type="number" min="1" max="9999" step="1" value="5" />
+                </div>
+                <div class="settingBox">
+                  <label for="consecutiveNgThreshold">連續 NG 警戒值</label>
+                  <input id="consecutiveNgThreshold" type="number" min="1" max="999" step="1" value="3" />
+                </div>
+              </div>
+              <div class="alertActions">
+                <button type="button" class="btn btnPrimary" id="saveAlarmSettingsBtn">儲存警報設定</button>
+                <button type="button" class="btn" id="enableNotificationBtn">允許瀏覽器通知</button>
+                <button type="button" class="btn" id="clearAlertHistoryBtn">清除警報紀錄</button>
+              </div>
+              <div class="alertList" id="qualityAlertList"><div class="alertEmpty">目前沒有警報紀錄。</div></div>
+            </div>
+
+            <div class="featureCard full">
+              <div class="featureHeader">
+                <div>
+                  <div class="featureTitle">🖼️ NG 瑕疵圖片留存</div>
+                  <div class="featureSub">NG 訊息若包含 image_url、image_data 或 snapshot_url，會自動留存並顯示。若沒有圖片欄位，系統會嘗試擷取目前 ESP32-CAM 畫面；攝影機若未允許跨網域擷取，仍會保留事件資料。</div>
+                </div>
+                <div class="inlineControls">
+                  <button type="button" class="btn" id="clearNgImagesBtn">清除目前機台圖片</button>
+                </div>
+              </div>
+              <div class="ngImageGrid" id="ngImageGrid"><div class="alertEmpty">尚未留存 NG 瑕疵圖片。</div></div>
+            </div>
+          </section>
         </div>
       </div>
 
       <div id="errorBar"></div>
       <div class="footer">© 2026 AIoT Dashboard</div>
     </main>
+  </div>
+
+
+  <div class="imageModal" id="ngImageModal" role="dialog" aria-modal="true" aria-label="NG 瑕疵圖片">
+    <div class="imageModalCard">
+      <div class="imageModalHeader">
+        <b id="ngImageModalTitle">NG 瑕疵圖片</b>
+        <button type="button" class="btn" id="closeNgImageModalBtn">關閉</button>
+      </div>
+      <div id="ngImageModalContent"></div>
+    </div>
   </div>
 
 <script>
@@ -1032,5 +1140,383 @@ window.addEventListener("beforeunload",() => {
   closePollingUpdates();
 });
 </script>
+
+<script>
+"use strict";
+
+/* =========================================================
+ * 新增功能模組
+ * - NG 瑕疵圖片留存
+ * - 良率趨勢折線圖
+ * - 良率過低 / 連續 NG 自動警報
+ * 原本 Dashboard 的資料載入、SSE、輪詢與版面不刪除。
+ * ========================================================= */
+
+const ENH_MAX_IMAGES = 30;
+const ENH_MAX_ALERTS = 40;
+const ENH = {
+  scope:"",
+  images:[],
+  alerts:[],
+  settings:{yieldThreshold:90,minSamples:5,consecutiveNg:3},
+  trendProduct:"",
+  trendRange:50
+};
+
+function enhScope(){ return `${getCurrentTenantId()}.${getCurrentSystemId()}`; }
+function enhKey(name){ return `dashboard.${name}.${enhScope()}`; }
+function enhReadArray(key){
+  try{ const value = JSON.parse(localStorage.getItem(key) || "[]"); return Array.isArray(value) ? value : []; }
+  catch{ return []; }
+}
+function enhReadObject(key){
+  try{ const value = JSON.parse(localStorage.getItem(key) || "{}"); return value && typeof value === "object" ? value : {}; }
+  catch{ return {}; }
+}
+function enhWrite(key,value){
+  try{ localStorage.setItem(key,JSON.stringify(value)); return true; }
+  catch(error){ console.warn("瀏覽器儲存空間不足：",key,error); return false; }
+}
+function enhRecordDefectType(record){
+  return asText(record?.defect_type ?? record?.defectType ?? record?.ng_type ?? record?.ngType ?? record?.reason ?? record?.defect_reason) || "未分類";
+}
+function enhRecordConfidence(record){
+  const value = record?.confidence ?? record?.score ?? record?.probability ?? record?.ai_confidence;
+  if(value === null || value === undefined || value === "") return "-";
+  const number = Number(value);
+  if(!Number.isFinite(number)) return asText(value);
+  return number <= 1 ? `${Math.round(number * 1000) / 10}%` : `${Math.round(number * 10) / 10}%`;
+}
+function enhRecordImage(record){
+  const candidates = [
+    record?.image_url,record?.imageUrl,record?.snapshot_url,record?.snapshotUrl,
+    record?.image_data,record?.imageData,record?.snapshot,record?.image
+  ];
+  for(const item of candidates){
+    const value = asText(item);
+    if(value && (value.startsWith("data:image/") || value.startsWith("blob:") || /^https?:\/\//i.test(value) || value.startsWith("/"))) return value;
+  }
+  return "";
+}
+function enhImageKey(record){ return recordKey(record); }
+function enhLoadScope(){
+  ENH.scope = enhScope();
+  ENH.images = enhReadArray(enhKey("ngImages"));
+  ENH.alerts = enhReadArray(enhKey("qualityAlerts"));
+  const saved = enhReadObject(enhKey("qualityAlarmSettings"));
+  ENH.settings = {
+    yieldThreshold:Math.min(100,Math.max(0,Number(saved.yieldThreshold ?? 90))),
+    minSamples:Math.max(1,Math.round(Number(saved.minSamples ?? 5))),
+    consecutiveNg:Math.max(1,Math.round(Number(saved.consecutiveNg ?? 3)))
+  };
+  enhSyncSettingInputs();
+  enhRenderImages();
+  enhRenderAlertList();
+  enhRenderBanner();
+}
+function enhEnsureScope(){ if(ENH.scope !== enhScope()) enhLoadScope(); }
+
+/* ------------------ NG 圖片留存 ------------------ */
+function enhFindImage(recordOrKey){
+  const key = typeof recordOrKey === "string" ? recordOrKey : enhImageKey(recordOrKey);
+  return ENH.images.find(item => item.key === key) || null;
+}
+function enhSaveImages(){
+  ENH.images = ENH.images
+    .sort((a,b) => new Date(b.time || b.savedAt || 0) - new Date(a.time || a.savedAt || 0))
+    .slice(0,ENH_MAX_IMAGES);
+  if(enhWrite(enhKey("ngImages"),ENH.images)) return;
+  /* base64 圖片太大時保留最近事件資料，避免整個 Dashboard 寫入失敗 */
+  ENH.images = ENH.images.slice(0,10).map(item => {
+    if(asText(item.source).startsWith("data:image/")) return {...item,source:"",note:"圖片過大，已保留事件資料"};
+    return item;
+  });
+  enhWrite(enhKey("ngImages"),ENH.images);
+}
+function enhCaptureCamera(){
+  try{
+    const image = byId("camera");
+    if(!image || !image.complete || !image.naturalWidth || !image.naturalHeight) return "";
+    const maxWidth = 640;
+    const scale = Math.min(1,maxWidth / image.naturalWidth);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1,Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1,Math.round(image.naturalHeight * scale));
+    const context = canvas.getContext("2d");
+    context.drawImage(image,0,0,canvas.width,canvas.height);
+    return canvas.toDataURL("image/jpeg",0.72);
+  }catch(error){
+    console.debug("ESP32-CAM 可能未允許跨網域擷取，請改由 MQTT 傳入 image_url。",error.message);
+    return "";
+  }
+}
+function enhRememberNg(record,tryCapture=false){
+  if(!record || recordStatus(record) !== "NG" || !belongsToCurrentScope(record)) return;
+  enhEnsureScope();
+  const key = enhImageKey(record);
+  const existingIndex = ENH.images.findIndex(item => item.key === key);
+  const payloadImage = enhRecordImage(record);
+  const source = payloadImage || (tryCapture ? enhCaptureCamera() : "") || (existingIndex >= 0 ? ENH.images[existingIndex].source : "");
+  const next = {
+    key,
+    eventId:recordId(record) || "-",
+    product:recordProduct(record),
+    defectType:enhRecordDefectType(record),
+    confidence:enhRecordConfidence(record),
+    time:asText(recordTime(record) || new Date().toISOString()),
+    source,
+    systemId:recordSystemId(record) || getCurrentSystemId(),
+    savedAt:new Date().toISOString()
+  };
+  if(existingIndex >= 0) ENH.images[existingIndex] = {...ENH.images[existingIndex],...next};
+  else ENH.images.unshift(next);
+  enhSaveImages();
+  enhRenderImages();
+}
+function enhSyncImagesFromRecords(){
+  safeArray(state.defects).forEach(record => {
+    if(recordStatus(record) === "NG" && enhRecordImage(record) && !enhFindImage(record)) enhRememberNg(record,false);
+  });
+}
+function enhRenderImages(){
+  const grid = byId("ngImageGrid");
+  if(!grid) return;
+  const items = ENH.images.slice(0,12);
+  if(!items.length){
+    grid.innerHTML = '<div class="alertEmpty">尚未留存 NG 瑕疵圖片。發送 NG 時可加入 image_url、image_data 或 snapshot_url。</div>';
+    return;
+  }
+  grid.innerHTML = items.map(item => {
+    const source = asText(item.source);
+    const preview = source
+      ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(item.product)} NG 圖片" loading="lazy">`
+      : '<div class="ngImagePlaceholder">已留存 NG 事件<br>尚無圖片<br><small>MQTT 可加入 image_url</small></div>';
+    return `<div class="ngImageCard">
+      <div class="ngImagePreview">${preview}</div>
+      <div class="ngImageBody">
+        <div class="ngImageProduct">${escapeHtml(item.product)}｜${escapeHtml(item.defectType || "未分類")}</div>
+        <div class="ngImageMeta">${escapeHtml(formatTime(item.time))}<br>信心度：${escapeHtml(item.confidence || "-")}｜事件：${escapeHtml(item.eventId || "-")}</div>
+        <div class="ngImageActions">
+          <button type="button" class="tinyBtn" data-open-ng="${escapeHtml(item.key)}" ${source ? "" : "disabled"}>查看大圖</button>
+          <button type="button" class="tinyBtn dangerBtn" data-delete-ng="${escapeHtml(item.key)}">刪除</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+  grid.querySelectorAll("[data-open-ng]").forEach(button => button.addEventListener("click",() => enhOpenImage(button.dataset.openNg)));
+  grid.querySelectorAll("[data-delete-ng]").forEach(button => button.addEventListener("click",() => enhDeleteImage(button.dataset.deleteNg)));
+}
+function enhOpenImage(key){
+  const item = ENH.images.find(entry => entry.key === key);
+  if(!item || !item.source) return;
+  byId("ngImageModalTitle").textContent = `${item.product}｜${item.defectType || "未分類"}`;
+  byId("ngImageModalContent").innerHTML = `<img src="${escapeHtml(item.source)}" alt="${escapeHtml(item.product)} NG 圖片">
+    <div class="imageModalMeta">事件：${escapeHtml(item.eventId || "-")}<br>時間：${escapeHtml(formatTime(item.time))}<br>信心度：${escapeHtml(item.confidence || "-")}<br>機台：${escapeHtml(item.systemId || "-")}</div>`;
+  byId("ngImageModal").classList.add("show");
+}
+function enhCloseImage(){ byId("ngImageModal")?.classList.remove("show"); }
+function enhDeleteImage(key){
+  ENH.images = ENH.images.filter(item => item.key !== key);
+  enhSaveImages(); enhRenderImages(); enhCloseImage();
+}
+function enhClearImages(){
+  if(!confirm("確定清除目前機台留存的 NG 圖片嗎？事件紀錄不會被刪除。")) return;
+  ENH.images = []; enhSaveImages(); enhRenderImages(); enhCloseImage();
+}
+
+/* ------------------ 良率趨勢圖 ------------------ */
+function enhRenderTrendProducts(){
+  const select = byId("trendProductSelect");
+  if(!select) return;
+  const products = Object.keys(state.productStats || {});
+  const wanted = ENH.trendProduct;
+  select.innerHTML = ['<option value="">全部產品</option>',...products.map(product => `<option value="${escapeHtml(product)}">${escapeHtml(product)}</option>`)].join("");
+  if(products.includes(wanted)) select.value = wanted;
+  else{ ENH.trendProduct = ""; select.value = ""; }
+}
+function enhTrendRecords(){
+  return [...safeArray(state.defects)]
+    .filter(record => ["OK","NG"].includes(recordStatus(record)))
+    .filter(record => !ENH.trendProduct || recordProduct(record) === ENH.trendProduct)
+    .sort((a,b) => new Date(recordTime(a) || 0) - new Date(recordTime(b) || 0))
+    .slice(-ENH.trendRange);
+}
+function enhTrendPoints(records){
+  return records.map((record,index) => {
+    const start = Math.max(0,index - 9);
+    const windowRecords = records.slice(start,index + 1);
+    const ok = windowRecords.filter(item => recordStatus(item) === "OK").length;
+    return {record,rate:percent(ok,windowRecords.length)};
+  });
+}
+function enhDrawTrend(){
+  const canvas = byId("yieldTrendCanvas");
+  if(!canvas) return;
+  enhRenderTrendProducts();
+  const wrap = canvas.parentElement;
+  const width = Math.max(280,Math.round(wrap.clientWidth || 600));
+  const height = Math.max(190,Math.round(wrap.clientHeight || 270));
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
+  canvas.style.width = `${width}px`; canvas.style.height = `${height}px`;
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(ratio,0,0,ratio,0,0);
+  ctx.clearRect(0,0,width,height);
+  const pad = {left:42,right:14,top:16,bottom:28};
+  const chartW = width - pad.left - pad.right;
+  const chartH = height - pad.top - pad.bottom;
+  ctx.font = '11px Arial, "Microsoft JhengHei"';
+  ctx.textBaseline = "middle"; ctx.textAlign = "right";
+  [0,25,50,75,100].forEach(value => {
+    const y = pad.top + chartH - chartH * value / 100;
+    ctx.strokeStyle = "rgba(255,255,255,.10)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left + chartW,y); ctx.stroke();
+    ctx.fillStyle = "rgba(155,176,207,.9)"; ctx.fillText(`${value}%`,pad.left - 7,y);
+  });
+  const threshold = ENH.settings.yieldThreshold;
+  const alarmY = pad.top + chartH - chartH * threshold / 100;
+  ctx.strokeStyle = "rgba(248,113,113,.95)"; ctx.lineWidth = 1.5; ctx.setLineDash([5,5]);
+  ctx.beginPath(); ctx.moveTo(pad.left,alarmY); ctx.lineTo(pad.left + chartW,alarmY); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(248,113,113,.95)"; ctx.textAlign = "left"; ctx.fillText(`警戒 ${percentText(threshold)}`,pad.left + 5,Math.max(9,alarmY - 9));
+
+  const points = enhTrendPoints(enhTrendRecords());
+  if(!points.length){
+    ctx.fillStyle = "rgba(155,176,207,.9)"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("目前尚未有可繪製的 OK／NG 資料",pad.left + chartW/2,pad.top + chartH/2);
+    byId("trendSummaryText").textContent = "等待資料...";
+    return;
+  }
+  const xFor = index => pad.left + (points.length === 1 ? chartW/2 : chartW * index / (points.length - 1));
+  const yFor = rate => pad.top + chartH - chartH * rate / 100;
+  ctx.strokeStyle = "rgba(96,165,250,.98)"; ctx.lineWidth = 2.6; ctx.beginPath();
+  points.forEach((point,index) => { const x=xFor(index), y=yFor(point.rate); if(index===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }); ctx.stroke();
+  points.forEach((point,index) => { const x=xFor(index), y=yFor(point.rate); ctx.fillStyle = point.rate < threshold ? "rgba(248,113,113,.98)" : "rgba(96,165,250,.98)"; ctx.beginPath(); ctx.arc(x,y,3.2,0,Math.PI*2); ctx.fill(); });
+  ctx.fillStyle = "rgba(155,176,207,.9)"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  [...new Set([0,Math.floor((points.length-1)/2),points.length-1])].forEach(index => {
+    const date = new Date(recordTime(points[index].record) || 0);
+    ctx.fillText(Number.isNaN(date.getTime()) ? String(index+1) : date.toLocaleTimeString("zh-TW",{hour12:false,hour:"2-digit",minute:"2-digit",second:"2-digit"}),xFor(index),pad.top + chartH + 8);
+  });
+  byId("trendSummaryText").textContent = `最新移動良率：${percentText(points.at(-1).rate)}｜顯示 ${points.length} 筆`;
+}
+
+/* ------------------ 自動警報 ------------------ */
+function enhSyncSettingInputs(){
+  if(byId("yieldAlarmThreshold")) byId("yieldAlarmThreshold").value = String(ENH.settings.yieldThreshold);
+  if(byId("yieldAlarmMinSamples")) byId("yieldAlarmMinSamples").value = String(ENH.settings.minSamples);
+  if(byId("consecutiveNgThreshold")) byId("consecutiveNgThreshold").value = String(ENH.settings.consecutiveNg);
+}
+function enhSaveSettings(){
+  ENH.settings = {
+    yieldThreshold:Math.min(100,Math.max(0,Number(byId("yieldAlarmThreshold").value || 90))),
+    minSamples:Math.max(1,Math.round(Number(byId("yieldAlarmMinSamples").value || 5))),
+    consecutiveNg:Math.max(1,Math.round(Number(byId("consecutiveNgThreshold").value || 3)))
+  };
+  enhWrite(enhKey("qualityAlarmSettings"),ENH.settings);
+  enhSyncSettingInputs(); enhEvaluateAlerts(); enhDrawTrend();
+  alert("警報設定已儲存。");
+}
+function enhConsecutiveNg(product){
+  const records = [...safeArray(state.defects)]
+    .filter(record => recordProduct(record) === product && ["OK","NG"].includes(recordStatus(record)))
+    .sort((a,b) => new Date(recordTime(b) || 0) - new Date(recordTime(a) || 0));
+  let count=0; for(const record of records){ if(recordStatus(record)==="NG") count++; else break; } return count;
+}
+function enhNotify(message){
+  if("Notification" in window && Notification.permission === "granted"){
+    try{ new Notification("瑕疵辨識系統警報",{body:message}); }catch{}
+  }
+}
+function enhPushAlarm(condition){
+  const now = new Date().toISOString();
+  const active = ENH.alerts.find(item => item.key === condition.key && !item.resolved);
+  if(active){ active.message=condition.message; active.lastSeenAt=now; return; }
+  ENH.alerts.unshift({key:condition.key,message:condition.message,createdAt:now,lastSeenAt:now,resolved:false});
+  enhNotify(condition.message);
+}
+function enhEvaluateAlerts(){
+  const conditions=[];
+  const sum = totals();
+  const total = sum.ok + sum.ng;
+  const overallRate = percent(sum.ok,total);
+  if(total >= ENH.settings.minSamples && overallRate < ENH.settings.yieldThreshold){
+    conditions.push({key:"yield:overall",message:`目前機台整體良率 ${percentText(overallRate)}，低於警戒值 ${percentText(ENH.settings.yieldThreshold)}。`});
+  }
+  Object.entries(state.productStats || {}).forEach(([product,item]) => {
+    const productTotal = item.ok + item.ng;
+    const rate = percent(item.ok,productTotal);
+    if(productTotal >= ENH.settings.minSamples && rate < ENH.settings.yieldThreshold) conditions.push({key:`yield:${product}`,message:`${product} 良率 ${percentText(rate)}，低於警戒值 ${percentText(ENH.settings.yieldThreshold)}。`});
+    const consecutive = enhConsecutiveNg(product);
+    if(consecutive >= ENH.settings.consecutiveNg) conditions.push({key:`ng:${product}`,message:`${product} 已連續出現 ${consecutive} 件 NG，達到警戒值 ${ENH.settings.consecutiveNg} 件。`});
+  });
+  const activeKeys = new Set(conditions.map(item => item.key));
+  ENH.alerts.forEach(item => {
+    if(!item.resolved && !activeKeys.has(item.key)){ item.resolved=true; item.resolvedAt=new Date().toISOString(); }
+  });
+  conditions.forEach(enhPushAlarm);
+  ENH.alerts = ENH.alerts.slice(0,ENH_MAX_ALERTS);
+  enhWrite(enhKey("qualityAlerts"),ENH.alerts);
+  enhRenderBanner(); enhRenderAlertList();
+}
+function enhRenderBanner(){
+  const banner=byId("qualityAlarmBanner"); if(!banner) return;
+  const active=ENH.alerts.filter(item => !item.resolved);
+  banner.classList.toggle("show",active.length>0);
+  byId("qualityAlarmText").textContent = active.length ? active.slice(0,3).map(item=>item.message).join("｜") : "目前沒有警報。";
+  byId("qualityAlarmBadge").textContent = active.length ? `${active.length} 項警報` : "即時監控";
+}
+function enhRenderAlertList(){
+  const list=byId("qualityAlertList"); if(!list) return;
+  if(!ENH.alerts.length){ list.innerHTML='<div class="alertEmpty">目前沒有警報紀錄。</div>'; return; }
+  list.innerHTML=ENH.alerts.slice(0,12).map(item=>`<div class="alertItem ${item.resolved?"resolved":""}">
+    <div class="alertItemTop"><span>${item.resolved?"✅ 已解除":"⚠️ 警報中"}</span><span>${escapeHtml(formatTime(item.createdAt))}</span></div>
+    <div class="alertItemText">${escapeHtml(item.message)}</div>
+  </div>`).join("");
+}
+function enhClearAlerts(){
+  if(!confirm("確定清除目前機台的警報紀錄嗎？")) return;
+  ENH.alerts=[]; enhWrite(enhKey("qualityAlerts"),ENH.alerts); enhRenderBanner(); enhRenderAlertList();
+}
+async function enhEnableNotifications(){
+  if(!("Notification" in window)){ alert("此瀏覽器不支援通知功能。"); return; }
+  const result=await Notification.requestPermission();
+  alert(result==="granted" ? "已允許瀏覽器警報通知。" : "目前尚未允許瀏覽器通知。");
+}
+function enhRenderAll(){
+  enhEnsureScope();
+  enhSyncImagesFromRecords();
+  enhDrawTrend();
+  enhEvaluateAlerts();
+}
+
+/* ------------------ 接到原本 Dashboard，不刪除原功能 ------------------ */
+const enhOriginalRenderSummary = renderSummary;
+renderSummary = function(){ enhOriginalRenderSummary.apply(this,arguments); enhRenderAll(); };
+
+const enhOriginalRealtimeRecord = addRealtimeRecord;
+addRealtimeRecord = function(record){
+  const result = enhOriginalRealtimeRecord.apply(this,arguments);
+  if(recordStatus(record)==="NG") enhRememberNg(record,true);
+  return result;
+};
+
+const enhOriginalReloadMachineData = reloadMachineData;
+reloadMachineData = async function(){
+  enhLoadScope();
+  return enhOriginalReloadMachineData.apply(this,arguments);
+};
+
+document.addEventListener("DOMContentLoaded",() => {
+  byId("saveAlarmSettingsBtn")?.addEventListener("click",enhSaveSettings);
+  byId("enableNotificationBtn")?.addEventListener("click",enhEnableNotifications);
+  byId("clearAlertHistoryBtn")?.addEventListener("click",enhClearAlerts);
+  byId("clearNgImagesBtn")?.addEventListener("click",enhClearImages);
+  byId("closeNgImageModalBtn")?.addEventListener("click",enhCloseImage);
+  byId("ngImageModal")?.addEventListener("click",event => { if(event.target===byId("ngImageModal")) enhCloseImage(); });
+  byId("trendProductSelect")?.addEventListener("change",event => { ENH.trendProduct=event.target.value || ""; enhDrawTrend(); });
+  byId("trendRangeSelect")?.addEventListener("change",event => { ENH.trendRange=Number(event.target.value || 50); enhDrawTrend(); });
+  window.addEventListener("resize",() => { clearTimeout(window.__enhTrendTimer); window.__enhTrendTimer=setTimeout(enhDrawTrend,120); });
+});
+</script>
+
 </body>
 </html>
