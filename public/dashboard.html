@@ -935,6 +935,94 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <style>
+    .productInputBar.compactInputBar{
+      margin:14px 0;
+      padding:14px 16px;
+    }
+    .productInputRow{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .detectedProductsLine{
+      margin-top:2px;
+      padding:10px 12px;
+      border-radius:12px;
+      background:rgba(255,255,255,.035);
+      border:1px solid rgba(255,255,255,.08);
+      color:rgba(231,238,252,.92);
+      font-size:14px;
+      font-weight:800;
+    }
+    .emptyState{
+      width:100%;
+      box-sizing:border-box;
+      padding:16px;
+      border-radius:14px;
+      color:rgba(231,238,252,.7);
+      background:rgba(255,255,255,.035);
+      border:1px dashed rgba(255,255,255,.14);
+      text-align:center;
+      font-size:14px;
+    }
+    .categoryButtons{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:8px;
+    }
+    .categoryButtons button{
+      cursor:pointer;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.06);
+      color:#eaf2ff;
+      padding:7px 12px;
+      font-weight:800;
+    }
+    .categoryButtons button.active{
+      background:rgba(59,130,246,.30);
+      border-color:rgba(96,165,250,.75);
+    }
+    #dynamicProductGaugeArea{
+      margin-top:10px;
+    }
+    .productGaugeSectionTitle{
+      margin-top:6px;
+      font-weight:900;
+      color:rgba(255,255,255,.95);
+    }
+    .productYieldText{
+      margin-top:2px;
+      color:rgba(231,238,252,.72);
+      font-size:12px;
+      font-weight:700;
+    }
+    .defect-row{
+      grid-template-columns:minmax(0,1fr) 150px 200px;
+    }
+    .defect-row > div:nth-child(2){
+      text-align:center;
+    }
+    .defect-row > div:nth-child(3){
+      text-align:right;
+      color:var(--muted);
+      font-size:13px;
+    }
+    @media(max-width:760px){
+      .defect-row{
+        grid-template-columns:1fr;
+      }
+      .defect-row > div:nth-child(2),
+      .defect-row > div:nth-child(3){
+        text-align:left;
+      }
+    }
+  </style>
+
 </head>
 
 <body>
@@ -944,35 +1032,18 @@
     <div class="sidebar" style="display:block; position:static; height:100vh;">
       <div class="brand">
         <div class="logo"></div>
-        <div>
-          <h1>瑕疵辨識與分流系統</h1>
-        </div>
+        <div><h1>瑕疵辨識與分流系統</h1></div>
       </div>
-
       <div class="nav">
-        <a href="dashboard.html" class="active">
-          <span class="nav-label">🏠 首頁</span>
-        </a>
-
-        <a href="logs.html">
-          <span class="nav-label">🧾 事件紀錄</span>
-        </a>
-
-        <a href="settings.html">
-          <span class="nav-label">⚙️ 系統設定</span>
-        </a>
-
-        <a href="admin.html" id="adminNavLinkDrawer" style="display:none;">
-          <span class="nav-label">🧑‍💼 管理後台</span>
-        </a>
+        <a href="dashboard.html" class="active"><span class="nav-label">🏠 首頁</span></a>
+        <a href="logs.html"><span class="nav-label">🧾 事件紀錄</span></a>
+        <a href="settings.html"><span class="nav-label">⚙️ 系統設定</span></a>
+        <a href="admin.html" id="adminNavLinkDrawer" style="display:none;"><span class="nav-label">🧑‍💼 管理後台</span></a>
       </div>
-
       <div class="side-footer">
         <div>狀態：<span style="color:var(--good); font-weight:800;">● 正常</span></div>
         <div>提示：此頁已接後端 API。</div>
-        <div style="margin-top:10px;">
-          <button type="button" class="btn" onclick="handleHardReset(event)">修復灰底/警告（清快取）</button>
-        </div>
+        <div style="margin-top:10px;"><button type="button" class="btn" onclick="handleHardReset(event)">修復灰底/警告（清快取）</button></div>
       </div>
     </div>
   </aside>
@@ -981,34 +1052,17 @@
     <aside class="sidebar">
       <div class="brand">
         <div class="logo"></div>
-        <div>
-          <h1>瑕疵辨識與分流系統</h1>
-        </div>
+        <div><h1>瑕疵辨識與分流系統</h1></div>
       </div>
-
       <div class="nav">
-        <a href="dashboard.html" class="active">
-          <span class="nav-label">🏠 首頁</span>
-        </a>
-
-        <a href="logs.html">
-          <span class="nav-label">🧾 事件紀錄</span>
-        </a>
-
-        <a href="settings.html">
-          <span class="nav-label">⚙️ 系統設定</span>
-        </a>
-
-        <a href="admin.html" id="adminNavLink" style="display:none;">
-          <span class="nav-label">🧑‍💼 管理後台</span>
-        </a>
+        <a href="dashboard.html" class="active"><span class="nav-label">🏠 首頁</span></a>
+        <a href="logs.html"><span class="nav-label">🧾 事件紀錄</span></a>
+        <a href="settings.html"><span class="nav-label">⚙️ 系統設定</span></a>
+        <a href="admin.html" id="adminNavLink" style="display:none;"><span class="nav-label">🧑‍💼 管理後台</span></a>
       </div>
-
       <div class="side-footer">
         <div>系統概念：即時檢測 + 分流統計 + 遠端急停</div>
-        <div style="margin-top:10px;">
-          <button class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button>
-        </div>
+        <div style="margin-top:10px;"><button class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button></div>
       </div>
     </aside>
 
@@ -1016,153 +1070,82 @@
       <div class="topbar">
         <div class="leftTop">
           <button class="hamburger" onclick="toggleDrawer(true)">☰</button>
-
           <div class="pageTitle">
             <b>瑕疵辨識與分流系統</b>
             <span id="pageSubTitle">即時檢測畫面 + 系統狀態與數據</span>
-
             <div class="systemBar">
               <div class="userChip" id="userChip">使用者：未登入</div>
-
               <div class="systemSwitchWrap" id="tenantSwitchWrap" style="display:none;">
                 <label class="systemLabel">目前客戶</label>
                 <select id="tenantSelect" class="systemSelect"></select>
               </div>
-
               <div class="systemSwitchWrap" id="systemSwitchWrap" style="display:none;">
-  <label class="systemLabel">目前機台</label>
-  <select id="systemSelect" class="systemSelect"></select>
-</div>
-
+                <label class="systemLabel">目前機台</label>
+                <select id="systemSelect" class="systemSelect"></select>
+              </div>
             </div>
           </div>
         </div>
-
-        
-
         <div class="rightTop">
-          <div class="status">
-            <span class="dot" id="mqttDot"></span>
-            <span id="mqttText">狀態讀取中...</span>
-          </div>
-
-          <button class="btn btnPrimary" onclick="forceReload(event)">
-            ⟳ 重新整理
-          </button>
+          <div class="status"><span class="dot" id="mqttDot"></span><span id="mqttText">狀態讀取中...</span></div>
+          <button class="btn btnPrimary" onclick="forceReload(event)">⟳ 重新整理</button>
         </div>
       </div>
 
       <div class="page-bg">
-        <div class="productInputBar">
+        <div class="productInputBar compactInputBar">
+          <div class="productInputTitle">多產品檢測 <span data-product-list>尚未設定</span></div>
+          <div class="productInputRow">
+            <input id="productInput" type="text" placeholder="輸入產品（例如：手機殼、書本）" autocomplete="off">
+            <button type="button" id="addProductBtn">加入</button>
+          </div>
+        </div>
 
-  <!-- 多產品輸入區 -->
-<div class="productInputBar">
-  <div class="productInputTitle">
-    多產品檢測
-    <span id="currentProductsText">尚未設定</span>
-  </div>
-
-  <div id="productInputRow">
-    <input id="productInput" type="text" placeholder="輸入產品 (例如：手機殼、書本)">
-    <button onclick="addProductDynamic(document.getElementById('productInput').value)">加入</button>
-  </div>
-</div>
-
-<!-- 產品統計表與 Gauge -->
-<div id="dynamicProductGaugeArea"></div>
-<div id="dynamicProductRows"></div>
-
-
-  
-</div>
         <div class="heroGrid">
           <section class="liveCard">
             <div class="liveTitle">即時檢測畫面</div>
-
             <div class="liveFrame">
-              <img id="camera" />
-              <div class="liveHint" id="liveHint">
-                正在連接 ESP32-CAM...
-              </div>
+              <img id="camera" alt="即時檢測畫面" />
+              <div class="liveHint" id="liveHint">正在連接 ESP32-CAM...</div>
             </div>
-
-            <div class="estopWrap">
-              <button class="estopBig" onclick="demoEstop()">緊急停止</button>
-            </div>
+            <div class="estopWrap"><button class="estopBig" onclick="demoEstop()">緊急停止</button></div>
             <button class="btn" onclick="downloadCSV()">下載報表</button>
             <div id="defect-list" class="defect-table"></div>
           </section>
 
           <section class="statusCard">
             <div class="productTitleLine">產品分類與良率</div>
+            <div class="statusTopRow">
+              <div class="gaugeCard">
+                <div class="gaugeTitle">後端資料總數</div>
+                <div class="gauge" id="gauge" style="--p:0"><div class="gaugeValue" id="gaugeValue">0</div></div>
+                <div class="gaugeSubTitle">總筆數</div>
+                <div class="gaugeBar smallGaugeBar"><div id="gaugeBarFill" style="width:0%"></div></div>
+              </div>
 
-           <div class="statusTopRow">
-  <div class="gaugeCard">
+              <div class="defectMiniCard">
+                <div class="areaTop"><div><div class="areaName"><span class="warnIcon">!</span> 瑕疵品數</div><div class="areaSub">目前資料中的 NG 數量</div></div></div>
+                <div class="defectInfoBody"><div class="defectInfoValue" id="defectCount">0</div><div class="defectInfoLabel">NG 件</div></div>
+              </div>
 
-    <div class="gaugeTitle">後端資料總數</div>
-
-    <div class="gauge" id="gauge">
-      <div class="gaugeValue" id="gaugeValue">0</div>
-    </div>
-
-    <div class="gaugeSubTitle">總筆數</div>
-
-
-
-    <div class="gaugeBar smallGaugeBar">
-      <div id="gaugeBarFill" style="width:0%"></div>
-    </div>
-
-  </div>
-
-  <div class="defectMiniCard">
-  <div class="areaTop">
-    <div>
-      <div class="areaName">
-        <span class="warnIcon">!</span>
-        瑕疵品數
-      </div>
-      <div class="areaSub">目前篩選資料中的 NG 數量</div>
-    </div>
-  </div>
-
-  <div class="defectInfoBody">
-    <div class="defectInfoValue" id="defectCount">0</div>
-    <div class="defectInfoLabel">NG 件</div>
-  </div>
-</div>
-
-  <div class="areaCard summaryMiniCard">
-    <div class="areaTop">
-      <div>
-        <div class="areaName">真實統計分析</div>
-        <div class="areaSub">依 MongoDB 即時資料計算</div>
-      </div>
-    </div>
-
-    <div class="summaryText">
-      <div id="summaryTotal">總數：0</div>
-      <div id="summaryOk">OK：0</div>
-      <div id="summaryNg">NG：0</div>
-      <div id="summaryYield">良率：0%</div>
-      <div id="summaryDefect">瑕疵率：0%</div>
-      <div id="summaryLast20">最近20筆異常：0</div>
-    </div>
-  </div>
-</div>
-
-
-<div id="detectedProducts">
-  已偵測產品：
-  <span id="currentProductsText"></span>
-</div>
-           
-               
+              <div class="areaCard summaryMiniCard">
+                <div class="areaTop"><div><div class="areaName">真實統計分析</div><div class="areaSub">依 MongoDB 即時資料計算</div></div></div>
+                <div class="summaryText">
+                  <div id="summaryTotal">總數：0</div>
+                  <div id="summaryOk">OK：0</div>
+                  <div id="summaryNg">NG：0</div>
+                  <div id="summaryYield">良率：0%</div>
+                  <div id="summaryDefect">瑕疵率：0%</div>
+                  <div id="summaryLast20">最近20筆異常：0</div>
+                </div>
               </div>
             </div>
 
-            
-                   </section>
+            <div class="detectedProductsLine">已偵測產品：<span data-product-list>尚未設定</span></div>
+            <div id="categoryButtons" class="categoryButtons"></div>
+            <div class="productGaugeSectionTitle">各品項良率</div>
+            <div id="dynamicProductGaugeArea"></div>
+          </section>
 
           <section class="productStatsCard">
             <div class="productTableCard">
@@ -1170,236 +1153,400 @@
                 <div class="productTableTitle">產品統計表</div>
                 <div class="productTableSub">各產品 OK / NG 即時統計</div>
               </div>
-
               <div class="productTable">
-                <div class="pt-row pt-head">
-                  <div>產品</div>
-                  <div>優良（OK）</div>
-                  <div>瑕疵（NG）</div>
-                </div>
-
-                
-
-                <div class="pt-row pt-total">
-                  <div class="pt-name">總計</div>
-                  <div class="pt-ok" id="table-ok-total">0</div>
-                  <div class="pt-ng" id="table-ng-total">0</div>
-                </div>
+                <div class="pt-row pt-head"><div>產品</div><div>優良（OK）</div><div>瑕疵（NG）</div></div>
+                <div id="dynamicProductRows"></div>
+                <div class="pt-row pt-total"><div class="pt-name">總計</div><div class="pt-ok" id="table-ok-total">0</div><div class="pt-ng" id="table-ng-total">0</div></div>
               </div>
             </div>
           </section>
-
-      
-  
         </div>
       </div>
 
-      <div id="errorBar" style="display: none;"></div>
-
-      <div style="margin-top:14px; color:rgba(155,176,207,.9); font-size:12px;">
-        © 2026 AIoT Dashboard
-      </div>
+      <div id="errorBar" style="display:none;"></div>
+      <div style="margin-top:14px; color:rgba(155,176,207,.9); font-size:12px;">© 2026 AIoT Dashboard</div>
     </main>
   </div>
+
 <script>
+"use strict";
+
 const API_BASE = window.location.origin;
-
-// 全域變數
 let selectedProducts = [];
-let productStats = {};
+let productStats = Object.create(null);
 let eventSource = null;
+let defectRecords = [];
+let activeCategory = null;
+const seenDefectKeys = new Set();
 
-// ------------------ 初始化 MongoDB 產品 ------------------
-async function initSelectedProductsFromDB() {
-  try {
-    const list = await apiFetch(buildDefectsUrl());
-    const dbProducts = [...new Set(list.map(x => normalizeProductName(x.product)))];
-    dbProducts.forEach(p => addProductDynamic(p, false)); // false 表示不重渲染
-    renderCategoryButtons();       // 初始化一次分類按鈕
-    renderProductStats();          // 初始化一次統計表與 Gauge
-    updateDetectedProducts();      // 更新已偵測產品清單
-  } catch(err) {
-    console.error("初始化產品清單失敗", err);
-  }
+function normalizeProductName(value){
+  const text = String(value ?? "").trim();
+  return text || "未知產品";
 }
 
-// ------------------ 新增產品 ------------------
-function addProductDynamic(name, render=true){
-  name = normalizeProductName(name.trim());
-  if(!name) return;
-
-  if(!selectedProducts.includes(name)){
-    selectedProducts.push(name);
-  }
-  if(!productStats[name]){
-    productStats[name] = { ok:0, ng:0, total:0 };
-  }
-
-  if(render){
-    renderProductStats();
-    updateDetectedProducts();
-    renderCategoryButtons();
-  }
+function escapeHtml(value){
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
-// ------------------ 更新已偵測產品清單 ------------------
+function storageValue(keys){
+  for(const key of keys){
+    const value = sessionStorage.getItem(key) || localStorage.getItem(key);
+    if(value) return value;
+  }
+  return "";
+}
+
+function getCurrentTenantId(){
+  return storageValue(["currentTenantId", "selectedTenantId", "tenant_id", "tenantId"]);
+}
+
+function getCurrentSystemId(){
+  return storageValue(["currentSystemId", "selectedSystemId", "system_id", "systemId"]);
+}
+
+function buildDefectsUrl(){
+  const url = new URL("/api/defects", API_BASE);
+  const tenantId = getCurrentTenantId();
+  const systemId = getCurrentSystemId();
+  if(tenantId) url.searchParams.set("tenant_id", tenantId);
+  if(systemId) url.searchParams.set("system_id", systemId);
+  return url.toString();
+}
+
+async function apiFetch(url, options = {}){
+  const token = storageValue(["token", "access_token", "jwt"]);
+  const headers = new Headers(options.headers || {});
+  if(token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(url, { ...options, headers });
+  if(!response.ok) throw new Error(`API ${response.status}: ${response.statusText}`);
+  return response.json();
+}
+
+function extractDefectList(payload){
+  if(Array.isArray(payload)) return payload;
+  if(Array.isArray(payload?.defects)) return payload.defects;
+  if(Array.isArray(payload?.data)) return payload.data;
+  if(Array.isArray(payload?.items)) return payload.items;
+  if(Array.isArray(payload?.logs)) return payload.logs;
+  return [];
+}
+
+function getRecordTime(record){
+  return record?.timestamp || record?.created_at || record?.createdAt || new Date().toISOString();
+}
+
+function getRecordId(record){
+  return record?.id || record?._id || record?.defect_id || record?.item_id || "-";
+}
+
+function getRecordKey(record){
+  if(record?._id) return String(record._id);
+  return [getRecordId(record), normalizeProductName(record?.product), String(record?.status || "").toUpperCase(), getRecordTime(record)].join("|");
+}
+
+function ensureProduct(product){
+  const normalized = normalizeProductName(product);
+  if(!selectedProducts.includes(normalized)) selectedProducts.push(normalized);
+  if(!productStats[normalized]) productStats[normalized] = { ok:0, ng:0, total:0 };
+  return normalized;
+}
+
+function addProductDynamic(name, shouldRender = true){
+  const raw = String(name ?? "").trim();
+  if(!raw) return;
+  ensureProduct(raw);
+  if(shouldRender) renderAll();
+  const input = document.getElementById("productInput");
+  if(input){ input.value = ""; input.focus(); }
+}
+
 function updateDetectedProducts(){
-  const detectedEl = document.getElementById("currentProductsText");
-  if(!detectedEl) return;
-  detectedEl.textContent = selectedProducts.join("、");
+  const label = selectedProducts.length ? selectedProducts.join("、") : "尚未設定";
+  document.querySelectorAll("[data-product-list]").forEach(el => { el.textContent = label; });
 }
 
-// ------------------ 更新產品統計 ------------------
-function updateProductStats(defect){
-  try {
-    const product = normalizeProductName(defect.product || "未知");
-    const status = (defect.status || "").toUpperCase();
-
-    if(!productStats[product]){
-      productStats[product] = { ok:0, ng:0, total:0 };
-      if(!selectedProducts.includes(product)) selectedProducts.push(product);
-    }
-
-    if(status === "OK") productStats[product].ok++;
-    if(status === "NG") productStats[product].ng++;
-
-    productStats[product].total = productStats[product].ok + productStats[product].ng;
-
-    renderProductStats();       // 統計表與 Gauge
-    updateDetectedProducts();   // 上方已偵測產品清單
-    renderCategoryButtons();    // 分類按鈕
-  } catch(err){
-    console.error("更新統計表錯誤", err);
-  }
+function addRecordToStats(record){
+  const product = ensureProduct(record?.product);
+  const status = String(record?.status || "").trim().toUpperCase();
+  if(status === "OK") productStats[product].ok += 1;
+  if(status === "NG") productStats[product].ng += 1;
+  productStats[product].total = productStats[product].ok + productStats[product].ng;
 }
 
-// ------------------ 渲染產品統計表與 Gauge ------------------
+function sortNewestFirst(records){
+  return [...records].sort((a,b) => new Date(getRecordTime(b)).getTime() - new Date(getRecordTime(a)).getTime());
+}
+
+function applyDefectRecord(record, { appendEvent = true, render = true } = {}){
+  if(!record || typeof record !== "object") return;
+  const product = String(record.product ?? "").trim();
+  const status = String(record.status ?? "").trim().toUpperCase();
+  if(!product || !["OK", "NG"].includes(status)) return;
+
+  const key = getRecordKey(record);
+  if(seenDefectKeys.has(key)) return;
+  seenDefectKeys.add(key);
+
+  const normalizedRecord = { ...record, product: normalizeProductName(product), status, timestamp: getRecordTime(record) };
+  defectRecords.push(normalizedRecord);
+  addRecordToStats(normalizedRecord);
+  if(appendEvent) appendEventRow(normalizedRecord);
+  if(render) renderAll();
+}
+
 function renderProductStats(){
   const gaugeArea = document.getElementById("dynamicProductGaugeArea");
   const tableArea = document.getElementById("dynamicProductRows");
   if(!gaugeArea || !tableArea) return;
 
-  gaugeArea.innerHTML = "";
-  tableArea.innerHTML = "";
-
+  const products = [...selectedProducts];
   let totalOK = 0;
   let totalNG = 0;
 
-  Object.keys(productStats).forEach(product => {
-    const stats = productStats[product];
-    const total = stats.ok + stats.ng;
-    const yieldRate = total ? Math.round(stats.ok / total * 100) : 0;
+  const gaugeHtml = [];
+  const rowHtml = [];
 
+  for(const product of products){
+    const stats = productStats[product] || { ok:0, ng:0, total:0 };
+    const total = stats.ok + stats.ng;
+    const yieldRate = total ? Math.round((stats.ok / total) * 100) : 0;
     totalOK += stats.ok;
     totalNG += stats.ng;
 
-    // Gauge
-    gaugeArea.innerHTML += `
+    gaugeHtml.push(`
       <div class="gaugeBox">
-        <div class="gaugeLabel">${product}</div>
-        <div class="gauge" style="--p:${yieldRate}">
-          <div class="gaugeValue">${yieldRate}%</div>
-        </div>
-        <div class="gaugeSub">OK:${stats.ok} | NG:${stats.ng}</div>
-      </div>
-    `;
+        <div class="gaugeLabel">${escapeHtml(product)}</div>
+        <div class="gauge" style="--p:${yieldRate}"><div class="gaugeValue">${yieldRate}%</div></div>
+        <div class="gaugeSub">OK：${stats.ok}　|　NG：${stats.ng}</div>
+      </div>`);
 
-    // 表格
-    tableArea.innerHTML += `
+    rowHtml.push(`
       <div class="pt-row">
-        <div class="pt-name">${product}</div>
+        <div class="pt-name">${escapeHtml(product)}<div class="productYieldText">良率：${yieldRate}%　總數：${total}</div></div>
         <div class="pt-ok">${stats.ok}</div>
         <div class="pt-ng">${stats.ng}</div>
-        <div class="pt-total">${total}</div>
-        <div class="pt-okRate">${yieldRate}%</div>
-        <div class="pt-ngRate">${total?Math.round(stats.ng/total*100):0}%</div>
-      </div>
-    `;
-  });
+      </div>`);
+  }
 
-  document.getElementById("totalOk").textContent = totalOK;
-  document.getElementById("totalNg").textContent = totalNG;
+  gaugeArea.innerHTML = gaugeHtml.length ? gaugeHtml.join("") : '<div class="emptyState">尚未加入產品。請先在上方輸入品項。</div>';
+  tableArea.innerHTML = rowHtml.length ? rowHtml.join("") : '<div class="emptyState" style="margin:12px; width:auto;">尚未有產品資料</div>';
+
+  const total = totalOK + totalNG;
+  const yieldRate = total ? Math.round((totalOK / total) * 100) : 0;
+  const defectRate = total ? Math.round((totalNG / total) * 100) : 0;
+  const latest20Ng = sortNewestFirst(defectRecords).slice(0,20).filter(item => item.status === "NG").length;
+
+  setText("table-ok-total", totalOK);
+  setText("table-ng-total", totalNG);
+  setText("gaugeValue", total);
+  setText("defectCount", totalNG);
+  setText("summaryTotal", `總數：${total}`);
+  setText("summaryOk", `OK：${totalOK}`);
+  setText("summaryNg", `NG：${totalNG}`);
+  setText("summaryYield", `良率：${yieldRate}%`);
+  setText("summaryDefect", `瑕疵率：${defectRate}%`);
+  setText("summaryLast20", `最近20筆異常：${latest20Ng}`);
+
+  const overallGauge = document.getElementById("gauge");
+  if(overallGauge) overallGauge.style.setProperty("--p", Math.min(total, 100));
+  const bar = document.getElementById("gaugeBarFill");
+  if(bar) bar.style.width = `${yieldRate}%`;
 }
 
-// ------------------ 事件紀錄 ------------------
-function appendEventRow(defect){
+function setText(id, value){
+  const el = document.getElementById(id);
+  if(el) el.textContent = String(value);
+}
+
+function appendEventRow(record){
   const list = document.getElementById("defect-list");
   if(!list) return;
   const row = document.createElement("div");
   row.className = "defect-row";
-
-  const statusClass = (defect.status||"").toUpperCase()==="OK"?"status-ok":"status-ng";
-
+  row.dataset.product = normalizeProductName(record.product);
+  const statusClass = record.status === "OK" ? "status-ok" : "status-ng";
+  const timeText = new Date(getRecordTime(record)).toLocaleString("zh-TW", { hour12:false });
   row.innerHTML = `
-    <div>${defect.id||"-"}</div>
-    <div class="${statusClass}">${defect.status||"-"} (${defect.product||"-"})</div>
-    <div>${defect.timestamp ? new Date(defect.timestamp).toLocaleString():"-"}</div>
-  `;
+    <div class="defect-id">${escapeHtml(getRecordId(record))}</div>
+    <div class="defect-status ${statusClass}">${escapeHtml(record.status)}（${escapeHtml(record.product)}）</div>
+    <div class="defect-time">${escapeHtml(timeText)}</div>`;
   list.prepend(row);
-  while(list.children.length>10) list.removeChild(list.lastChild);
+  while(list.children.length > 10) list.removeChild(list.lastElementChild);
+  applyEventFilter();
 }
 
-// ------------------ 分類按鈕 ------------------
+function renderInitialEventRows(){
+  const list = document.getElementById("defect-list");
+  if(!list) return;
+  list.innerHTML = "";
+  sortNewestFirst(defectRecords).slice(0,10).reverse().forEach(record => appendEventRow(record));
+}
+
 function renderCategoryButtons(){
   const container = document.getElementById("categoryButtons");
   if(!container) return;
   container.innerHTML = "";
+  const categories = [null, ...selectedProducts];
+  for(const category of categories){
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = category || "全部";
+    if(category === activeCategory) button.classList.add("active");
+    button.addEventListener("click", () => {
+      activeCategory = category;
+      renderCategoryButtons();
+      applyEventFilter();
+    });
+    container.appendChild(button);
+  }
+}
 
-  const categories = Object.keys(productStats);
-  const allBtn = document.createElement("button");
-  allBtn.textContent="全部";
-  allBtn.onclick = ()=>filterByCategory(null);
-  container.appendChild(allBtn);
-
-  categories.forEach(cat=>{
-    const btn = document.createElement("button");
-    btn.textContent=cat;
-    btn.onclick=()=>filterByCategory(cat);
-    container.appendChild(btn);
+function applyEventFilter(){
+  document.querySelectorAll("#defect-list .defect-row").forEach(row => {
+    row.style.display = !activeCategory || row.dataset.product === activeCategory ? "grid" : "none";
   });
 }
 
-function filterByCategory(category){
-  const rows=document.querySelectorAll(".defect-row");
-  rows.forEach(row=>{
-    const text=row.querySelector("div:nth-child(2)").textContent;
-    row.style.display = (!category || text.includes(category))?"flex":"none";
-  });
+function renderAll(){
+  updateDetectedProducts();
+  renderCategoryButtons();
+  renderProductStats();
 }
 
-// ------------------ SSE 即時更新 ------------------
+async function initSelectedProductsFromDB(){
+  try{
+    const payload = await apiFetch(buildDefectsUrl());
+    const list = extractDefectList(payload);
+    for(const record of list) applyDefectRecord(record, { appendEvent:false, render:false });
+    renderInitialEventRows();
+    renderAll();
+  }catch(error){
+    console.warn("初始化 MongoDB 資料失敗，頁面仍可手動新增品項並等待 SSE：", error);
+    showError(`MongoDB 初始資料讀取失敗：${error.message}`);
+    renderAll();
+  }
+}
+
+function unwrapRealtimePayload(payload){
+  if(Array.isArray(payload)) return payload;
+  if(payload?.data && typeof payload.data === "object") return Array.isArray(payload.data) ? payload.data : [payload.data];
+  if(payload?.defect && typeof payload.defect === "object") return [payload.defect];
+  return [payload];
+}
+
+function buildRealtimeUrl(){
+  const url = new URL("/api/defects/stream", API_BASE);
+  const tenantId = getCurrentTenantId();
+  const systemId = getCurrentSystemId();
+  if(tenantId) url.searchParams.set("tenant_id", tenantId);
+  if(systemId) url.searchParams.set("system_id", systemId);
+  return url.toString();
+}
+
 function startRealtimeUpdates(){
   if(eventSource) eventSource.close();
+  eventSource = new EventSource(buildRealtimeUrl());
 
-  const tenantId = getCurrentTenantId()||"defaultTenant";
-  const systemId = getCurrentSystemId()||"defaultSystem";
-
-  const url = `${API_BASE}/api/defects/stream?tenant_id=${tenantId}&system_id=${systemId}`;
-  eventSource = new EventSource(url);
-
-  eventSource.onmessage = (e)=>{
+  eventSource.onopen = () => setRealtimeStatus(true, "即時資料已連線");
+  eventSource.onmessage = event => {
     try{
-      const defect = JSON.parse(e.data);
-
-      // 事件紀錄
-      appendEventRow(defect);
-
-      // 加入清單並更新統計表
-      addProductDynamic(defect.product);
-      updateProductStats(defect);
-
-    } catch(err){ console.error("SSE資料處理失敗",err);}
+      const payload = JSON.parse(event.data);
+      for(const record of unwrapRealtimePayload(payload)) applyDefectRecord(record);
+    }catch(error){
+      console.warn("SSE 資料處理失敗：", error, event.data);
+    }
   };
-
-  eventSource.onerror = err => console.warn("SSE連線錯誤", err);
+  eventSource.onerror = () => setRealtimeStatus(false, "即時資料重連中...");
 }
 
-// ------------------ DOMContentLoaded 初始化 ------------------
-document.addEventListener("DOMContentLoaded", async ()=>{
+function setRealtimeStatus(isOnline, text){
+  const dot = document.getElementById("mqttDot");
+  if(dot){
+    dot.style.background = isOnline ? "#22c55e" : "#f59e0b";
+    dot.style.boxShadow = isOnline ? "0 0 12px rgba(34,197,94,.9)" : "0 0 12px rgba(245,158,11,.9)";
+  }
+  setText("mqttText", text);
+}
+
+function showError(message){
+  const bar = document.getElementById("errorBar");
+  if(!bar) return;
+  bar.textContent = message;
+  bar.style.display = "block";
+}
+
+function toggleDrawer(open){
+  document.getElementById("drawer")?.classList.toggle("open", Boolean(open));
+  document.getElementById("overlay")?.classList.toggle("show", Boolean(open));
+}
+
+function forceReload(event){
+  event?.preventDefault?.();
+  window.location.reload();
+}
+
+async function swHardReset(){
+  try{
+    if("serviceWorker" in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(reg => reg.unregister()));
+    }
+    if("caches" in window){
+      const keys = await caches.keys();
+      await Promise.all(keys.map(key => caches.delete(key)));
+    }
+  }finally{
+    window.location.reload();
+  }
+}
+
+function handleHardReset(event){
+  event?.preventDefault?.();
+  swHardReset();
+}
+
+function demoEstop(){
+  alert("已送出緊急停止指令（Demo）");
+}
+
+function downloadCSV(){
+  const rows = [["產品", "OK", "NG", "總數", "良率"]];
+  for(const product of selectedProducts){
+    const stats = productStats[product] || { ok:0, ng:0 };
+    const total = stats.ok + stats.ng;
+    const yieldRate = total ? Math.round(stats.ok / total * 100) : 0;
+    rows.push([product, stats.ok, stats.ng, total, `${yieldRate}%`]);
+  }
+  const csv = "\uFEFF" + rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type:"text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `defect-report-${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function initUserChip(){
+  const name = storageValue(["username", "user_name", "name", "email"]);
+  if(name) setText("userChip", `使用者：${name}`);
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  document.getElementById("addProductBtn")?.addEventListener("click", () => addProductDynamic(document.getElementById("productInput")?.value));
+  document.getElementById("productInput")?.addEventListener("keydown", event => {
+    if(event.key === "Enter") addProductDynamic(event.currentTarget.value);
+  });
+  initUserChip();
+  renderAll();
   await initSelectedProductsFromDB();
   startRealtimeUpdates();
 });
 </script>
-
 </body>
 </html>
