@@ -369,9 +369,9 @@
     }
 
     .status-ok{
-      color:#3ddc84;
-      background: rgba(34,197,94,.12);
-      border-color: rgba(34,197,94,.25);
+      color:#7fb3ff;
+      background: rgba(59,130,246,.14);
+      border-color: rgba(59,130,246,.28);
     }
 
     .defect-time{
@@ -612,6 +612,26 @@
       font-size:14px;
       font-weight:800;
       box-shadow: 0 8px 18px rgba(0,0,0,.12);
+    }
+
+    .authButton{
+      min-height:40px;
+      padding:0 14px;
+      border-radius:999px;
+      border:1px solid rgba(96,165,250,.38);
+      background:linear-gradient(180deg, rgba(59,130,246,.24), rgba(59,130,246,.12));
+      color:#eaf2ff;
+      font-size:14px;
+      font-weight:800;
+      cursor:pointer;
+      transition:background .2s ease, border-color .2s ease, transform .2s ease;
+    }
+    .authButton:hover{
+      background:linear-gradient(180deg, rgba(59,130,246,.38), rgba(59,130,246,.18));
+      border-color:rgba(147,197,253,.72);
+    }
+    .authButton:active{
+      transform:translateY(1px);
     }
 
     .systemSwitchWrap{
@@ -1029,6 +1049,87 @@
       font-size:12px;
       font-weight:700;
     }
+    .actionToolbar{
+      margin-top:12px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .reportActions{
+      display:flex;
+      align-items:flex-start;
+      gap:12px;
+      flex-wrap:wrap;
+      flex:1;
+    }
+    .reportActions .btn{
+      flex:0 0 auto;
+    }
+    .inlineProductTools{
+      min-width:280px;
+      flex:1;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .inlineProductTools .detectedProductsLine{
+      margin-top:0;
+    }
+    .inlineProductTools .categoryButtons{
+      margin-top:0;
+    }
+    .productGauge{
+      background:none !important;
+      max-width:240px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    .productGauge::after{
+      display:none;
+    }
+    .semiGaugeSvg{
+      width:100%;
+      height:100%;
+      display:block;
+      overflow:visible;
+    }
+    .semiGaugeTrack{
+      fill:none;
+      stroke:rgba(255,255,255,.12);
+      stroke-width:18;
+      stroke-linecap:round;
+    }
+    .semiGaugeOk{
+      fill:none;
+      stroke:#3b82f6;
+      stroke-width:18;
+      stroke-linecap:round;
+    }
+    .semiGaugeNg{
+      fill:none;
+      stroke:#ef4444;
+      stroke-width:18;
+      stroke-linecap:butt;
+    }
+    .semiGaugeValue{
+      position:absolute;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%);
+      z-index:2;
+      font-size:32px;
+      font-weight:900;
+      color:#eaf2ff;
+      pointer-events:none;
+    }
+    .gaugeSub{
+      line-height:1.55;
+    }
+    .okText{ color:#60a5fa; font-weight:800; }
+    .ngText{ color:#f87171; font-weight:800; }
     .defect-row{
       grid-template-columns:minmax(0,1fr) 150px 200px;
     }
@@ -1103,13 +1204,19 @@
             <span id="pageSubTitle">即時檢測畫面 + 系統狀態與數據</span>
             <div class="systemBar">
               <div class="userChip" id="userChip">使用者：未登入</div>
+              <button type="button" class="authButton" id="loginBtn">登入</button>
+              <button type="button" class="authButton" id="logoutBtn" style="display:none;">登出</button>
+
               <div class="systemSwitchWrap" id="tenantSwitchWrap" style="display:none;">
                 <label class="systemLabel">目前客戶</label>
                 <select id="tenantSelect" class="systemSelect"></select>
               </div>
-              <div class="systemSwitchWrap" id="systemSwitchWrap" style="display:none;">
+
+              <div class="systemSwitchWrap" id="systemSwitchWrap" style="display:flex;">
                 <label class="systemLabel">目前機台</label>
-                <select id="systemSelect" class="systemSelect"></select>
+                <select id="systemSelect" class="systemSelect">
+                  <option value="">讀取機台中...</option>
+                </select>
               </div>
             </div>
           </div>
@@ -1137,7 +1244,15 @@
               <div class="liveHint" id="liveHint">正在連接 ESP32-CAM...</div>
             </div>
             <div class="estopWrap"><button class="estopBig" onclick="demoEstop()">緊急停止</button></div>
-            <button class="btn" onclick="downloadCSV()">下載報表</button>
+            <div class="actionToolbar">
+              <div class="reportActions">
+                <button class="btn" onclick="downloadCSV()">下載報表</button>
+                <div class="inlineProductTools">
+                  <div class="detectedProductsLine">已偵測產品：<span data-product-list>尚未設定</span></div>
+                  <div id="categoryButtons" class="categoryButtons"></div>
+                </div>
+              </div>
+            </div>
             <div id="defect-list" class="defect-table"></div>
           </section>
 
@@ -1169,8 +1284,6 @@
               </div>
             </div>
 
-            <div class="detectedProductsLine">已偵測產品：<span data-product-list>尚未設定</span></div>
-            <div id="categoryButtons" class="categoryButtons"></div>
             <div class="productGaugeSectionTitle">各品項良率</div>
             <div id="dynamicProductGaugeArea"></div>
           </section>
@@ -1327,6 +1440,20 @@ function applyDefectRecord(record, { appendEvent = true, render = true } = {}){
   if(render) renderAll();
 }
 
+function buildSemiGaugeMarkup(okRate, ngRate, isEmpty = false){
+  const safeOk = Math.max(0, Math.min(100, Number(okRate) || 0));
+  const safeNg = Math.max(0, Math.min(100, Number(ngRate) || 0));
+  const okPart = isEmpty ? '' : `<path class="semiGaugeOk" d="M 20 100 A 80 80 0 0 1 180 100" pathLength="100" stroke-dasharray="${safeOk} ${Math.max(0, 100 - safeOk)}"></path>`;
+  const ngPart = isEmpty ? '' : `<path class="semiGaugeNg" d="M 20 100 A 80 80 0 0 1 180 100" pathLength="100" stroke-dasharray="${safeNg} ${Math.max(0, 100 - safeNg)}" stroke-dashoffset="-${safeOk}"></path>`;
+  return `
+    <svg class="semiGaugeSvg" viewBox="0 0 200 110" aria-hidden="true">
+      <path class="semiGaugeTrack" d="M 20 100 A 80 80 0 0 1 180 100" pathLength="100"></path>
+      ${okPart}
+      ${ngPart}
+    </svg>
+    <div class="semiGaugeValue">${safeOk}%</div>`;
+}
+
 function renderProductStats(){
   const gaugeArea = document.getElementById("dynamicProductGaugeArea");
   const tableArea = document.getElementById("dynamicProductRows");
@@ -1353,13 +1480,13 @@ function renderProductStats(){
     gaugeHtml.push(`
       <div class="gaugeBox">
         <div class="gaugeLabel">${escapeHtml(product)}</div>
-        <div class="gauge productGauge ${total === 0 ? 'gaugeEmpty' : ''}" style="--ok-p:${okRate}; --ng-p:${ngRate}"><div class="gaugeValue">${okRate}%</div></div>
-        <div class="gaugeSub">OK：${stats.ok}（${okRate}%）　|　NG：${stats.ng}（${ngRate}%）</div>
+        <div class="gauge productGauge ${total === 0 ? 'gaugeEmpty' : ''}">${buildSemiGaugeMarkup(okRate, ngRate, total === 0)}</div>
+        <div class="gaugeSub"><span class="okText">OK：${stats.ok}（${okRate}%）</span>　|　<span class="ngText">NG：${stats.ng}（${ngRate}%）</span></div>
       </div>`);
 
     rowHtml.push(`
       <div class="pt-row">
-        <div class="pt-name">${escapeHtml(product)}<div class="productYieldText">OK率：${okRate}%　NG率：${ngRate}%　總數：${total}</div></div>
+        <div class="pt-name">${escapeHtml(product)}<div class="productYieldText"><span class="okText">OK率：${okRate}%</span>　<span class="ngText">NG率：${ngRate}%</span>　總數：${total}</div></div>
         <div class="pt-ok">${stats.ok}</div>
         <div class="pt-ng">${stats.ng}</div>
       </div>`);
@@ -1565,9 +1692,231 @@ function downloadCSV(){
   URL.revokeObjectURL(url);
 }
 
-function initUserChip(){
-  const name = storageValue(["username", "user_name", "name", "email"]);
-  if(name) setText("userChip", `使用者：${name}`);
+// ------------------ 登入狀態與機台切換 ------------------
+function safeJsonParse(value, fallback = null){
+  if(!value) return fallback;
+  try{ return JSON.parse(value); }catch(_error){ return fallback; }
+}
+
+function readStorageJson(keys){
+  for(const key of keys){
+    const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
+    const parsed = safeJsonParse(raw, null);
+    if(parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function decodeJwtPayload(token){
+  if(!token || !token.includes(".")) return null;
+  try{
+    const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payload + "=".repeat((4 - payload.length % 4) % 4);
+    return JSON.parse(decodeURIComponent(Array.from(atob(padded)).map(char => `%${char.charCodeAt(0).toString(16).padStart(2, "0")}`).join("")));
+  }catch(_error){
+    return null;
+  }
+}
+
+function getLoginProfile(){
+  const storedUser = readStorageJson(["user", "currentUser", "profile", "loginUser"]);
+  const token = storageValue(["token", "access_token", "jwt"]);
+  const jwtUser = decodeJwtPayload(token) || {};
+  const user = storedUser && typeof storedUser === "object" ? storedUser : {};
+  const name = user.username || user.name || user.email || jwtUser.username || jwtUser.name || jwtUser.email || storageValue(["username", "user_name", "name", "email"]);
+  const role = user.role || jwtUser.role || storageValue(["role", "userRole"]);
+  return { name, role, token, raw:{ ...jwtUser, ...user } };
+}
+
+function normalizeCollection(payload, candidateKeys = []){
+  if(Array.isArray(payload)) return payload;
+  for(const key of candidateKeys){
+    if(Array.isArray(payload?.[key])) return payload[key];
+    if(Array.isArray(payload?.data?.[key])) return payload.data[key];
+  }
+  if(Array.isArray(payload?.data)) return payload.data;
+  if(Array.isArray(payload?.items)) return payload.items;
+  return [];
+}
+
+function normalizeTenant(item){
+  if(typeof item === "string") return { id:item, name:item };
+  const id = item?._id || item?.tenant_id || item?.tenantId || item?.id || item?.value || "";
+  const name = item?.tenant_name || item?.tenantName || item?.name || item?.label || id;
+  return id ? { id:String(id), name:String(name || id), raw:item } : null;
+}
+
+function normalizeSystem(item){
+  if(typeof item === "string") return { id:item, name:item };
+  const id = item?._id || item?.system_id || item?.systemId || item?.machine_id || item?.machineId || item?.id || item?.value || "";
+  const name = item?.system_name || item?.systemName || item?.machine_name || item?.machineName || item?.name || item?.label || id;
+  const tenantId = item?.tenant_id || item?.tenantId || item?.tenant?._id || item?.tenant?.id || "";
+  return id ? { id:String(id), name:String(name || id), tenantId:String(tenantId || ""), raw:item } : null;
+}
+
+function uniqueById(items){
+  const map = new Map();
+  for(const item of items){
+    if(item?.id && !map.has(item.id)) map.set(item.id, item);
+  }
+  return [...map.values()];
+}
+
+async function optionalApiJson(url){
+  try{
+    const token = storageValue(["token", "access_token", "jwt"]);
+    const headers = token ? { Authorization:`Bearer ${token}` } : {};
+    const response = await fetch(url, { headers });
+    if(!response.ok) return null;
+    return await response.json();
+  }catch(_error){
+    return null;
+  }
+}
+
+async function fetchFirstAvailable(paths){
+  for(const path of paths){
+    const payload = await optionalApiJson(new URL(path, API_BASE).toString());
+    if(payload !== null) return payload;
+  }
+  return null;
+}
+
+function writeSelectionStorage(kind, value){
+  const keys = kind === "tenant"
+    ? ["currentTenantId", "selectedTenantId", "tenant_id", "tenantId"]
+    : ["currentSystemId", "selectedSystemId", "system_id", "systemId"];
+  for(const key of keys){
+    sessionStorage.setItem(key, value || "");
+    localStorage.setItem(key, value || "");
+  }
+}
+
+function renderSelectOptions(select, items, selectedId, emptyText){
+  if(!select) return "";
+  select.innerHTML = "";
+  if(!items.length){
+    const option = document.createElement("option");
+    option.value = selectedId || "";
+    option.textContent = selectedId || emptyText;
+    select.appendChild(option);
+    select.disabled = !selectedId;
+    return selectedId || "";
+  }
+  select.disabled = false;
+  for(const item of items){
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = item.name || item.id;
+    select.appendChild(option);
+  }
+  const hasStored = selectedId && items.some(item => item.id === selectedId);
+  select.value = hasStored ? selectedId : items[0].id;
+  return select.value;
+}
+
+function resetDashboardRecords(){
+  selectedProducts = [];
+  productStats = Object.create(null);
+  defectRecords = [];
+  seenDefectKeys.clear();
+  const list = document.getElementById("defect-list");
+  if(list) list.innerHTML = "";
+  renderAll();
+}
+
+async function reloadDashboardForSelectedMachine(){
+  if(eventSource){
+    eventSource.close();
+    eventSource = null;
+  }
+  resetDashboardRecords();
+  await initSelectedProductsFromDB();
+  startRealtimeUpdates();
+}
+
+async function loadTenantOptions(profile){
+  const select = document.getElementById("tenantSelect");
+  const wrap = document.getElementById("tenantSwitchWrap");
+  if(!select || !wrap) return [];
+
+  const storedCandidates = [
+    ...(normalizeCollection(readStorageJson(["tenants", "availableTenants", "userTenants"]), ["tenants"]) || []),
+    ...(normalizeCollection(profile?.raw, ["tenants", "availableTenants"] ) || [])
+  ];
+  const apiPayload = await fetchFirstAvailable(["/api/tenants", "/api/admin/tenants", "/api/user/tenants"]);
+  const apiCandidates = normalizeCollection(apiPayload, ["tenants", "items"]);
+  const tenants = uniqueById([...storedCandidates, ...apiCandidates].map(normalizeTenant).filter(Boolean));
+  const storedTenantId = getCurrentTenantId();
+  const selectedTenantId = renderSelectOptions(select, tenants, storedTenantId, "尚未設定客戶");
+  if(selectedTenantId) writeSelectionStorage("tenant", selectedTenantId);
+  wrap.style.display = tenants.length > 0 || Boolean(storedTenantId) ? "flex" : "none";
+  return tenants;
+}
+
+async function loadSystemOptions(profile){
+  const select = document.getElementById("systemSelect");
+  const wrap = document.getElementById("systemSwitchWrap");
+  if(!select || !wrap) return [];
+
+  const tenantId = getCurrentTenantId();
+  const suffix = tenantId ? `?tenant_id=${encodeURIComponent(tenantId)}` : "";
+  const storedCandidates = [
+    ...(normalizeCollection(readStorageJson(["systems", "availableSystems", "userSystems", "machines", "machineList"]), ["systems", "machines"]) || []),
+    ...(normalizeCollection(profile?.raw, ["systems", "machines", "availableSystems"] ) || [])
+  ];
+  const apiPayload = await fetchFirstAvailable([`/api/systems${suffix}`, `/api/machines${suffix}`, `/api/user/systems${suffix}`]);
+  const apiCandidates = normalizeCollection(apiPayload, ["systems", "machines", "items"]);
+  let systems = uniqueById([...storedCandidates, ...apiCandidates].map(normalizeSystem).filter(Boolean));
+  if(tenantId && systems.some(item => item.tenantId)) systems = systems.filter(item => !item.tenantId || item.tenantId === tenantId);
+  const storedSystemId = getCurrentSystemId();
+  const selectedSystemId = renderSelectOptions(select, systems, storedSystemId, "尚未設定機台");
+  if(selectedSystemId) writeSelectionStorage("system", selectedSystemId);
+  wrap.style.display = "flex";
+  return systems;
+}
+
+function updateAuthControls(profile){
+  const hasLogin = Boolean(profile?.token || profile?.name);
+  setText("userChip", hasLogin ? `使用者：${profile.name || "已登入"}` : "使用者：未登入");
+  const loginBtn = document.getElementById("loginBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+  if(loginBtn) loginBtn.style.display = hasLogin ? "none" : "inline-flex";
+  if(logoutBtn) logoutBtn.style.display = hasLogin ? "inline-flex" : "none";
+
+  const isAdmin = ["admin", "super_admin", "superadmin"].includes(String(profile?.role || "").toLowerCase());
+  document.getElementById("adminNavLink")?.style.setProperty("display", isAdmin ? "flex" : "none");
+  document.getElementById("adminNavLinkDrawer")?.style.setProperty("display", isAdmin ? "flex" : "none");
+}
+
+function bindAuthButtons(){
+  document.getElementById("loginBtn")?.addEventListener("click", () => { window.location.href = "login.html"; });
+  document.getElementById("logoutBtn")?.addEventListener("click", () => {
+    ["token", "access_token", "jwt", "user", "currentUser", "profile", "loginUser", "username", "user_name", "name", "email", "role", "userRole"].forEach(key => {
+      sessionStorage.removeItem(key);
+      localStorage.removeItem(key);
+    });
+    window.location.href = "login.html";
+  });
+}
+
+async function initLoginAndMachineSelectors(){
+  const profile = getLoginProfile();
+  updateAuthControls(profile);
+  bindAuthButtons();
+  await loadTenantOptions(profile);
+  await loadSystemOptions(profile);
+
+  document.getElementById("tenantSelect")?.addEventListener("change", async event => {
+    writeSelectionStorage("tenant", event.currentTarget.value);
+    await loadSystemOptions(profile);
+    await reloadDashboardForSelectedMachine();
+  });
+
+  document.getElementById("systemSelect")?.addEventListener("change", async event => {
+    writeSelectionStorage("system", event.currentTarget.value);
+    await reloadDashboardForSelectedMachine();
+  });
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -1575,7 +1924,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("productInput")?.addEventListener("keydown", event => {
     if(event.key === "Enter") addProductDynamic(event.currentTarget.value);
   });
-  initUserChip();
+  await initLoginAndMachineSelectors();
   renderAll();
   await initSelectedProductsFromDB();
   startRealtimeUpdates();
