@@ -166,11 +166,39 @@
       border-radius: 999px 999px 0 0;
       position:relative;
       overflow:hidden;
+    }
+
+    /* 後端資料總數：藍色進度，剩餘區段維持灰色 */
+    .countGauge{
       background:
         conic-gradient(
-          from 180deg,
-          rgba(59,130,246,.95) calc(var(--p) * 1%),
-          rgba(255,255,255,.10) 0
+          from 270deg at 50% 100%,
+          rgba(59,130,246,.95) 0deg calc(var(--p) * 1.8deg),
+          rgba(255,255,255,.10) calc(var(--p) * 1.8deg) 180deg,
+          transparent 180deg 360deg
+        );
+    }
+
+    /* 各產品比例：OK 為藍色、NG 為紅色 */
+    .productGauge{
+      --ok-p: 0;
+      --ng-p: 0;
+      background:
+        conic-gradient(
+          from 270deg at 50% 100%,
+          rgba(59,130,246,.98) 0deg calc(var(--ok-p) * 1.8deg),
+          rgba(239,68,68,.96) calc(var(--ok-p) * 1.8deg) calc((var(--ok-p) + var(--ng-p)) * 1.8deg),
+          transparent calc((var(--ok-p) + var(--ng-p)) * 1.8deg) 360deg
+        );
+    }
+
+    /* 尚未收到任何檢測資料時，不顯示成 NG，而是灰色 */
+    .productGauge.gaugeEmpty{
+      background:
+        conic-gradient(
+          from 270deg at 50% 100%,
+          rgba(255,255,255,.10) 0deg 180deg,
+          transparent 180deg 360deg
         );
     }
 
@@ -212,7 +240,7 @@
 .gaugeBar > div{
   height:100%;
   width: 0%;
-  background: rgba(34,197,94,.85);
+  background: rgba(59,130,246,.92);
   border-radius:999px;
   transition: width .35s ease;
 }
@@ -449,9 +477,9 @@
     }
 
     .pt-ok{
-      color:#3ddc84;
-      background: rgba(34,197,94,.12);
-      border:1px solid rgba(34,197,94,.28);
+      color:#7fb3ff;
+      background: rgba(59,130,246,.16);
+      border:1px solid rgba(59,130,246,.42);
     }
 
     .pt-ng{
@@ -1118,7 +1146,7 @@
             <div class="statusTopRow">
               <div class="gaugeCard">
                 <div class="gaugeTitle">後端資料總數</div>
-                <div class="gauge" id="gauge" style="--p:0"><div class="gaugeValue" id="gaugeValue">0</div></div>
+                <div class="gauge countGauge" id="gauge" style="--p:0"><div class="gaugeValue" id="gaugeValue">0</div></div>
                 <div class="gaugeSubTitle">總筆數</div>
                 <div class="gaugeBar smallGaugeBar"><div id="gaugeBarFill" style="width:0%"></div></div>
               </div>
@@ -1314,20 +1342,24 @@ function renderProductStats(){
   for(const product of products){
     const stats = productStats[product] || { ok:0, ng:0, total:0 };
     const total = stats.ok + stats.ng;
-    const yieldRate = total ? Math.round((stats.ok / total) * 100) : 0;
+    // OK 率：OK / (OK + NG) × 100%
+    // NG 率：NG / (OK + NG) × 100%
+    const okRate = total ? Math.round((stats.ok / total) * 100) : 0;
+    const ngRate = total ? Math.round((stats.ng / total) * 100) : 0;
+    const yieldRate = okRate;
     totalOK += stats.ok;
     totalNG += stats.ng;
 
     gaugeHtml.push(`
       <div class="gaugeBox">
         <div class="gaugeLabel">${escapeHtml(product)}</div>
-        <div class="gauge" style="--p:${yieldRate}"><div class="gaugeValue">${yieldRate}%</div></div>
-        <div class="gaugeSub">OK：${stats.ok}　|　NG：${stats.ng}</div>
+        <div class="gauge productGauge ${total === 0 ? 'gaugeEmpty' : ''}" style="--ok-p:${okRate}; --ng-p:${ngRate}"><div class="gaugeValue">${okRate}%</div></div>
+        <div class="gaugeSub">OK：${stats.ok}（${okRate}%）　|　NG：${stats.ng}（${ngRate}%）</div>
       </div>`);
 
     rowHtml.push(`
       <div class="pt-row">
-        <div class="pt-name">${escapeHtml(product)}<div class="productYieldText">良率：${yieldRate}%　總數：${total}</div></div>
+        <div class="pt-name">${escapeHtml(product)}<div class="productYieldText">OK率：${okRate}%　NG率：${ngRate}%　總數：${total}</div></div>
         <div class="pt-ok">${stats.ok}</div>
         <div class="pt-ng">${stats.ng}</div>
       </div>`);
@@ -1337,7 +1369,7 @@ function renderProductStats(){
   tableArea.innerHTML = rowHtml.length ? rowHtml.join("") : '<div class="emptyState" style="margin:12px; width:auto;">尚未有產品資料</div>';
 
   const total = totalOK + totalNG;
-  const yieldRate = total ? Math.round((totalOK / total) * 100) : 0;
+  const yieldRate = total ? Math.round((totalOK / (totalOK + totalNG)) * 100) : 0;
   const defectRate = total ? Math.round((totalNG / total) * 100) : 0;
   const latest20Ng = sortNewestFirst(defectRecords).slice(0,20).filter(item => item.status === "NG").length;
 
@@ -1515,12 +1547,13 @@ function demoEstop(){
 }
 
 function downloadCSV(){
-  const rows = [["產品", "OK", "NG", "總數", "良率"]];
+  const rows = [["產品", "OK", "NG", "總數", "OK率", "NG率"]];
   for(const product of selectedProducts){
     const stats = productStats[product] || { ok:0, ng:0 };
     const total = stats.ok + stats.ng;
-    const yieldRate = total ? Math.round(stats.ok / total * 100) : 0;
-    rows.push([product, stats.ok, stats.ng, total, `${yieldRate}%`]);
+    const okRate = total ? Math.round(stats.ok / total * 100) : 0;
+    const ngRate = total ? Math.round(stats.ng / total * 100) : 0;
+    rows.push([product, stats.ok, stats.ng, total, `${okRate}%`, `${ngRate}%`]);
   }
   const csv = "\uFEFF" + rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\r\n");
   const blob = new Blob([csv], { type:"text/csv;charset=utf-8" });
