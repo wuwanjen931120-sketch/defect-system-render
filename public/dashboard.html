@@ -185,6 +185,19 @@
     }
     .gaugeBox .gauge{width:170px;margin-top:7px}.gaugeBox .gaugeValue{font-size:25px}
     .gaugeLabel{font-size:13px;font-weight:900}.rateBlue{color:#80b8ff}.rateRed{color:var(--bad)}
+    /* 各品項 Gauge：藍色代表 OK 良率，紅色代表 NG 率。NG 較多時會以紅色為主。 */
+    .qualityGauge{
+      --ok-stop:0%;
+      --total-stop:0%;
+      background:conic-gradient(
+        from 180deg,
+        rgba(59,130,246,.98) 0 var(--ok-stop),
+        rgba(239,68,68,.98) var(--ok-stop) var(--total-stop),
+        rgba(255,255,255,.10) var(--total-stop) 100%
+      );
+    }
+    .qualityGauge .gaugeValue.isNgHigher{color:var(--bad)}
+    .qualityGauge .gaugeValue.isOkHigher{color:#dbeafe}
 
     .productStatsCard{grid-column:1/-1}
     .productTableCard{overflow:auto;border-radius:14px;border:1px solid var(--line)}
@@ -382,13 +395,15 @@
  * 1. 載入 MongoDB 舊有事件紀錄，不再只有新加入產品的 0 筆資料。
  * 2. 統計依 tenant_id + system_id 分機台計算。
  * 3. 良率 = OK / (OK + NG) * 100%；NG 率 = NG / (OK + NG) * 100%。
- * 4. SSE 新事件到達時，會加入目前機台統計並即時更新畫面。
+ * 4. SSE 新事件到達時立即更新；另外每 1.2 秒從 API 自動同步，無須按重新整理。
+ * 5. 各品項 Gauge 同時顯示藍色 OK 區段與紅色 NG 區段。
  */
 
 const API_BASE = window.location.origin;
 const DEFECT_LIST_ENDPOINTS = ["/api/defects", "/api/logs"];
 const DEFECT_STREAM_ENDPOINT = "/api/defects/stream";
 const MAX_VISIBLE_EVENTS = 10;
+const POLL_INTERVAL_MS = 1200; // SSE 之外，每 1.2 秒向 MongoDB API 自動同步一次
 
 const state = {
   tenantOptions: [],
@@ -398,6 +413,8 @@ const state = {
   productStats: {},
   filterProduct: "",
   eventSource: null,
+  pollTimer: null,
+  pollBusy: false,
   loadSerial: 0,
   warnedUntagged: false
 };
@@ -426,7 +443,7 @@ async function fetchJson(url, options = {}){
   const headers = Object.assign({Accept:"application/json"}, options.headers || {});
   const token = getToken();
   if(token && !headers.Authorization) headers.Authorization = `Bearer ${token}`;
-  const response = await fetch(url, Object.assign({}, options, {headers}));
+  const response = await fetch(url, Object.assign({cache:"no-store"}, options, {headers}));
   if(!response.ok) throw new Error(`${response.status} ${response.statusText}`);
   const contentType = response.headers.get("content-type") || "";
   if(!contentType.includes("application/json")) throw new Error("API 回傳格式不是 JSON");
@@ -447,8 +464,37 @@ function recordProduct(record){ return normalizeProductName(record.product ?? re
 function recordStatus(record){ return upper(record.status ?? record.result ?? record.quality ?? record.state); }
 function recordTime(record){ return record.timestamp ?? record.createdAt ?? record.created_at ?? record.time ?? record.date ?? ""; }
 function recordId(record){ return asText(record.id ?? record._id ?? record.defect_id ?? record.defectId ?? record.uuid); }
+function recordMongoId(record){ return asText(record._id ?? record.mongo_id ?? record.mongoId); }
 function recordKey(record){
-  return recordId(record) || [recordTenantId(record),recordSystemId(record),recordProduct(record),recordStatus(record),asText(recordTime(record))].join("|");
+  /*
+   * MongoDB 的 _id 才是真正唯一值。
+   * 測試時常會重複使用 id，例如 case_001；不能只用 id 判斷重複，
+   * 否則新送出的 OK / NG 會被首頁誤判成舊資料而不更新。
+   */
+  const mongoId = recordMongoId(record);
+  if(mongoId) return `mongo:${mongoId}`;
+  return [
+    `id:${recordId(record)}`,
+    recordTenantId(record),
+    recordSystemId(record),
+    recordProduct(record),
+    recordStatus(record),
+    asText(recordTime(record)),
+    asText(record._dashboardReceivedAt ?? record.receivedAt ?? record.received_at)
+  ].join("|");
+}
+function recordSignature(record){
+  return [recordKey(record),recordProduct(record),recordStatus(record),asText(recordTime(record))].join("|");
+}
+function dedupeRecords(records){
+  const map = new Map();
+  safeArray(records).forEach(record => {
+    if(record && typeof record === "object") map.set(recordKey(record),record);
+  });
+  return [...map.values()];
+}
+function recordsSignature(records){
+  return safeArray(records).map(recordSignature).sort().join("\n");
 }
 function formatTime(value){
   if(!value) return "-";
@@ -712,10 +758,14 @@ function renderProductStats(){
     const total = item.ok + item.ng;
     const yieldRate = percent(item.ok,total);
     const ngRate = percent(item.ng,total);
+    const hasData = total > 0;
+    const valueClass = ngRate > yieldRate ? "isNgHigher" : "isOkHigher";
+    const okStop = hasData ? `${yieldRate}%` : "0%";
+    const totalStop = hasData ? "100%" : "0%";
     return `
       <div class="gaugeBox">
         <div class="gaugeLabel">${escapeHtml(product)}</div>
-        <div class="gauge" style="--p:${yieldRate}"><div class="gaugeValue">${percentText(yieldRate)}</div></div>
+        <div class="gauge qualityGauge" style="--ok-stop:${okStop};--total-stop:${totalStop}"><div class="gaugeValue ${valueClass}">${percentText(yieldRate)}</div></div>
         <div class="gaugeSub"><span class="rateBlue">良率 ${percentText(yieldRate)}</span> ｜ <span class="rateRed">NG 率 ${percentText(ngRate)}</span><br>OK：${item.ok} ｜ NG：${item.ng}</div>
       </div>`;
   }).join("");
@@ -780,9 +830,51 @@ function updateScopeHint(rawCount, scopedCount){
   byId("machineScopeHint").textContent = `目前只統計客戶 ${tenant}／機台 ${system}：從 ${rawCount} 筆 API 資料中載入 ${scopedCount} 筆。切換機台後會重新讀取舊資料。`;
 }
 
+function applyMachineRecords(raw, options = {}){
+  const previousSignature = recordsSignature(state.defects);
+  const scoped = safeArray(raw).filter(belongsToCurrentScope);
+  state.defects = dedupeRecords(scoped);
+  const nextSignature = recordsSignature(state.defects);
+  const changed = previousSignature !== nextSignature;
+
+  if(changed || options.forceRender){
+    rebuildStatistics();
+    renderProductStats();
+    renderEventRows();
+  }
+  updateScopeHint(safeArray(raw).length,state.defects.length);
+  return changed;
+}
+
+async function pollMachineData(){
+  if(state.pollBusy) return;
+  state.pollBusy = true;
+  try{
+    const raw = await fetchDefectsForCurrentMachine();
+    const changed = applyMachineRecords(raw);
+    if(changed) setDataStatus("online","資料已即時更新");
+    else if(!state.eventSource || state.eventSource.readyState !== EventSource.OPEN) setDataStatus("online","自動同步中");
+  }catch(error){
+    console.warn("自動同步暫時失敗",error.message);
+    if(!state.eventSource || state.eventSource.readyState !== EventSource.OPEN) setDataStatus("","自動同步重試中...");
+  }finally{
+    state.pollBusy = false;
+  }
+}
+
+function closePollingUpdates(){
+  if(state.pollTimer){ clearInterval(state.pollTimer); state.pollTimer = null; }
+}
+
+function startPollingUpdates(){
+  closePollingUpdates();
+  state.pollTimer = setInterval(pollMachineData,POLL_INTERVAL_MS);
+}
+
 async function reloadMachineData(){
   const serial = ++state.loadSerial;
   closeRealtimeUpdates();
+  closePollingUpdates();
   showError("");
   setDataStatus("", "正在讀取目前機台舊資料...");
   byId("defect-list").innerHTML = '<div class="emptyText">正在載入 MongoDB 舊有事件紀錄...</div>';
@@ -790,19 +882,11 @@ async function reloadMachineData(){
     const raw = await fetchDefectsForCurrentMachine();
     if(serial !== state.loadSerial) return;
     const untagged = raw.filter(record => !recordSystemId(record)).length;
-    state.defects = raw.filter(belongsToCurrentScope);
-    const deduped = new Map();
-    state.defects.forEach(record => deduped.set(recordKey(record),record));
-    state.defects = [...deduped.values()];
-    rebuildStatistics();
-    renderProductStats();
-    renderEventRows();
-    updateScopeHint(raw.length,state.defects.length);
-    setDataStatus("online", "舊資料已載入，等待即時更新");
+    applyMachineRecords(raw,{forceRender:true});
+    setDataStatus("online", "舊資料已載入，開始即時同步");
     if(untagged && !allowUntaggedRecords()){
       showError(`注意：有 ${untagged} 筆舊資料缺少 system_id，因此無法自動分配到機台。請在後端或 MongoDB 補上 system_id。`);
     }
-    startRealtimeUpdates();
   }catch(error){
     console.error(error);
     state.defects = [];
@@ -812,7 +896,10 @@ async function reloadMachineData(){
     updateScopeHint(0,0);
     setDataStatus("offline", "無法載入舊資料");
     showError(`讀取舊有事件紀錄失敗：${error.message}。請確認後端存在 /api/defects，且 Render 已完成部署。`);
+  }finally{
+    /* SSE 速度最快；API 輪詢是備援。即使 SSE 尚未接好，首頁仍會自動更新。 */
     startRealtimeUpdates();
+    startPollingUpdates();
   }
 }
 
@@ -828,6 +915,7 @@ function addProductDynamic(name){
 
 function addRealtimeRecord(record){
   if(!record || typeof record !== "object" || !belongsToCurrentScope(record)) return;
+  if(!recordTime(record)) record._dashboardReceivedAt = new Date().toISOString();
   const key = recordKey(record);
   const exists = state.defects.some(item => recordKey(item) === key);
   if(exists) return;
@@ -836,6 +924,9 @@ function addRealtimeRecord(record){
   renderProductStats();
   renderEventRows();
   updateScopeHint(state.defects.length,state.defects.length);
+  setDataStatus("online","收到即時資料");
+  /* SSE 收到後再快速對 MongoDB 對帳，避免畫面與後端資料不同步。 */
+  setTimeout(pollMachineData,180);
 }
 
 function closeRealtimeUpdates(){
@@ -852,8 +943,11 @@ function startRealtimeUpdates(){
     state.eventSource = stream;
     stream.onopen = () => setDataStatus("online","即時資料連線中");
     stream.onmessage = event => {
-      try{ addRealtimeRecord(JSON.parse(event.data)); }
-      catch(error){ console.warn("SSE 資料格式錯誤",error); }
+      try{
+        const payload = JSON.parse(event.data);
+        const record = payload && typeof payload.data === "object" && !Array.isArray(payload.data) ? payload.data : payload;
+        addRealtimeRecord(record);
+      }catch(error){ console.warn("SSE 資料格式錯誤",error); }
     };
     stream.onerror = () => setDataStatus("","即時連線重試中...");
   }catch(error){ console.warn("無法建立 SSE",error); }
@@ -933,7 +1027,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   await reloadMachineData();
 });
 
-window.addEventListener("beforeunload",closeRealtimeUpdates);
+window.addEventListener("beforeunload",() => {
+  closeRealtimeUpdates();
+  closePollingUpdates();
+});
 </script>
 </body>
 </html>
