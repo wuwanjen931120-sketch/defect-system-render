@@ -1,1132 +1,291 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  
   <meta charset="UTF-8" />
-
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>瑕疵辨識與分流系統 - 首頁</title>
 
+  <!-- 保留原專案共用樣式；本檔內也有完整備援樣式 -->
   <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <style>
-    .page-bg {
-      background: linear-gradient(180deg, rgba(60,140,210,.35), rgba(11,18,32,0) 55%);
-      border-radius: 18px;
-      padding: 14px;
+    :root{
+      --bg:#08111f;
+      --panel:#11233b;
+      --panel2:#0d1b2e;
+      --line:rgba(255,255,255,.11);
+      --text:#e7eefc;
+      --muted:#9bb0cf;
+      --good:#3ddc84;
+      --bad:#ff6b6b;
+      --blue:#60a5fa;
+      --shadow:0 16px 38px rgba(0,0,0,.22);
     }
 
-    .heroGrid{
-      display:grid;
-      grid-template-columns: 1.25fr 1fr;
-      gap:14px;
-      align-items:stretch;
-      margin-top:14px;
-    }
-
-    .liveCard{
-      background: rgba(18,35,59,.75);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius: 18px;
-      box-shadow: var(--shadow);
-      padding: 12px;
-    }
-
-    .liveTitle{
-      font-weight:800;
-      font-size:18px;
-      margin: 2px 0 10px;
-      letter-spacing:.5px;
-    }
-
-    .liveFrame{
-      border-radius: 16px;
-      border: 3px solid rgba(121, 89, 255, .85);
-      background: rgba(0,0,0,.25);
-      overflow:hidden;
-      position:relative;
-      aspect-ratio: 16 / 9;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    .liveFrame img,
-    .liveFrame video,
-    .liveFrame canvas{
-      width:100%;
-      height:100%;
-      display:block;
-      filter:none !important;
-    }
-
-    .liveFrame video{
-      object-fit: contain;
-    }
-
-    .liveHint{
-      position:absolute;
-      inset:auto 10px 10px 10px;
-      font-size:12px;
-      color:rgba(231,238,252,.78);
-      background: rgba(0,0,0,.35);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius: 12px;
-      padding:8px 10px;
-      backdrop-filter: blur(6px);
-    }
-
-    .estopWrap{
-      margin-top:12px;
-      display:flex;
-      justify-content:center;
-    }
-
-    .estopBig{
-      width:min(560px, 100%);
-      padding: 18px 18px;
-      border-radius: 18px;
-      border: none;
-      cursor:pointer;
-      font-size: 30px;
-      font-weight: 900;
-      letter-spacing: 2px;
-      color:#fff;
-      background: #ff2d2d;
-      box-shadow: 0 18px 40px rgba(255,45,45,.25);
-      animation: pulseRed 1.8s infinite;
-    }
-
-    .estopBig:active{
-      transform: translateY(1px);
-    }
-
-    .statusCard{
-      background: rgba(18,35,59,.75);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius: 18px;
-      box-shadow: var(--shadow);
-      padding: 12px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-
-    .gaugeBox{
-  background: rgba(0,0,0,.18);
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:16px;
-  padding:12px;
-  width: 260px;
-  min-height: 210px;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-  align-items:center;
-}
-
-#dynamicProductGaugeArea{
-  display:flex;
-  flex-wrap:wrap;
-  gap:12px;
-  align-items:flex-start;
-  justify-content:flex-start;
-}
-
-#dynamicProductGaugeArea .gaugeBox{
-  width:260px;
-  flex:0 0 260px;
-}
-
-#dynamicProductGaugeArea .gauge{
-  width:100%;
-  max-width:220px;
-}
-
-#dynamicProductGaugeArea .gaugeLabel{
-  width:100%;
-  text-align:left;
-  color:rgba(231,238,252,.92);
-  font-size:14px;
-  font-weight:800;
-}
-
-    .gaugeLabel{
-      color: var(--muted);
-      font-size:13px;
-      font-weight:600;
-    }
-
-    .gauge{
-      --p: 0;
-      width: 100%;
-      max-width: 260px;
-      margin: 8px auto 2px;
-      aspect-ratio: 2 / 1;
-      border-radius: 999px 999px 0 0;
-      position:relative;
-      overflow:hidden;
-    }
-
-    /* 後端資料總數：藍色進度，剩餘區段維持灰色 */
-    .countGauge{
-      background:
-        conic-gradient(
-          from 270deg at 50% 100%,
-          rgba(59,130,246,.95) 0deg calc(var(--p) * 1.8deg),
-          rgba(255,255,255,.10) calc(var(--p) * 1.8deg) 180deg,
-          transparent 180deg 360deg
-        );
-    }
-
-    /* 各產品比例：OK 為藍色、NG 為紅色 */
-    .productGauge{
-      --ok-p: 0;
-      --ng-p: 0;
-      background:
-        conic-gradient(
-          from 270deg at 50% 100%,
-          rgba(59,130,246,.98) 0deg calc(var(--ok-p) * 1.8deg),
-          rgba(239,68,68,.96) calc(var(--ok-p) * 1.8deg) calc((var(--ok-p) + var(--ng-p)) * 1.8deg),
-          transparent calc((var(--ok-p) + var(--ng-p)) * 1.8deg) 360deg
-        );
-    }
-
-    /* 尚未收到任何檢測資料時，不顯示成 NG，而是灰色 */
-    .productGauge.gaugeEmpty{
-      background:
-        conic-gradient(
-          from 270deg at 50% 100%,
-          rgba(255,255,255,.10) 0deg 180deg,
-          transparent 180deg 360deg
-        );
-    }
-
-    .gauge::after{
-      content:"";
-      position:absolute;
-      inset: 12% 12% 0 12%;
-      background: rgba(18,35,59,.95);
-      border-radius: 999px 999px 0 0;
-      border:1px solid rgba(255,255,255,.08);
-    }
-
-    .gaugeValue{
-      position:absolute;
-      left:50%;
-      bottom: 8px;
-      transform: translateX(-50%);
-      z-index:2;
-      font-size:34px;
-      font-weight:900;
-    }
-
-    .gaugeSub{
-      text-align:center;
-      margin-top:-2px;
-      color: var(--muted);
-      font-size:12px;
-      font-weight:600;
-    }
-
-   .gaugeBar{
-  height:12px;
-  border-radius:999px;
-  background: rgba(255,255,255,.10);
-  overflow:hidden;
-  border:1px solid rgba(255,255,255,.10);
-}
-
-.gaugeBar > div{
-  height:100%;
-  width: 0%;
-  background: rgba(59,130,246,.92);
-  border-radius:999px;
-  transition: width .35s ease;
-}
-
-.smallGaugeBar{
-  width:120px;
-  margin-top:8px;
-}
-
-    .areaCard{
-      background: rgba(0,0,0,.18);
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:16px;
-      padding:12px;
-      min-height:120px;
-      display:flex;
-      flex-direction:column;
-      justify-content:space-between;
-      gap:6px;
-    }
-
-    .areaTop{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-    }
-
-    .areaName{
-      font-size:13px;
-      color: rgba(231,238,252,.92);
-      font-weight:800;
-      line-height:1.3;
-    }
-
-    .areaSub{
-      font-size:12px;
-      color: var(--muted);
-      margin-top:2px;
-    }
-
-    .defectCard{
-      grid-column: 1 / -1;
-      background: rgba(0,0,0,.18);
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:16px;
-      padding:12px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      min-height: 88px;
-    }
-
-    .defectLeft{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      color: var(--muted);
-      font-weight:700;
-    }
-
-    .warnIcon{
-      width:22px;
-      height:22px;
-      border-radius:6px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      color:#ff6b6b;
-      background: rgba(239,68,68,.12);
-      border:1px solid rgba(239,68,68,.25);
-      font-weight:900;
-    }
-
-    .defectValue{
-      font-size:34px;
-      font-weight:900;
-      color: rgba(239,68,68,.95);
-    }
-
-    .defect-table{
-      grid-column: 1 / -1;
-      background: rgba(0,0,0,.18);
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:16px;
-      padding:10px;
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      min-height: 80px;
-      max-height: 300px;
-      overflow-y: auto;
-    }
-
-    .defect-row{
-      display:grid;
-      grid-template-columns: 1fr 120px 220px;
-      gap:10px;
-      align-items:center;
-      padding:10px 12px;
-      border-radius:12px;
-      background: rgba(255,255,255,.04);
-      border:1px solid rgba(255,255,255,.06);
-      font-size:14px;
-    }
-
-    .defect-id{
-      font-weight:700;
-      color: rgba(231,238,252,.95);
-      word-break:break-all;
-    }
-
-    .defect-status{
-      font-weight:800;
-      text-align:center;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.10);
-    }
-
-    .status-ng{
-      color:#ff8080;
-      background: rgba(239,68,68,.12);
-      border-color: rgba(239,68,68,.25);
-    }
-
-    .status-ok{
-      color:#3ddc84;
-      background: rgba(34,197,94,.12);
-      border-color: rgba(34,197,94,.25);
-    }
-
-    .defect-time{
-      color: var(--muted);
-      text-align:right;
-      font-size:13px;
-    }
-
-    #errorBar{
-      margin-top:14px;
-      color:#ffb4b4;
-      font-weight:700;
-    }
-
-    .statusGrid2x2{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-      align-items:stretch;
-    }
-
-    .productTitleLine{
-      margin-top:14px;
-      padding-top:16px;
-      border-top:1px solid rgba(255,255,255,.10);
-      font-weight:900;
-      font-size:20px;
-      letter-spacing:.6px;
-      color:rgba(255,255,255,.95);
-    }
-
-    .productTableCard{
-      margin-top:12px;
-      background: rgba(255,255,255,.03);
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:16px;
-      overflow:hidden;
-      box-shadow: 0 10px 24px rgba(0,0,0,.18);
-    }
-
-    .productTableHeader{
-      display:flex;
-      align-items:end;
-      justify-content:space-between;
-      gap:12px;
-      padding:14px 16px 10px;
-      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-      border-bottom:1px solid rgba(255,255,255,.08);
-    }
-
-    .productTableTitle{
-      font-size:16px;
-      font-weight:900;
-      color:rgba(255,255,255,.96);
-      letter-spacing:.4px;
-    }
-
-    .productTableSub{
-      font-size:12px;
-      color:var(--muted);
-      white-space:nowrap;
-    }
-
-    .productTable{
-      width:100%;
-    }
-
-    .pt-row{
-      display:grid;
-      grid-template-columns: 1.4fr 1fr 1fr;
-      align-items:center;
-      text-align:center;
-      gap:12px;
-      padding:14px 16px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-    }
-
-    .pt-row:last-child{
-      border-bottom:none;
-    }
-
-    .pt-head{
-      font-size:18px;
-      font-weight:900;
-      background: rgba(255,255,255,.04);
-    }
-
-    .pt-name{
-      text-align:left;
-      font-size:18px;
-      font-weight:800;
-    }
-
-    .pt-ok,
-    .pt-ng{
-      font-size:20px;
-      padding:8px 14px;
-      border-radius:999px;
-      font-weight:900;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    .pt-ok{
-      color:#7fb3ff;
-      background: rgba(59,130,246,.16);
-      border:1px solid rgba(59,130,246,.42);
-    }
-
-    .pt-ng{
-      color:#ff6b6b;
-      background: rgba(239,68,68,.12);
-      border:1px solid rgba(239,68,68,.28);
-    }
-
-    .pt-total{
-      background: linear-gradient(180deg, rgba(59,130,246,.10), rgba(59,130,246,.05));
-    }
-
-    .pt-total .pt-ok,
-    .pt-total .pt-ng{
-      font-size:22px;
-    }
-
-    .pt-row:not(.pt-head):hover{
-      background: rgba(255,255,255,.06);
-      transform: translateY(-1px);
-      transition: all .2s ease;
-    }
-
-    @keyframes pulseRed{
-      0% { box-shadow: 0 0 0 rgba(255,45,45,.4); }
-      50% { box-shadow: 0 0 30px rgba(255,45,45,.8); }
-      100% { box-shadow: 0 0 0 rgba(255,45,45,.4); }
-    }
-
-    .nav{
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-
-    .nav a{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      min-height:56px;
-      padding:0 18px;
+    *{box-sizing:border-box}
+    body{
       margin:0;
-      border-radius:20px;
-      background: linear-gradient(180deg, rgba(40,78,130,.95), rgba(30,58,95,.95));
-      color:#ffffff;
-      border:1px solid rgba(255,255,255,.16);
-      font-size:16px;
-      font-weight:800;
-      line-height:1.2;
-      text-decoration:none;
-      box-sizing:border-box;
-      transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+      min-height:100vh;
+      color:var(--text);
+      background:linear-gradient(180deg,#06101d,#0a1525 46%,#08111f);
+      font-family:Arial,"Microsoft JhengHei",sans-serif;
     }
 
-    .nav a,
-    .nav a:hover,
-    .nav a:focus,
-    .nav a:active,
-    .nav a *,
-    .nav a *:hover,
-    .nav a *:focus,
-    .nav a *:active,
-    .pill{
-      text-decoration:none !important;
-    }
+    button,input,select{font:inherit}
+    button{cursor:pointer}
 
-    .nav a:hover{
-      background: linear-gradient(180deg, rgba(52,100,165,.98), rgba(37,72,118,.98));
-      border-color: rgba(255,255,255,.22);
-      box-shadow: 0 8px 18px rgba(0,0,0,.18);
+    .app{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:100vh}
+    .sidebar{
+      padding:14px 12px;
+      background:rgba(8,21,37,.94);
+      border-right:1px solid var(--line);
     }
-
-    .nav a.active{
-      background: linear-gradient(180deg, rgba(58,106,172,1), rgba(44,83,136,1));
-      border-color: rgba(160,205,255,.45);
-      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 8px 18px rgba(0,0,0,.22);
-      color:#ffffff;
+    .brand{display:flex;gap:10px;align-items:center;padding:6px 4px 18px;border-bottom:1px solid var(--line)}
+    .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#2d8ce5,#31b66f)}
+    .brand h1{font-size:13px;margin:0;line-height:1.3}
+    .nav{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+    .nav a{
+      display:flex;align-items:center;min-height:48px;padding:0 14px;border-radius:16px;
+      color:#fff;text-decoration:none;font-size:14px;font-weight:800;
+      border:1px solid rgba(255,255,255,.13);
+      background:linear-gradient(180deg,rgba(40,78,130,.96),rgba(30,58,95,.96));
     }
+    .nav a:hover,.nav a.active{background:linear-gradient(180deg,rgba(58,106,172,1),rgba(44,83,136,1))}
+    .side-footer{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.7}
 
-    .nav a .nav-label{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:0;
-      flex:1;
-    }
-
-    .side-footer .btn{
-      width:100%;
-      min-height:56px;
-      padding:0 18px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      border-radius:20px;
-      font-size:16px;
-      font-weight:800;
-      line-height:1.35;
-      background: rgba(14,31,53,.88);
-      color:#ffffff;
-      border:1px solid rgba(255,255,255,.12);
-      box-sizing:border-box;
-      text-decoration:none;
-    }
-
-    .side-footer .btn:hover{
-      background: rgba(22,44,74,.96);
-      border-color: rgba(255,255,255,.18);
-    }
-
-    .systemBar{
-      margin-top:10px;
-      display:flex;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .userChip{
-      display:inline-flex;
-      align-items:center;
-      min-height:40px;
-      padding:0 14px;
-      border-radius:999px;
-      background: linear-gradient(180deg, rgba(59,130,246,.18), rgba(59,130,246,.08));
-      border:1px solid rgba(96,165,250,.35);
-      color:#eaf2ff;
-      font-size:14px;
-      font-weight:800;
-      box-shadow: 0 8px 18px rgba(0,0,0,.12);
-    }
-
-    .systemSwitchWrap{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:8px 12px;
-      border-radius:14px;
-      background: rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.10);
-    }
-
-    .systemLabel{
-      color: rgba(231,238,252,.9);
-      font-size:14px;
-      font-weight:800;
-      white-space:nowrap;
-    }
-
-    .systemSelect{
-      min-width:130px;
-      height:38px;
-      border-radius:10px;
-      border:1px solid rgba(255,255,255,.16);
-      background: rgba(11,18,32,.9);
-      color:#ffffff;
-      padding:0 12px;
-      font-size:14px;
-      font-weight:700;
-      outline:none;
-      cursor:pointer;
-    }
-
-    .systemSelect:focus{
-      border-color: rgba(96,165,250,.75);
-      box-shadow: 0 0 0 3px rgba(59,130,246,.18);
-    }
-
+    .main{min-width:0;padding:14px 16px 22px}
     .topbar{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:16px;
-      flex-wrap:wrap;
+      display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+      padding:14px;border-radius:16px;background:rgba(13,27,46,.88);border:1px solid var(--line)
     }
+    .leftTop{display:flex;gap:12px;align-items:flex-start;min-width:0;flex:1}
+    .pageTitle{display:flex;flex-direction:column;gap:7px;min-width:0}
+    .pageTitle b{font-size:16px}.pageTitle span{font-size:12px;color:var(--muted)}
+    .rightTop{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .hamburger{display:none}
 
-    .leftTop{
-      display:flex;
-      align-items:flex-start;
-      gap:14px;
-      flex:1;
-      min-width:0;
+    .systemBar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px}
+    .userChip,.systemSwitchWrap{
+      display:flex;align-items:center;gap:8px;min-height:36px;padding:0 10px;
+      border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--line)
     }
-
-    .pageTitle{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-      min-width:0;
+    .userChip{font-size:12px;font-weight:800;color:#eaf2ff}
+    .systemLabel{font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap}
+    .systemSelect{
+      min-width:155px;height:30px;padding:0 8px;border-radius:8px;color:#fff;
+      border:1px solid rgba(255,255,255,.16);background:#0b1220;font-size:12px;font-weight:700
     }
+    .status{display:flex;gap:7px;align-items:center;color:var(--muted);font-size:12px}
+    .dot{width:10px;height:10px;border-radius:999px;background:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.72)}
+    .dot.online{background:#22c55e;box-shadow:0 0 14px rgba(34,197,94,.72)}
+    .dot.offline{background:#ef4444;box-shadow:0 0 14px rgba(239,68,68,.72)}
 
-    .rightTop{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      flex-wrap:wrap;
+    .btn{
+      min-height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--line);
+      color:#fff;background:rgba(14,31,53,.88);font-weight:800;font-size:13px
     }
+    .btn:hover{background:rgba(30,65,110,.96)}
+    .btnPrimary{background:#173e74;border-color:rgba(96,165,250,.38)}
 
-    @media (max-width: 768px){
-      .nav a{
-        min-height:54px;
-        padding:0 16px;
-        font-size:15px;
-      }
-
-      .side-footer .btn{
-        min-height:54px;
-        font-size:15px;
-        padding:0 16px;
-      }
-
-      .systemBar{
-        align-items:stretch;
-        flex-direction:column;
-      }
-
-      .userChip,
-      .systemSwitchWrap{
-        width:100%;
-        box-sizing:border-box;
-      }
-
-      .systemSwitchWrap{
-        justify-content:space-between;
-      }
-
-      .systemSelect{
-        flex:1;
-        min-width:0;
-      }
-
-      .topbar{
-        flex-direction:column;
-        align-items:stretch;
-      }
-
-      .rightTop{
-        justify-content:flex-start;
-      }
+    .page-bg{
+      margin-top:14px;padding:12px;border-radius:18px;
+      background:linear-gradient(180deg,rgba(60,140,210,.35),rgba(11,18,32,0) 55%)
     }
     .productInputBar{
-  margin:14px 0;
-  background:rgba(18,35,59,.78);
-  border:1px solid rgba(255,255,255,.12);
-  border-radius:18px;
-  padding:16px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:16px;
-  flex-wrap:wrap;
-}
-
-.productInputTitle{
-  font-size:16px;
-  font-weight:900;
-  color:#eaf2ff;
-}
-
-.productInputTitle span{
-  margin-left:10px;
-  color:#22c55e;
-}
-
-.productInputRow{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.productInputRow input{
-  min-width:260px;
-  height:42px;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,.16);
-  background:#0b1220;
-  color:white;
-  padding:0 14px;
-  font-size:15px;
-  outline:none;
-}
-
-@media(max-width:900px){
-  .heroGrid{
-    grid-template-columns:1fr;
-  }
-
-  .productInputRow,
-  .productInputRow input,
-  .productInputRow button{
-    width:100%;
-  }
-}
-.gaugeCard {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: rgba(0,0,0,.18);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 16px;
-  padding: 12px;
-  min-height: 210px;
-}
-
-.totalSummary {
-  position: static !important;
-  margin-top: 6px;
-  font-size: 14px;
-  text-align: center;
-  color: rgba(231,238,252,.95);
-  font-weight: 800;
-}
-
-.statusTopRow{
-  display:flex;
-  align-items:stretch;
-  gap:12px;
-  flex-wrap:wrap;
-}
-
-.statusTopRow .gaugeCard{
-  width:260px;
-  flex:0 0 260px;
-}
-
-.defectMiniCard{
-  width:220px;
-  min-height:210px;
-  background: rgba(0,0,0,.18);
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:16px;
-  padding:12px;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-}
-
-.defectInfoBody{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  justify-content:center;
-  flex:1;
-  padding-left:4px;
-}
-
-.defectInfoValue{
-  font-size:42px;
-  font-weight:900;
-  color:#ff6b6b;
-  line-height:1.1;
-}
-
-.defectInfoLabel{
-  margin-top:6px;
-  font-size:14px;
-  color:rgba(231,238,252,.72);
-  font-weight:700;
-}
-
-
-
-.statusTopRow{
-  display:flex;
-  align-items:stretch;
-  gap:18px;
-  flex-wrap:wrap;
-  margin-bottom:18px;
-}
-
-/* 後端資料總數 */
-.statusTopRow .gaugeCard{
-  width:260px;
-  flex:0 0 260px;
-}
-
-/* 瑕疵品數 */
-.defectMiniCard{
-  width:220px;
-  min-height:210px;
-  flex:0 0 220px;
-  background: rgba(0,0,0,.18);
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:16px;
-  padding:12px;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
-}
-
-/* 真實統計分析：往右一點、寬一點 */
-.summaryMiniCard{
-  width:280px;
-  min-height:210px;
-  flex:0 0 280px;
-  background: rgba(0,0,0,.18);
-  border:1px solid rgba(255,255,255,.10);
-  border-radius:16px;
-  padding:12px;
-  margin-left:6px;
-}
-
-/* 瑕疵品數內容 */
-.defectInfoBody{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-start;
-  justify-content:flex-end;
-  flex:1;
-  padding-left:8px;
-  padding-bottom:14px;
-}
-
-.defectInfoValue{
-  font-size:42px;
-  font-weight:900;
-  color:#ff6b6b;
-  line-height:1.1;
-}
-
-.defectInfoLabel{
-  margin-top:6px;
-  font-size:14px;
-  color:rgba(231,238,252,.72);
-  font-weight:700;
-}
-
-/* 真實統計分析內容靠下 */
-.summaryText{
-  line-height:1.9;
-  font-size:14px;
-  margin-top:auto;
-  padding-bottom:4px;
-}
-.productStatsCard{
-  grid-column: 1 / -1;
-  background: rgba(18,35,59,.75);
-  border:1px solid rgba(255,255,255,.12);
-  border-radius:18px;
-  box-shadow: var(--shadow);
-  padding:12px;
-}
-
-.productStatsCard .productTableCard{
-  margin-top:0;
-  width:100%;
-}
-/* 調整輸入欄 */
-#productInput {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #555;
-  background-color: #1f1f2f; /* 深色背景跟 dashboard 融合 */
-  color: #fff;
-  font-size: 14px;
-  width: 200px; /* 調整寬度 */
-  margin-right: 6px;
-}
-
-/* 調整加入按鈕 */
-#productInput + button {
-  padding: 6px 12px;
-  border-radius: 6px;
-  background-color: #3344ff;
-  color: #fff;
-  border: none;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-#productInput + button:hover {
-  background-color: #5566ff;
-}
-  </style>
-
-  <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0b1220">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-  <style>
-    .productInputBar.compactInputBar{
-      margin:14px 0;
-      padding:14px 16px;
+      display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap;
+      padding:12px;border-radius:16px;background:rgba(18,35,59,.80);border:1px solid var(--line)
     }
-    .productInputRow{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      flex-wrap:wrap;
+    .productInputTitle{font-size:15px;font-weight:900}
+    #currentProductsText{margin-left:8px;color:#22c55e;font-size:13px}
+    .productInputRow{display:flex;gap:8px;flex-wrap:wrap}
+    #productInput{
+      width:250px;height:34px;padding:0 10px;border-radius:7px;color:#fff;
+      border:1px solid rgba(255,255,255,.19);background:#10182a
     }
-    .detectedProductsLine{
-      margin-top:2px;
-      padding:10px 12px;
-      border-radius:12px;
-      background:rgba(255,255,255,.035);
-      border:1px solid rgba(255,255,255,.08);
-      color:rgba(231,238,252,.92);
-      font-size:14px;
-      font-weight:800;
+    .scopeHint{width:100%;color:var(--muted);font-size:12px}
+
+    .heroGrid{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;align-items:start;margin-top:12px}
+    .liveCard,.statusCard,.productStatsCard{
+      padding:12px;border-radius:16px;background:rgba(18,35,59,.76);border:1px solid var(--line);box-shadow:var(--shadow)
     }
-    .emptyState{
-      width:100%;
-      box-sizing:border-box;
-      padding:16px;
-      border-radius:14px;
-      color:rgba(231,238,252,.7);
-      background:rgba(255,255,255,.035);
-      border:1px dashed rgba(255,255,255,.14);
-      text-align:center;
-      font-size:14px;
+    .liveTitle,.productTitleLine{font-size:17px;font-weight:900;margin:0 0 10px}
+    .liveFrame{
+      display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
+      aspect-ratio:16/9;border-radius:14px;border:2px solid rgba(121,89,255,.88);background:rgba(0,0,0,.24)
     }
-    .categoryButtons{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:8px;
+    .liveFrame img{width:100%;height:100%;display:block;object-fit:contain}
+    .liveHint{
+      position:absolute;left:8px;right:8px;bottom:8px;padding:7px 9px;border-radius:10px;
+      color:rgba(231,238,252,.82);background:rgba(0,0,0,.35);border:1px solid var(--line);font-size:11px
     }
-    .categoryButtons button{
-      cursor:pointer;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.06);
-      color:#eaf2ff;
-      padding:7px 12px;
-      font-weight:800;
+    .estopWrap{display:flex;justify-content:center;margin-top:10px}
+    .estopBig{
+      width:min(430px,100%);padding:14px;border:0;border-radius:14px;color:#fff;background:#ff2d2d;
+      font-size:24px;font-weight:900;letter-spacing:2px;box-shadow:0 0 26px rgba(255,45,45,.58)
     }
-    .categoryButtons button.active{
-      background:rgba(59,130,246,.30);
-      border-color:rgba(96,165,250,.75);
-    }
-    #dynamicProductGaugeArea{
-      margin-top:10px;
-    }
-    .productGaugeSectionTitle{
-      margin-top:6px;
-      font-weight:900;
-      color:rgba(255,255,255,.95);
-    }
-    .productYieldText{
-      margin-top:2px;
-      color:rgba(231,238,252,.72);
-      font-size:12px;
-      font-weight:700;
+    .liveActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+
+    .defect-table{
+      display:flex;flex-direction:column;gap:7px;min-height:94px;max-height:300px;overflow:auto;
+      margin-top:10px;padding:8px;border-radius:12px;background:rgba(0,0,0,.17);border:1px solid var(--line)
     }
     .defect-row{
-      grid-template-columns:minmax(0,1fr) 150px 200px;
+      display:grid;grid-template-columns:minmax(0,1fr) 152px 190px;gap:8px;align-items:center;
+      padding:8px 9px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);font-size:12px
     }
-    .defect-row > div:nth-child(2){
-      text-align:center;
+    .defect-id{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e7eefc}
+    .defect-status{padding:5px 7px;border-radius:999px;text-align:center;font-weight:900;border:1px solid var(--line)}
+    .status-ok{color:var(--good);background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.24)}
+    .status-ng{color:var(--bad);background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.24)}
+    .defect-time{text-align:right;color:var(--muted)}
+    .emptyText{padding:14px;color:var(--muted);text-align:center;font-size:13px}
+
+    .statusTopRow{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+    .gaugeCard,.defectMiniCard,.summaryMiniCard{
+      min-height:190px;padding:11px;border-radius:14px;background:rgba(0,0,0,.18);border:1px solid var(--line)
     }
-    .defect-row > div:nth-child(3){
-      text-align:right;
-      color:var(--muted);
-      font-size:13px;
+    .gaugeCard{width:215px}.defectMiniCard{width:170px}.summaryMiniCard{width:230px}
+    .gaugeTitle,.areaName{font-size:13px;font-weight:900}.areaSub{margin-top:3px;color:var(--muted);font-size:11px}
+    .gauge{
+      --p:0;width:190px;max-width:100%;aspect-ratio:2/1;position:relative;overflow:hidden;
+      margin:11px auto 3px;border-radius:999px 999px 0 0;
+      background:conic-gradient(from 180deg,rgba(59,130,246,.95) calc(var(--p) * 1%),rgba(255,255,255,.10) 0)
     }
-    @media(max-width:760px){
-      .defect-row{
-        grid-template-columns:1fr;
-      }
-      .defect-row > div:nth-child(2),
-      .defect-row > div:nth-child(3){
-        text-align:left;
-      }
+    .gauge::after{
+      content:"";position:absolute;inset:12% 12% 0;background:rgba(18,35,59,.96);
+      border-radius:999px 999px 0 0;border:1px solid rgba(255,255,255,.08)
+    }
+    .gaugeValue{position:absolute;z-index:2;left:50%;bottom:6px;transform:translateX(-50%);font-size:28px;font-weight:900}
+    .gaugeSub{text-align:center;color:var(--muted);font-size:11px;line-height:1.5}
+    .gaugeBar{height:9px;margin:8px auto 0;max-width:120px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.1)}
+    .gaugeBar>div{height:100%;border-radius:999px;background:rgba(34,197,94,.86);transition:width .3s ease}
+    .defectInfoBody{display:flex;height:125px;flex-direction:column;justify-content:end;padding:0 0 11px 5px}
+    .defectInfoValue{font-size:38px;font-weight:900;line-height:1;color:var(--bad)}
+    .defectInfoLabel{margin-top:5px;color:var(--muted);font-size:12px;font-weight:800}
+    .summaryText{margin-top:12px;line-height:1.75;color:#e7eefc;font-size:12px}
+
+    .categoryWrap{margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
+    .detectedProducts{font-size:12px;color:#e7eefc;margin-bottom:8px}
+    .categoryButtons{display:flex;gap:7px;flex-wrap:wrap}
+    .categoryButtons button{
+      padding:5px 10px;border-radius:999px;color:#e7eefc;background:rgba(255,255,255,.05);
+      border:1px solid var(--line);font-size:12px;font-weight:800
+    }
+    .categoryButtons button.active{color:#fff;background:#1f5b9f;border-color:rgba(96,165,250,.65)}
+
+    .dynamicTitle{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:14px;font-weight:900}
+    #dynamicProductGaugeArea{display:flex;gap:9px;flex-wrap:wrap;margin-top:8px}
+    .gaugeBox{
+      width:205px;min-height:176px;padding:10px;border-radius:14px;background:rgba(0,0,0,.18);border:1px solid var(--line)
+    }
+    .gaugeBox .gauge{width:170px;margin-top:7px}.gaugeBox .gaugeValue{font-size:25px}
+    .gaugeLabel{font-size:13px;font-weight:900}.rateBlue{color:#80b8ff}.rateRed{color:var(--bad)}
+
+    .productStatsCard{grid-column:1/-1}
+    .productTableCard{overflow:auto;border-radius:14px;border:1px solid var(--line)}
+    .productTableHeader{display:flex;justify-content:space-between;gap:10px;padding:12px;background:rgba(255,255,255,.04)}
+    .productTableTitle{font-size:15px;font-weight:900}.productTableSub{color:var(--muted);font-size:11px}
+    .productTable{min-width:760px}
+    .pt-row{
+      display:grid;grid-template-columns:1.45fr .78fr .78fr .78fr .78fr;gap:8px;align-items:center;text-align:center;
+      padding:11px 12px;border-top:1px solid rgba(255,255,255,.06);font-size:13px
+    }
+    .pt-head{font-weight:900;background:rgba(255,255,255,.035)}
+    .pt-name{text-align:left;font-weight:900}.pt-ok,.pt-ng,.pt-okRate,.pt-ngRate{font-weight:900;padding:5px 8px;border-radius:999px}
+    .pt-ok,.pt-okRate{color:var(--good);background:rgba(34,197,94,.10)}
+    .pt-ng,.pt-ngRate{color:var(--bad);background:rgba(239,68,68,.10)}
+    .pt-total{background:rgba(59,130,246,.075)}
+
+    #errorBar{display:none;margin-top:12px;padding:10px;border-radius:10px;color:#ffb4b4;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);font-size:12px;font-weight:800}
+    .footer{margin-top:12px;color:rgba(155,176,207,.9);font-size:11px}
+
+    .drawer,.drawerOverlay{display:none}
+
+    @media(max-width:1100px){
+      .app{grid-template-columns:1fr}.app>.sidebar{display:none}.hamburger{display:inline-flex}
+      .heroGrid{grid-template-columns:1fr}.drawer{display:block;position:fixed;left:-235px;top:0;bottom:0;width:225px;z-index:30;transition:left .22s ease}.drawer.open{left:0}
+      .drawerOverlay{display:none;position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45)}.drawerOverlay.open{display:block}
+    }
+    @media(max-width:640px){
+      .main{padding:10px}.productInputRow,#productInput,.productInputRow .btn{width:100%}
+      .systemSwitchWrap{width:100%;justify-content:space-between}.systemSelect{flex:1;min-width:0}
+      .defect-row{grid-template-columns:1fr}.defect-time{text-align:left}
     }
   </style>
-
 </head>
-
 <body>
   <div id="overlay" class="drawerOverlay" onclick="toggleDrawer(false)"></div>
-
   <aside id="drawer" class="drawer">
-    <div class="sidebar" style="display:block; position:static; height:100vh;">
-      <div class="brand">
-        <div class="logo"></div>
-        <div><h1>瑕疵辨識與分流系統</h1></div>
-      </div>
+    <div class="sidebar" style="height:100vh">
+      <div class="brand"><div class="logo"></div><h1>瑕疵辨識與分流系統</h1></div>
       <div class="nav">
-        <a href="dashboard.html" class="active"><span class="nav-label">🏠 首頁</span></a>
-        <a href="logs.html"><span class="nav-label">🧾 事件紀錄</span></a>
-        <a href="settings.html"><span class="nav-label">⚙️ 系統設定</span></a>
-        <a href="admin.html" id="adminNavLinkDrawer" style="display:none;"><span class="nav-label">🧑‍💼 管理後台</span></a>
+        <a href="dashboard.html" class="active">🏠 首頁</a>
+        <a href="logs.html">🧾 事件紀錄</a>
+        <a href="settings.html">⚙️ 系統設定</a>
+        <a href="admin.html" id="adminNavLinkDrawer" style="display:none">🧑‍💼 管理後台</a>
       </div>
       <div class="side-footer">
-        <div>狀態：<span style="color:var(--good); font-weight:800;">● 正常</span></div>
-        <div>提示：此頁已接後端 API。</div>
-        <div style="margin-top:10px;"><button type="button" class="btn" onclick="handleHardReset(event)">修復灰底/警告（清快取）</button></div>
+        <div>狀態：<span style="color:var(--good);font-weight:900">● 正常</span></div>
+        <div>提示：統計依目前機台分開計算。</div>
+        <button type="button" class="btn" style="margin-top:10px;width:100%" onclick="handleHardReset(event)">修復灰底/警告（清快取）</button>
       </div>
     </div>
   </aside>
 
   <div class="app">
     <aside class="sidebar">
-      <div class="brand">
-        <div class="logo"></div>
-        <div><h1>瑕疵辨識與分流系統</h1></div>
-      </div>
+      <div class="brand"><div class="logo"></div><h1>瑕疵辨識與分流系統</h1></div>
       <div class="nav">
-        <a href="dashboard.html" class="active"><span class="nav-label">🏠 首頁</span></a>
-        <a href="logs.html"><span class="nav-label">🧾 事件紀錄</span></a>
-        <a href="settings.html"><span class="nav-label">⚙️ 系統設定</span></a>
-        <a href="admin.html" id="adminNavLink" style="display:none;"><span class="nav-label">🧑‍💼 管理後台</span></a>
+        <a href="dashboard.html" class="active">🏠 首頁</a>
+        <a href="logs.html">🧾 事件紀錄</a>
+        <a href="settings.html">⚙️ 系統設定</a>
+        <a href="admin.html" id="adminNavLink" style="display:none">🧑‍💼 管理後台</a>
       </div>
       <div class="side-footer">
         <div>系統概念：即時檢測 + 分流統計 + 遠端急停</div>
-        <div style="margin-top:10px;"><button class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button></div>
+        <button type="button" class="btn" style="margin-top:10px;width:100%" onclick="swHardReset()">修復灰底/警告（清快取）</button>
       </div>
     </aside>
 
     <main class="main">
       <div class="topbar">
         <div class="leftTop">
-          <button class="hamburger" onclick="toggleDrawer(true)">☰</button>
+          <button class="btn hamburger" type="button" onclick="toggleDrawer(true)">☰</button>
           <div class="pageTitle">
             <b>瑕疵辨識與分流系統</b>
-            <span id="pageSubTitle">即時檢測畫面 + 系統狀態與數據</span>
+            <span id="pageSubTitle">即時檢測畫面 + 各機台獨立統計</span>
             <div class="systemBar">
               <div class="userChip" id="userChip">使用者：未登入</div>
-              <div class="systemSwitchWrap" id="tenantSwitchWrap" style="display:none;">
-                <label class="systemLabel">目前客戶</label>
+              <div class="systemSwitchWrap" id="tenantSwitchWrap">
+                <label class="systemLabel" for="tenantSelect">目前客戶</label>
                 <select id="tenantSelect" class="systemSelect"></select>
               </div>
-              <div class="systemSwitchWrap" id="systemSwitchWrap" style="display:none;">
-                <label class="systemLabel">目前機台</label>
+              <div class="systemSwitchWrap" id="systemSwitchWrap">
+                <label class="systemLabel" for="systemSelect">目前機台</label>
                 <select id="systemSelect" class="systemSelect"></select>
               </div>
             </div>
           </div>
         </div>
         <div class="rightTop">
-          <div class="status"><span class="dot" id="mqttDot"></span><span id="mqttText">狀態讀取中...</span></div>
-          <button class="btn btnPrimary" onclick="forceReload(event)">⟳ 重新整理</button>
+          <div class="status"><span class="dot" id="mqttDot"></span><span id="mqttText">資料讀取中...</span></div>
+          <button type="button" class="btn btnPrimary" onclick="forceReload(event)">⟳ 重新整理</button>
         </div>
       </div>
 
       <div class="page-bg">
-        <div class="productInputBar compactInputBar">
-          <div class="productInputTitle">多產品檢測 <span data-product-list>尚未設定</span></div>
+        <div class="productInputBar">
+          <div class="productInputTitle">多產品檢測 <span id="currentProductsText">尚未設定</span></div>
           <div class="productInputRow">
-            <input id="productInput" type="text" placeholder="輸入產品（例如：手機殼、書本）" autocomplete="off">
-            <button type="button" id="addProductBtn">加入</button>
+            <input id="productInput" type="text" autocomplete="off" placeholder="輸入產品（例如：手機殼、書本）" />
+            <button type="button" class="btn btnPrimary" id="addProductBtn">加入</button>
           </div>
+          <div class="scopeHint" id="machineScopeHint">資料載入中...</div>
         </div>
 
         <div class="heroGrid">
@@ -1136,9 +295,12 @@
               <img id="camera" alt="即時檢測畫面" />
               <div class="liveHint" id="liveHint">正在連接 ESP32-CAM...</div>
             </div>
-            <div class="estopWrap"><button class="estopBig" onclick="demoEstop()">緊急停止</button></div>
-            <button class="btn" onclick="downloadCSV()">下載報表</button>
-            <div id="defect-list" class="defect-table"></div>
+            <div class="estopWrap"><button type="button" class="estopBig" onclick="demoEstop()">緊急停止</button></div>
+            <div class="liveActions">
+              <button type="button" class="btn" onclick="downloadCSV()">下載目前機台報表</button>
+              <span class="scopeHint" id="recordCountText">尚未載入事件紀錄</span>
+            </div>
+            <div id="defect-list" class="defect-table"><div class="emptyText">正在載入 MongoDB 舊有事件紀錄...</div></div>
           </section>
 
           <section class="statusCard">
@@ -1146,32 +308,40 @@
             <div class="statusTopRow">
               <div class="gaugeCard">
                 <div class="gaugeTitle">後端資料總數</div>
-                <div class="gauge countGauge" id="gauge" style="--p:0"><div class="gaugeValue" id="gaugeValue">0</div></div>
-                <div class="gaugeSubTitle">總筆數</div>
-                <div class="gaugeBar smallGaugeBar"><div id="gaugeBarFill" style="width:0%"></div></div>
+                <div class="gauge" id="gauge"><div class="gaugeValue" id="gaugeValue">0</div></div>
+                <div class="gaugeSub">目前機台的 OK + NG 總筆數</div>
+                <div class="gaugeBar"><div id="gaugeBarFill" style="width:0%"></div></div>
               </div>
 
               <div class="defectMiniCard">
-                <div class="areaTop"><div><div class="areaName"><span class="warnIcon">!</span> 瑕疵品數</div><div class="areaSub">目前資料中的 NG 數量</div></div></div>
-                <div class="defectInfoBody"><div class="defectInfoValue" id="defectCount">0</div><div class="defectInfoLabel">NG 件</div></div>
+                <div class="areaName">❗ 瑕疵品數</div>
+                <div class="areaSub">目前機台的 NG 數量</div>
+                <div class="defectInfoBody">
+                  <div class="defectInfoValue" id="defectCount">0</div>
+                  <div class="defectInfoLabel">NG 件</div>
+                </div>
               </div>
 
-              <div class="areaCard summaryMiniCard">
-                <div class="areaTop"><div><div class="areaName">真實統計分析</div><div class="areaSub">依 MongoDB 即時資料計算</div></div></div>
+              <div class="summaryMiniCard">
+                <div class="areaName">真實統計分析</div>
+                <div class="areaSub">依 MongoDB 舊有資料 + SSE 新資料計算</div>
                 <div class="summaryText">
                   <div id="summaryTotal">總數：0</div>
                   <div id="summaryOk">OK：0</div>
                   <div id="summaryNg">NG：0</div>
                   <div id="summaryYield">良率：0%</div>
-                  <div id="summaryDefect">瑕疵率：0%</div>
-                  <div id="summaryLast20">最近20筆異常：0</div>
+                  <div id="summaryDefect">NG 率：0%</div>
+                  <div id="summaryLast20">最近 20 筆異常：0</div>
                 </div>
               </div>
             </div>
 
-            <div class="detectedProductsLine">已偵測產品：<span data-product-list>尚未設定</span></div>
-            <div id="categoryButtons" class="categoryButtons"></div>
-            <div class="productGaugeSectionTitle">各品項良率</div>
+            <div class="categoryWrap">
+              <div class="detectedProducts">已偵測產品：<span id="detectedProductsText">尚未設定</span></div>
+              <div class="categoryButtons" id="categoryButtons"></div>
+            </div>
+
+            <div class="dynamicTitle">各品項良率</div>
             <div id="dynamicProductGaugeArea"></div>
           </section>
 
@@ -1179,407 +349,591 @@
             <div class="productTableCard">
               <div class="productTableHeader">
                 <div class="productTableTitle">產品統計表</div>
-                <div class="productTableSub">各產品 OK / NG 即時統計</div>
+                <div class="productTableSub">良率 = OK ÷ (OK + NG) × 100%；NG 率 = NG ÷ (OK + NG) × 100%</div>
               </div>
               <div class="productTable">
-                <div class="pt-row pt-head"><div>產品</div><div>優良（OK）</div><div>瑕疵（NG）</div></div>
+                <div class="pt-row pt-head">
+                  <div>產品</div><div>優良（OK）</div><div>瑕疵（NG）</div><div>良率</div><div>NG 率</div>
+                </div>
                 <div id="dynamicProductRows"></div>
-                <div class="pt-row pt-total"><div class="pt-name">總計</div><div class="pt-ok" id="table-ok-total">0</div><div class="pt-ng" id="table-ng-total">0</div></div>
+                <div class="pt-row pt-total">
+                  <div class="pt-name">總計</div>
+                  <div class="pt-ok" id="table-ok-total">0</div>
+                  <div class="pt-ng" id="table-ng-total">0</div>
+                  <div class="pt-okRate" id="table-ok-rate-total">0%</div>
+                  <div class="pt-ngRate" id="table-ng-rate-total">0%</div>
+                </div>
               </div>
             </div>
           </section>
         </div>
       </div>
 
-      <div id="errorBar" style="display:none;"></div>
-      <div style="margin-top:14px; color:rgba(155,176,207,.9); font-size:12px;">© 2026 AIoT Dashboard</div>
+      <div id="errorBar"></div>
+      <div class="footer">© 2026 AIoT Dashboard</div>
     </main>
   </div>
 
 <script>
 "use strict";
 
+/*
+ * dashboard.html 完整修正版
+ * 1. 載入 MongoDB 舊有事件紀錄，不再只有新加入產品的 0 筆資料。
+ * 2. 統計依 tenant_id + system_id 分機台計算。
+ * 3. 良率 = OK / (OK + NG) * 100%；NG 率 = NG / (OK + NG) * 100%。
+ * 4. SSE 新事件到達時，會加入目前機台統計並即時更新畫面。
+ */
+
 const API_BASE = window.location.origin;
-let selectedProducts = [];
-let productStats = Object.create(null);
-let eventSource = null;
-let defectRecords = [];
-let activeCategory = null;
-const seenDefectKeys = new Set();
+const DEFECT_LIST_ENDPOINTS = ["/api/defects", "/api/logs"];
+const DEFECT_STREAM_ENDPOINT = "/api/defects/stream";
+const MAX_VISIBLE_EVENTS = 10;
 
-function normalizeProductName(value){
-  const text = String(value ?? "").trim();
-  return text || "未知產品";
-}
+const state = {
+  tenantOptions: [],
+  systemOptions: [],
+  defects: [],
+  selectedProducts: [],
+  productStats: {},
+  filterProduct: "",
+  eventSource: null,
+  loadSerial: 0,
+  warnedUntagged: false
+};
 
+function byId(id){ return document.getElementById(id); }
+function asText(value){ return value == null ? "" : String(value).trim(); }
+function upper(value){ return asText(value).toUpperCase(); }
+function normalizeProductName(value){ return asText(value).replace(/\s+/g, " ") || "未知產品"; }
+function safeArray(value){ return Array.isArray(value) ? value : []; }
+function unique(values){ return [...new Set(values.filter(Boolean))]; }
+function percent(part, total){ return total > 0 ? Math.round((part / total) * 1000) / 10 : 0; }
+function percentText(value){ return `${Number(value || 0).toFixed(1).replace(/\.0$/, "")}%`; }
 function escapeHtml(value){
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+  return asText(value).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[ch]));
+}
+function readJson(raw){ try { return JSON.parse(raw); } catch { return null; } }
+function storageGet(key){ return sessionStorage.getItem(key) ?? localStorage.getItem(key); }
+function storageSet(key,value){ sessionStorage.setItem(key,value); localStorage.setItem(key,value); }
+function firstStorage(keys){ for(const key of keys){ const value = asText(storageGet(key)); if(value) return value; } return ""; }
+
+function getToken(){
+  return firstStorage(["token","authToken","access_token","accessToken","jwt"]);
 }
 
-function storageValue(keys){
-  for(const key of keys){
-    const value = sessionStorage.getItem(key) || localStorage.getItem(key);
-    if(value) return value;
-  }
-  return "";
-}
-
-function getCurrentTenantId(){
-  return storageValue(["currentTenantId", "selectedTenantId", "tenant_id", "tenantId"]);
-}
-
-function getCurrentSystemId(){
-  return storageValue(["currentSystemId", "selectedSystemId", "system_id", "systemId"]);
-}
-
-function buildDefectsUrl(){
-  const url = new URL("/api/defects", API_BASE);
-  const tenantId = getCurrentTenantId();
-  const systemId = getCurrentSystemId();
-  if(tenantId) url.searchParams.set("tenant_id", tenantId);
-  if(systemId) url.searchParams.set("system_id", systemId);
-  return url.toString();
-}
-
-async function apiFetch(url, options = {}){
-  const token = storageValue(["token", "access_token", "jwt"]);
-  const headers = new Headers(options.headers || {});
-  if(token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
-  const response = await fetch(url, { ...options, headers });
-  if(!response.ok) throw new Error(`API ${response.status}: ${response.statusText}`);
+async function fetchJson(url, options = {}){
+  const headers = Object.assign({Accept:"application/json"}, options.headers || {});
+  const token = getToken();
+  if(token && !headers.Authorization) headers.Authorization = `Bearer ${token}`;
+  const response = await fetch(url, Object.assign({}, options, {headers}));
+  if(!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+  const contentType = response.headers.get("content-type") || "";
+  if(!contentType.includes("application/json")) throw new Error("API 回傳格式不是 JSON");
   return response.json();
 }
 
-function extractDefectList(payload){
+function extractArray(payload){
   if(Array.isArray(payload)) return payload;
-  if(Array.isArray(payload?.defects)) return payload.defects;
-  if(Array.isArray(payload?.data)) return payload.data;
-  if(Array.isArray(payload?.items)) return payload.items;
-  if(Array.isArray(payload?.logs)) return payload.logs;
+  if(!payload || typeof payload !== "object") return [];
+  const candidates = [payload.data,payload.items,payload.defects,payload.logs,payload.records,payload.results,payload.systems,payload.tenants];
+  for(const candidate of candidates) if(Array.isArray(candidate)) return candidate;
   return [];
 }
 
-function getRecordTime(record){
-  return record?.timestamp || record?.created_at || record?.createdAt || new Date().toISOString();
+function recordTenantId(record){ return asText(record.tenant_id ?? record.tenantId ?? record.customer_id ?? record.customerId); }
+function recordSystemId(record){ return asText(record.system_id ?? record.systemId ?? record.machine_id ?? record.machineId ?? record.device_id ?? record.deviceId); }
+function recordProduct(record){ return normalizeProductName(record.product ?? record.product_name ?? record.productName ?? record.item ?? record.category); }
+function recordStatus(record){ return upper(record.status ?? record.result ?? record.quality ?? record.state); }
+function recordTime(record){ return record.timestamp ?? record.createdAt ?? record.created_at ?? record.time ?? record.date ?? ""; }
+function recordId(record){ return asText(record.id ?? record._id ?? record.defect_id ?? record.defectId ?? record.uuid); }
+function recordKey(record){
+  return recordId(record) || [recordTenantId(record),recordSystemId(record),recordProduct(record),recordStatus(record),asText(recordTime(record))].join("|");
+}
+function formatTime(value){
+  if(!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? asText(value) : date.toLocaleString("zh-TW", {hour12:false});
 }
 
-function getRecordId(record){
-  return record?.id || record?._id || record?.defect_id || record?.item_id || "-";
-}
+function getCurrentTenantId(){ return asText(byId("tenantSelect")?.value) || firstStorage(["currentTenantId","selectedTenantId","tenant_id","tenantId"]); }
+function getCurrentSystemId(){ return asText(byId("systemSelect")?.value) || firstStorage(["currentSystemId","selectedSystemId","system_id","systemId","machine_id","machineId"]); }
 
-function getRecordKey(record){
-  if(record?._id) return String(record._id);
-  return [getRecordId(record), normalizeProductName(record?.product), String(record?.status || "").toUpperCase(), getRecordTime(record)].join("|");
-}
-
-function ensureProduct(product){
-  const normalized = normalizeProductName(product);
-  if(!selectedProducts.includes(normalized)) selectedProducts.push(normalized);
-  if(!productStats[normalized]) productStats[normalized] = { ok:0, ng:0, total:0 };
-  return normalized;
-}
-
-function addProductDynamic(name, shouldRender = true){
-  const raw = String(name ?? "").trim();
-  if(!raw) return;
-  ensureProduct(raw);
-  if(shouldRender) renderAll();
-  const input = document.getElementById("productInput");
-  if(input){ input.value = ""; input.focus(); }
-}
-
-function updateDetectedProducts(){
-  const label = selectedProducts.length ? selectedProducts.join("、") : "尚未設定";
-  document.querySelectorAll("[data-product-list]").forEach(el => { el.textContent = label; });
-}
-
-function addRecordToStats(record){
-  const product = ensureProduct(record?.product);
-  const status = String(record?.status || "").trim().toUpperCase();
-  if(status === "OK") productStats[product].ok += 1;
-  if(status === "NG") productStats[product].ng += 1;
-  productStats[product].total = productStats[product].ok + productStats[product].ng;
-}
-
-function sortNewestFirst(records){
-  return [...records].sort((a,b) => new Date(getRecordTime(b)).getTime() - new Date(getRecordTime(a)).getTime());
-}
-
-function applyDefectRecord(record, { appendEvent = true, render = true } = {}){
-  if(!record || typeof record !== "object") return;
-  const product = String(record.product ?? "").trim();
-  const status = String(record.status ?? "").trim().toUpperCase();
-  if(!product || !["OK", "NG"].includes(status)) return;
-
-  const key = getRecordKey(record);
-  if(seenDefectKeys.has(key)) return;
-  seenDefectKeys.add(key);
-
-  const normalizedRecord = { ...record, product: normalizeProductName(product), status, timestamp: getRecordTime(record) };
-  defectRecords.push(normalizedRecord);
-  addRecordToStats(normalizedRecord);
-  if(appendEvent) appendEventRow(normalizedRecord);
-  if(render) renderAll();
-}
-
-function renderProductStats(){
-  const gaugeArea = document.getElementById("dynamicProductGaugeArea");
-  const tableArea = document.getElementById("dynamicProductRows");
-  if(!gaugeArea || !tableArea) return;
-
-  const products = [...selectedProducts];
-  let totalOK = 0;
-  let totalNG = 0;
-
-  const gaugeHtml = [];
-  const rowHtml = [];
-
-  for(const product of products){
-    const stats = productStats[product] || { ok:0, ng:0, total:0 };
-    const total = stats.ok + stats.ng;
-    // OK 率：OK / (OK + NG) × 100%
-    // NG 率：NG / (OK + NG) × 100%
-    const okRate = total ? Math.round((stats.ok / total) * 100) : 0;
-    const ngRate = total ? Math.round((stats.ng / total) * 100) : 0;
-    const yieldRate = okRate;
-    totalOK += stats.ok;
-    totalNG += stats.ng;
-
-    gaugeHtml.push(`
-      <div class="gaugeBox">
-        <div class="gaugeLabel">${escapeHtml(product)}</div>
-        <div class="gauge productGauge ${total === 0 ? 'gaugeEmpty' : ''}" style="--ok-p:${okRate}; --ng-p:${ngRate}"><div class="gaugeValue">${okRate}%</div></div>
-        <div class="gaugeSub">OK：${stats.ok}（${okRate}%）　|　NG：${stats.ng}（${ngRate}%）</div>
-      </div>`);
-
-    rowHtml.push(`
-      <div class="pt-row">
-        <div class="pt-name">${escapeHtml(product)}<div class="productYieldText">OK率：${okRate}%　NG率：${ngRate}%　總數：${total}</div></div>
-        <div class="pt-ok">${stats.ok}</div>
-        <div class="pt-ng">${stats.ng}</div>
-      </div>`);
-  }
-
-  gaugeArea.innerHTML = gaugeHtml.length ? gaugeHtml.join("") : '<div class="emptyState">尚未加入產品。請先在上方輸入品項。</div>';
-  tableArea.innerHTML = rowHtml.length ? rowHtml.join("") : '<div class="emptyState" style="margin:12px; width:auto;">尚未有產品資料</div>';
-
-  const total = totalOK + totalNG;
-  const yieldRate = total ? Math.round((totalOK / (totalOK + totalNG)) * 100) : 0;
-  const defectRate = total ? Math.round((totalNG / total) * 100) : 0;
-  const latest20Ng = sortNewestFirst(defectRecords).slice(0,20).filter(item => item.status === "NG").length;
-
-  setText("table-ok-total", totalOK);
-  setText("table-ng-total", totalNG);
-  setText("gaugeValue", total);
-  setText("defectCount", totalNG);
-  setText("summaryTotal", `總數：${total}`);
-  setText("summaryOk", `OK：${totalOK}`);
-  setText("summaryNg", `NG：${totalNG}`);
-  setText("summaryYield", `良率：${yieldRate}%`);
-  setText("summaryDefect", `瑕疵率：${defectRate}%`);
-  setText("summaryLast20", `最近20筆異常：${latest20Ng}`);
-
-  const overallGauge = document.getElementById("gauge");
-  if(overallGauge) overallGauge.style.setProperty("--p", Math.min(total, 100));
-  const bar = document.getElementById("gaugeBarFill");
-  if(bar) bar.style.width = `${yieldRate}%`;
-}
-
-function setText(id, value){
-  const el = document.getElementById(id);
-  if(el) el.textContent = String(value);
-}
-
-function appendEventRow(record){
-  const list = document.getElementById("defect-list");
-  if(!list) return;
-  const row = document.createElement("div");
-  row.className = "defect-row";
-  row.dataset.product = normalizeProductName(record.product);
-  const statusClass = record.status === "OK" ? "status-ok" : "status-ng";
-  const timeText = new Date(getRecordTime(record)).toLocaleString("zh-TW", { hour12:false });
-  row.innerHTML = `
-    <div class="defect-id">${escapeHtml(getRecordId(record))}</div>
-    <div class="defect-status ${statusClass}">${escapeHtml(record.status)}（${escapeHtml(record.product)}）</div>
-    <div class="defect-time">${escapeHtml(timeText)}</div>`;
-  list.prepend(row);
-  while(list.children.length > 10) list.removeChild(list.lastElementChild);
-  applyEventFilter();
-}
-
-function renderInitialEventRows(){
-  const list = document.getElementById("defect-list");
-  if(!list) return;
-  list.innerHTML = "";
-  sortNewestFirst(defectRecords).slice(0,10).reverse().forEach(record => appendEventRow(record));
-}
-
-function renderCategoryButtons(){
-  const container = document.getElementById("categoryButtons");
-  if(!container) return;
-  container.innerHTML = "";
-  const categories = [null, ...selectedProducts];
-  for(const category of categories){
-    const button = document.createElement("button");
-    button.type = "button";
-    button.textContent = category || "全部";
-    if(category === activeCategory) button.classList.add("active");
-    button.addEventListener("click", () => {
-      activeCategory = category;
-      renderCategoryButtons();
-      applyEventFilter();
-    });
-    container.appendChild(button);
-  }
-}
-
-function applyEventFilter(){
-  document.querySelectorAll("#defect-list .defect-row").forEach(row => {
-    row.style.display = !activeCategory || row.dataset.product === activeCategory ? "grid" : "none";
-  });
-}
-
-function renderAll(){
-  updateDetectedProducts();
-  renderCategoryButtons();
-  renderProductStats();
-}
-
-async function initSelectedProductsFromDB(){
-  try{
-    const payload = await apiFetch(buildDefectsUrl());
-    const list = extractDefectList(payload);
-    for(const record of list) applyDefectRecord(record, { appendEvent:false, render:false });
-    renderInitialEventRows();
-    renderAll();
-  }catch(error){
-    console.warn("初始化 MongoDB 資料失敗，頁面仍可手動新增品項並等待 SSE：", error);
-    showError(`MongoDB 初始資料讀取失敗：${error.message}`);
-    renderAll();
-  }
-}
-
-function unwrapRealtimePayload(payload){
-  if(Array.isArray(payload)) return payload;
-  if(payload?.data && typeof payload.data === "object") return Array.isArray(payload.data) ? payload.data : [payload.data];
-  if(payload?.defect && typeof payload.defect === "object") return [payload.defect];
-  return [payload];
-}
-
-function buildRealtimeUrl(){
-  const url = new URL("/api/defects/stream", API_BASE);
-  const tenantId = getCurrentTenantId();
-  const systemId = getCurrentSystemId();
-  if(tenantId) url.searchParams.set("tenant_id", tenantId);
-  if(systemId) url.searchParams.set("system_id", systemId);
-  return url.toString();
-}
-
-function startRealtimeUpdates(){
-  if(eventSource) eventSource.close();
-  eventSource = new EventSource(buildRealtimeUrl());
-
-  eventSource.onopen = () => setRealtimeStatus(true, "即時資料已連線");
-  eventSource.onmessage = event => {
-    try{
-      const payload = JSON.parse(event.data);
-      for(const record of unwrapRealtimePayload(payload)) applyDefectRecord(record);
-    }catch(error){
-      console.warn("SSE 資料處理失敗：", error, event.data);
-    }
-  };
-  eventSource.onerror = () => setRealtimeStatus(false, "即時資料重連中...");
-}
-
-function setRealtimeStatus(isOnline, text){
-  const dot = document.getElementById("mqttDot");
-  if(dot){
-    dot.style.background = isOnline ? "#22c55e" : "#f59e0b";
-    dot.style.boxShadow = isOnline ? "0 0 12px rgba(34,197,94,.9)" : "0 0 12px rgba(245,158,11,.9)";
-  }
-  setText("mqttText", text);
+function makeQuery(params){
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key,value]) => { if(asText(value)) search.set(key, asText(value)); });
+  return search.toString();
 }
 
 function showError(message){
-  const bar = document.getElementById("errorBar");
+  const bar = byId("errorBar");
   if(!bar) return;
-  bar.textContent = message;
-  bar.style.display = "block";
+  bar.style.display = message ? "block" : "none";
+  bar.textContent = message || "";
 }
 
-function toggleDrawer(open){
-  document.getElementById("drawer")?.classList.toggle("open", Boolean(open));
-  document.getElementById("overlay")?.classList.toggle("show", Boolean(open));
+function setDataStatus(kind, text){
+  const dot = byId("mqttDot");
+  const label = byId("mqttText");
+  if(dot) dot.className = `dot ${kind || ""}`;
+  if(label) label.textContent = text;
 }
 
-function forceReload(event){
-  event?.preventDefault?.();
-  window.location.reload();
+function optionFromItem(item, type){
+  if(item == null) return null;
+  if(typeof item === "string" || typeof item === "number"){
+    const id = asText(item);
+    return id ? {id,label:id} : null;
+  }
+  if(typeof item !== "object") return null;
+  const id = type === "tenant"
+    ? asText(item.tenant_id ?? item.tenantId ?? item.customer_id ?? item.customerId ?? item.id ?? item._id ?? item.value)
+    : asText(item.system_id ?? item.systemId ?? item.machine_id ?? item.machineId ?? item.device_id ?? item.deviceId ?? item.id ?? item._id ?? item.value);
+  const label = type === "tenant"
+    ? asText(item.tenant_name ?? item.tenantName ?? item.customer_name ?? item.customerName ?? item.name ?? item.label ?? id)
+    : asText(item.system_name ?? item.systemName ?? item.machine_name ?? item.machineName ?? item.device_name ?? item.deviceName ?? item.name ?? item.label ?? id);
+  return id ? {id,label:label || id} : null;
 }
 
-async function swHardReset(){
+function mergeOptions(...groups){
+  const map = new Map();
+  groups.flat().forEach(option => {
+    if(option && option.id && !map.has(option.id)) map.set(option.id, option);
+  });
+  return [...map.values()];
+}
+
+function optionsFromStorage(keys,type){
+  const out = [];
+  keys.forEach(key => {
+    const raw = storageGet(key);
+    if(!raw) return;
+    const parsed = readJson(raw);
+    const list = Array.isArray(parsed) ? parsed : extractArray(parsed);
+    list.forEach(item => { const option = optionFromItem(item,type); if(option) out.push(option); });
+  });
+  return out;
+}
+
+async function tryEndpointOptions(paths,type){
+  for(const path of paths){
+    try{
+      const payload = await fetchJson(`${API_BASE}${path}`);
+      const options = extractArray(payload).map(item => optionFromItem(item,type)).filter(Boolean);
+      if(options.length) return options;
+    }catch(error){ console.debug(`略過 ${path}`, error.message); }
+  }
+  return [];
+}
+
+async function discoverOptionsFromDefects(){
   try{
-    if("serviceWorker" in navigator){
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map(reg => reg.unregister()));
-    }
-    if("caches" in window){
-      const keys = await caches.keys();
-      await Promise.all(keys.map(key => caches.delete(key)));
-    }
-  }finally{
-    window.location.reload();
+    const payload = await fetchJson(`${API_BASE}/api/defects`);
+    const list = extractArray(payload);
+    return {
+      tenants: unique(list.map(recordTenantId)).map(id => ({id,label:id})),
+      systems: unique(list.map(recordSystemId)).map(id => ({id,label:id}))
+    };
+  }catch{
+    return {tenants:[],systems:[]};
   }
 }
 
-function handleHardReset(event){
-  event?.preventDefault?.();
-  swHardReset();
+function renderSelect(selectId, options, selectedId, fallbackId, fallbackLabel){
+  const select = byId(selectId);
+  if(!select) return "";
+  const finalOptions = options.length ? options : [{id:fallbackId,label:fallbackLabel || fallbackId}];
+  select.innerHTML = finalOptions.map(option => `<option value="${escapeHtml(option.id)}">${escapeHtml(option.label)}｜${escapeHtml(option.id)}</option>`).join("");
+  const wanted = asText(selectedId);
+  if(wanted && finalOptions.some(option => option.id === wanted)) select.value = wanted;
+  return select.value;
 }
 
-function demoEstop(){
-  alert("已送出緊急停止指令（Demo）");
+async function initSelectors(){
+  const currentTenant = firstStorage(["currentTenantId","selectedTenantId","tenant_id","tenantId"]);
+  const currentSystem = firstStorage(["currentSystemId","selectedSystemId","system_id","systemId","machine_id","machineId"]);
+
+  const storedTenants = optionsFromStorage(["tenants","availableTenants","userTenants","tenantList"],"tenant");
+  const storedSystems = optionsFromStorage(["systems","availableSystems","userSystems","machines","machineList"],"system");
+  const [apiTenants, discovered] = await Promise.all([
+    tryEndpointOptions(["/api/tenants","/api/admin/tenants"],"tenant"),
+    discoverOptionsFromDefects()
+  ]);
+
+  state.tenantOptions = mergeOptions(storedTenants,apiTenants,discovered.tenants,currentTenant ? [{id:currentTenant,label:currentTenant}] : []);
+  const tenantId = renderSelect("tenantSelect",state.tenantOptions,currentTenant,"defaultTenant","預設客戶");
+  storageSet("currentTenantId",tenantId);
+
+  const systemQuery = makeQuery({tenant_id:tenantId});
+  const apiSystems = await tryEndpointOptions([
+    `/api/systems${systemQuery ? `?${systemQuery}` : ""}`,
+    `/api/admin/systems${systemQuery ? `?${systemQuery}` : ""}`
+  ],"system");
+  state.systemOptions = mergeOptions(storedSystems,apiSystems,discovered.systems,currentSystem ? [{id:currentSystem,label:currentSystem}] : []);
+  const systemId = renderSelect("systemSelect",state.systemOptions,currentSystem,"defaultSystem","預設機台");
+  storageSet("currentSystemId",systemId);
+}
+
+async function refreshSystemsForTenant(){
+  const tenantId = getCurrentTenantId();
+  const currentSystem = getCurrentSystemId();
+  const systemQuery = makeQuery({tenant_id:tenantId});
+  const apiSystems = await tryEndpointOptions([
+    `/api/systems${systemQuery ? `?${systemQuery}` : ""}`,
+    `/api/admin/systems${systemQuery ? `?${systemQuery}` : ""}`
+  ],"system");
+  state.systemOptions = mergeOptions(apiSystems,state.systemOptions,currentSystem ? [{id:currentSystem,label:currentSystem}] : []);
+  const systemId = renderSelect("systemSelect",state.systemOptions,currentSystem,"defaultSystem","預設機台");
+  storageSet("currentSystemId",systemId);
+}
+
+function allowUntaggedRecords(){
+  return state.systemOptions.length <= 1 || getCurrentSystemId() === "defaultSystem";
+}
+
+function belongsToCurrentScope(record){
+  const currentTenant = getCurrentTenantId();
+  const currentSystem = getCurrentSystemId();
+  const tenantId = recordTenantId(record);
+  const systemId = recordSystemId(record);
+  if(tenantId && currentTenant && currentTenant !== "defaultTenant" && tenantId !== currentTenant) return false;
+  if(systemId && currentSystem && currentSystem !== "defaultSystem" && systemId !== currentSystem) return false;
+  if(!systemId && !allowUntaggedRecords()) return false;
+  return true;
+}
+
+async function fetchDefectsForCurrentMachine(){
+  const tenantId = getCurrentTenantId();
+  const systemId = getCurrentSystemId();
+  const scopedQuery = makeQuery({tenant_id:tenantId,system_id:systemId});
+  const systemQuery = makeQuery({system_id:systemId});
+  const candidates = [];
+  DEFECT_LIST_ENDPOINTS.forEach(path => {
+    if(scopedQuery) candidates.push(`${path}?${scopedQuery}`);
+    if(systemQuery) candidates.push(`${path}?${systemQuery}`);
+    candidates.push(path);
+  });
+
+  let firstEmpty = null;
+  let lastError = null;
+  for(const path of unique(candidates)){
+    try{
+      const payload = await fetchJson(`${API_BASE}${path}`);
+      const list = extractArray(payload);
+      if(firstEmpty === null) firstEmpty = list;
+      if(list.length) return list;
+    }catch(error){ lastError = error; console.debug(`舊資料端點略過：${path}`, error.message); }
+  }
+  if(firstEmpty) return firstEmpty;
+  throw lastError || new Error("找不到事件紀錄 API");
+}
+
+function manualProductsKey(){ return `dashboard.manualProducts.${getCurrentTenantId()}.${getCurrentSystemId()}`; }
+function loadManualProducts(){
+  const parsed = readJson(localStorage.getItem(manualProductsKey()) || "[]");
+  return safeArray(parsed).map(normalizeProductName).filter(Boolean);
+}
+function saveManualProducts(){
+  const historyProducts = new Set(state.defects.map(recordProduct));
+  const manual = state.selectedProducts.filter(product => !historyProducts.has(product));
+  localStorage.setItem(manualProductsKey(), JSON.stringify(unique(manual)));
+}
+
+function rebuildStatistics(){
+  const stats = {};
+  const products = unique([...loadManualProducts(), ...state.defects.map(recordProduct)]);
+  products.forEach(product => { stats[product] = {ok:0,ng:0,total:0}; });
+  state.defects.forEach(record => {
+    const product = recordProduct(record);
+    const status = recordStatus(record);
+    if(!stats[product]) stats[product] = {ok:0,ng:0,total:0};
+    if(status === "OK") stats[product].ok += 1;
+    else if(status === "NG") stats[product].ng += 1;
+    stats[product].total = stats[product].ok + stats[product].ng;
+  });
+  state.selectedProducts = unique([...products,...Object.keys(stats)]);
+  state.productStats = stats;
+}
+
+function totals(){
+  return Object.values(state.productStats).reduce((sum,item) => {
+    sum.ok += item.ok; sum.ng += item.ng; return sum;
+  }, {ok:0,ng:0});
+}
+
+function updateDetectedProducts(){
+  const text = state.selectedProducts.length ? state.selectedProducts.join("、") : "尚未設定";
+  if(byId("currentProductsText")) byId("currentProductsText").textContent = text;
+  if(byId("detectedProductsText")) byId("detectedProductsText").textContent = text;
+}
+
+function renderSummary(){
+  const sum = totals();
+  const total = sum.ok + sum.ng;
+  const yieldRate = percent(sum.ok,total);
+  const ngRate = percent(sum.ng,total);
+  const recentNg = [...state.defects]
+    .sort((a,b) => new Date(recordTime(b) || 0) - new Date(recordTime(a) || 0))
+    .slice(0,20).filter(record => recordStatus(record) === "NG").length;
+
+  byId("gaugeValue").textContent = String(total);
+  byId("gauge").style.setProperty("--p", Math.min(total,100));
+  byId("gaugeBarFill").style.width = `${Math.min(total,100)}%`;
+  byId("defectCount").textContent = String(sum.ng);
+  byId("summaryTotal").textContent = `總數：${total}`;
+  byId("summaryOk").textContent = `OK：${sum.ok}`;
+  byId("summaryNg").textContent = `NG：${sum.ng}`;
+  byId("summaryYield").textContent = `良率：${percentText(yieldRate)}`;
+  byId("summaryDefect").textContent = `NG 率：${percentText(ngRate)}`;
+  byId("summaryLast20").textContent = `最近 20 筆異常：${recentNg}`;
+  byId("table-ok-total").textContent = String(sum.ok);
+  byId("table-ng-total").textContent = String(sum.ng);
+  byId("table-ok-rate-total").textContent = percentText(yieldRate);
+  byId("table-ng-rate-total").textContent = percentText(ngRate);
+  byId("recordCountText").textContent = `目前機台已載入 ${total} 筆有效資料`;
+}
+
+function renderProductStats(){
+  const gaugeArea = byId("dynamicProductGaugeArea");
+  const tableArea = byId("dynamicProductRows");
+  const products = Object.keys(state.productStats);
+
+  if(!products.length){
+    gaugeArea.innerHTML = '<div class="emptyText">目前機台尚未有產品資料，可從上方加入產品，或等待偵測事件。</div>';
+    tableArea.innerHTML = '<div class="emptyText">目前機台尚未有產品統計。</div>';
+    renderSummary();
+    updateDetectedProducts();
+    renderCategoryButtons();
+    return;
+  }
+
+  gaugeArea.innerHTML = products.map(product => {
+    const item = state.productStats[product];
+    const total = item.ok + item.ng;
+    const yieldRate = percent(item.ok,total);
+    const ngRate = percent(item.ng,total);
+    return `
+      <div class="gaugeBox">
+        <div class="gaugeLabel">${escapeHtml(product)}</div>
+        <div class="gauge" style="--p:${yieldRate}"><div class="gaugeValue">${percentText(yieldRate)}</div></div>
+        <div class="gaugeSub"><span class="rateBlue">良率 ${percentText(yieldRate)}</span> ｜ <span class="rateRed">NG 率 ${percentText(ngRate)}</span><br>OK：${item.ok} ｜ NG：${item.ng}</div>
+      </div>`;
+  }).join("");
+
+  tableArea.innerHTML = products.map(product => {
+    const item = state.productStats[product];
+    const total = item.ok + item.ng;
+    return `
+      <div class="pt-row">
+        <div class="pt-name">${escapeHtml(product)}</div>
+        <div class="pt-ok">${item.ok}</div>
+        <div class="pt-ng">${item.ng}</div>
+        <div class="pt-okRate">${percentText(percent(item.ok,total))}</div>
+        <div class="pt-ngRate">${percentText(percent(item.ng,total))}</div>
+      </div>`;
+  }).join("");
+
+  renderSummary();
+  updateDetectedProducts();
+  renderCategoryButtons();
+}
+
+function renderCategoryButtons(){
+  const container = byId("categoryButtons");
+  if(!container) return;
+  const products = Object.keys(state.productStats);
+  container.innerHTML = [{id:"",label:"全部"},...products.map(product => ({id:product,label:product}))].map(item => {
+    const active = item.id === state.filterProduct ? " active" : "";
+    return `<button type="button" class="${active}" data-product="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>`;
+  }).join("");
+  container.querySelectorAll("button").forEach(button => {
+    button.addEventListener("click", () => { state.filterProduct = button.dataset.product || ""; renderEventRows(); renderCategoryButtons(); });
+  });
+}
+
+function renderEventRows(){
+  const list = byId("defect-list");
+  const rows = [...state.defects]
+    .sort((a,b) => new Date(recordTime(b) || 0) - new Date(recordTime(a) || 0))
+    .filter(record => !state.filterProduct || recordProduct(record) === state.filterProduct)
+    .slice(0,MAX_VISIBLE_EVENTS);
+
+  if(!rows.length){
+    list.innerHTML = '<div class="emptyText">目前機台沒有符合條件的舊有事件紀錄。</div>';
+    return;
+  }
+  list.innerHTML = rows.map(record => {
+    const status = recordStatus(record) || "-";
+    const statusClass = status === "OK" ? "status-ok" : "status-ng";
+    return `
+      <div class="defect-row">
+        <div class="defect-id" title="${escapeHtml(recordId(record) || "-")}">${escapeHtml(recordId(record) || "-")}</div>
+        <div class="defect-status ${statusClass}">${escapeHtml(status)}（${escapeHtml(recordProduct(record))}）</div>
+        <div class="defect-time">${escapeHtml(formatTime(recordTime(record)))}</div>
+      </div>`;
+  }).join("");
+}
+
+function updateScopeHint(rawCount, scopedCount){
+  const tenant = getCurrentTenantId();
+  const system = getCurrentSystemId();
+  byId("machineScopeHint").textContent = `目前只統計客戶 ${tenant}／機台 ${system}：從 ${rawCount} 筆 API 資料中載入 ${scopedCount} 筆。切換機台後會重新讀取舊資料。`;
+}
+
+async function reloadMachineData(){
+  const serial = ++state.loadSerial;
+  closeRealtimeUpdates();
+  showError("");
+  setDataStatus("", "正在讀取目前機台舊資料...");
+  byId("defect-list").innerHTML = '<div class="emptyText">正在載入 MongoDB 舊有事件紀錄...</div>';
+  try{
+    const raw = await fetchDefectsForCurrentMachine();
+    if(serial !== state.loadSerial) return;
+    const untagged = raw.filter(record => !recordSystemId(record)).length;
+    state.defects = raw.filter(belongsToCurrentScope);
+    const deduped = new Map();
+    state.defects.forEach(record => deduped.set(recordKey(record),record));
+    state.defects = [...deduped.values()];
+    rebuildStatistics();
+    renderProductStats();
+    renderEventRows();
+    updateScopeHint(raw.length,state.defects.length);
+    setDataStatus("online", "舊資料已載入，等待即時更新");
+    if(untagged && !allowUntaggedRecords()){
+      showError(`注意：有 ${untagged} 筆舊資料缺少 system_id，因此無法自動分配到機台。請在後端或 MongoDB 補上 system_id。`);
+    }
+    startRealtimeUpdates();
+  }catch(error){
+    console.error(error);
+    state.defects = [];
+    rebuildStatistics();
+    renderProductStats();
+    renderEventRows();
+    updateScopeHint(0,0);
+    setDataStatus("offline", "無法載入舊資料");
+    showError(`讀取舊有事件紀錄失敗：${error.message}。請確認後端存在 /api/defects，且 Render 已完成部署。`);
+    startRealtimeUpdates();
+  }
+}
+
+function addProductDynamic(name){
+  const product = normalizeProductName(name);
+  if(!asText(name)) return;
+  if(!state.selectedProducts.includes(product)) state.selectedProducts.push(product);
+  saveManualProducts();
+  rebuildStatistics();
+  renderProductStats();
+  byId("productInput").value = "";
+}
+
+function addRealtimeRecord(record){
+  if(!record || typeof record !== "object" || !belongsToCurrentScope(record)) return;
+  const key = recordKey(record);
+  const exists = state.defects.some(item => recordKey(item) === key);
+  if(exists) return;
+  state.defects.push(record);
+  rebuildStatistics();
+  renderProductStats();
+  renderEventRows();
+  updateScopeHint(state.defects.length,state.defects.length);
+}
+
+function closeRealtimeUpdates(){
+  if(state.eventSource){ state.eventSource.close(); state.eventSource = null; }
+}
+
+function startRealtimeUpdates(){
+  closeRealtimeUpdates();
+  if(!window.EventSource) return;
+  const query = makeQuery({tenant_id:getCurrentTenantId(),system_id:getCurrentSystemId()});
+  const url = `${API_BASE}${DEFECT_STREAM_ENDPOINT}${query ? `?${query}` : ""}`;
+  try{
+    const stream = new EventSource(url);
+    state.eventSource = stream;
+    stream.onopen = () => setDataStatus("online","即時資料連線中");
+    stream.onmessage = event => {
+      try{ addRealtimeRecord(JSON.parse(event.data)); }
+      catch(error){ console.warn("SSE 資料格式錯誤",error); }
+    };
+    stream.onerror = () => setDataStatus("","即時連線重試中...");
+  }catch(error){ console.warn("無法建立 SSE",error); }
 }
 
 function downloadCSV(){
-  const rows = [["產品", "OK", "NG", "總數", "OK率", "NG率"]];
-  for(const product of selectedProducts){
-    const stats = productStats[product] || { ok:0, ng:0 };
-    const total = stats.ok + stats.ng;
-    const okRate = total ? Math.round(stats.ok / total * 100) : 0;
-    const ngRate = total ? Math.round(stats.ng / total * 100) : 0;
-    rows.push([product, stats.ok, stats.ng, total, `${okRate}%`, `${ngRate}%`]);
-  }
-  const csv = "\uFEFF" + rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\r\n");
-  const blob = new Blob([csv], { type:"text/csv;charset=utf-8" });
+  const header = ["tenant_id","system_id","時間","產品","狀態","事件ID"];
+  const rows = [...state.defects]
+    .sort((a,b) => new Date(recordTime(b) || 0) - new Date(recordTime(a) || 0))
+    .map(record => [getCurrentTenantId(),getCurrentSystemId(),formatTime(recordTime(record)),recordProduct(record),recordStatus(record),recordId(record)]);
+  const csv = [header,...rows].map(row => row.map(cell => `"${asText(cell).replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const blob = new Blob(["\ufeff" + csv],{type:"text/csv;charset=utf-8"});
   const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `defect-report-${new Date().toISOString().slice(0,10)}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `瑕疵報表_${getCurrentSystemId()}_${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
 }
 
 function initUserChip(){
-  const name = storageValue(["username", "user_name", "name", "email"]);
-  if(name) setText("userChip", `使用者：${name}`);
+  const raw = storageGet("user") || storageGet("currentUser") || storageGet("authUser");
+  const user = readJson(raw || "") || {};
+  const displayName = asText(user.name ?? user.username ?? user.email ?? firstStorage(["username","userName","email"]));
+  byId("userChip").textContent = `使用者：${displayName || "未登入"}`;
+  const role = upper(user.role ?? firstStorage(["role","userRole"]));
+  if(role.includes("ADMIN")){
+    if(byId("adminNavLink")) byId("adminNavLink").style.display = "flex";
+    if(byId("adminNavLinkDrawer")) byId("adminNavLinkDrawer").style.display = "flex";
+  }
+}
+
+function initCamera(){
+  const url = firstStorage(["cameraUrl","camera_url","esp32CamUrl","esp32_cam_url"]);
+  if(url){ byId("camera").src = url; byId("liveHint").textContent = `ESP32-CAM：${url}`; }
+  else byId("liveHint").textContent = "尚未設定 ESP32-CAM 網址，可在系統設定中填入 cameraUrl。";
+}
+
+function toggleDrawer(open){
+  byId("drawer")?.classList.toggle("open",!!open);
+  byId("overlay")?.classList.toggle("open",!!open);
+}
+function forceReload(event){ event?.preventDefault(); reloadMachineData(); }
+async function swHardReset(){
+  try{
+    if("serviceWorker" in navigator){ const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(reg => reg.unregister())); }
+    if("caches" in window){ const keys = await caches.keys(); await Promise.all(keys.map(key => caches.delete(key))); }
+  }finally{ location.reload(true); }
+}
+function handleHardReset(event){ event?.preventDefault(); swHardReset(); }
+
+async function demoEstop(){
+  const body = {tenant_id:getCurrentTenantId(),system_id:getCurrentSystemId(),command:"ESTOP",timestamp:new Date().toISOString()};
+  for(const path of ["/api/estop","/api/emergency-stop"]){
+    try{
+      await fetchJson(`${API_BASE}${path}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      alert(`已送出緊急停止：${getCurrentSystemId()}`); return;
+    }catch(error){ console.debug(`略過 ${path}`,error.message); }
+  }
+  alert(`已觸發緊急停止顯示：${getCurrentSystemId()}。目前後端若尚未提供 /api/estop，請再補上控制端 API。`);
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  document.getElementById("addProductBtn")?.addEventListener("click", () => addProductDynamic(document.getElementById("productInput")?.value));
-  document.getElementById("productInput")?.addEventListener("keydown", event => {
-    if(event.key === "Enter") addProductDynamic(event.currentTarget.value);
-  });
   initUserChip();
-  renderAll();
-  await initSelectedProductsFromDB();
-  startRealtimeUpdates();
+  initCamera();
+  byId("addProductBtn").addEventListener("click",() => addProductDynamic(byId("productInput").value));
+  byId("productInput").addEventListener("keydown",event => { if(event.key === "Enter") addProductDynamic(event.target.value); });
+  byId("tenantSelect").addEventListener("change", async event => {
+    storageSet("currentTenantId",event.target.value);
+    await refreshSystemsForTenant();
+    reloadMachineData();
+  });
+  byId("systemSelect").addEventListener("change", event => {
+    storageSet("currentSystemId",event.target.value);
+    reloadMachineData();
+  });
+  await initSelectors();
+  await reloadMachineData();
 });
+
+window.addEventListener("beforeunload",closeRealtimeUpdates);
 </script>
 </body>
 </html>
