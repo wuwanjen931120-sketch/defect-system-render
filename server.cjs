@@ -8,6 +8,7 @@ require("dotenv").config(); // 讀取保險箱 .env
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const axios = require("axios");
 
 
 const mongoose = require("mongoose");
@@ -369,16 +370,11 @@ app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admi
 
 // 📧 Gmail 郵差機車與鑰匙設定
 const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: 2525,           // Render 可用端口
-  secure: false,
+  service: "gmail",
   auth: {
-    user: process.env.BREVO_SMTP_LOGIN,
-    pass: process.env.BREVO_SMTP_KEY
-  },
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 20000
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS
+  }
 });
 
 // ================= 寄送登入驗證碼 =================
@@ -1012,6 +1008,241 @@ if (system_id) {
   }
 });
 
+
+// ================= AI 助理：依照登入者權限讀取良率 / NG / 事件紀錄 =================
+function buildAiQuery(user, params = {}) {
+  const query = {};
+
+  const products = params.products;
+  if (products) {
+    const productArray = String(products)
+      .split(",")
+      .map(p => p.trim())
+      .filter(Boolean);
+    if (productArray.length) query.product = { $in: productArray };
+  }
+
+  const requestedTenantId = params.tenant_id;
+  const requestedSystemId = params.system_id;
+  const userSystems = Array.isArray(user.systems) ? user.systems : [];
+
+  if (user.role === "super_admin") {
+    if (requestedTenantId) query.tenant_id = requestedTenantId;
+    if (requestedSystemId) query.system_id = requestedSystemId;
+    return query;
+  }
+
+  query.tenant_id = user.tenant_id;
+
+  if (user.role === "tenant_admin") {
+    if (requestedSystemId) {
+      if (userSystems.length === 0 || userSystems.includes(requestedSystemId)) {
+        query.system_id = requestedSystemId;
+      } else {
+        query.system_id = "__NO_PERMISSION__";
+      }
+    }
+    return query;
+  }
+
+  if (userSystems.length > 0) {
+    query.system_id = { $in: userSystems };
+  }
+
+  if (requestedSystemId) {
+    if (userSystems.includes(requestedSystemId)) {
+      query.system_id = requestedSystemId;
+    } else {
+      query.system_id = "__NO_PERMISSION__";
+    }
+  }
+
+  return query;
+}
+
+function summarizeDefectsForAi(defects) {
+  const total = defects.length;
+  const okCount = defects.filter(d => String(d.status || "").toUpperCase() === "OK").length;
+  const ngCount = defects.filter(d => String(d.status || "").toUpperCase() === "NG").length;
+  const yieldRate = total ? Number(((okCount / total) * 100).toFixed(1)) : 0;
+  const defectRate = total ? Number(((ngCount / total) * 100).toFixed(1)) : 0;
+
+  const byProduct = {};
+  const bySystem = {};
+
+  for (const d of defects) {
+    const product = d.product || "未分類";
+    const system = d.system_id || "未指定機台";
+    const status = String(d.status || "").toUpperCase();
+
+    if (!byProduct[product]) byProduct[product] = { total: 0, ok: 0, ng: 0, yieldRate: 0, defectRate: 0 };
+    byProduct[product].total += 1;
+    if (status === "OK") byProduct[product].ok += 1;
+    if (status === "NG") byProduct[product].ng += 1;
+
+    if (!bySystem[system]) bySystem[system] = { total: 0, ok: 0, ng: 0, yieldRate: 0, defectRate: 0 };
+    bySystem[system].total += 1;
+    if (status === "OK") bySystem[system].ok += 1;
+    if (status === "NG") bySystem[system].ng += 1;
+  }
+
+  for (const item of Object.values(byProduct)) {
+    item.yieldRate = item.total ? Number(((item.ok / item.total) * 100).toFixed(1)) : 0;
+    item.defectRate = item.total ? Number(((item.ng / item.total) * 100).toFixed(1)) : 0;
+  }
+
+  for (const item of Object.values(bySystem)) {
+    item.yieldRate = item.total ? Number(((item.ok / item.total) * 100).toFixed(1)) : 0;
+    item.defectRate = item.total ? Number(((item.ng / item.total) * 100).toFixed(1)) : 0;
+  }
+
+  const recent = defects.slice(0, 12).map(d => ({
+    time: d.timestamp,
+    product: d.product || "未分類",
+    status: d.status || "未知",
+    system_id: d.system_id || "未指定",
+    case_id: d.id || "-"
+  }));
+
+  const last20 = defects.slice(0, 20);
+  const last20Ng = last20.filter(d => String(d.status || "").toUpperCase() === "NG").length;
+
+  return { total, okCount, ngCount, yieldRate, defectRate, last20Ng, byProduct, bySystem, recent };
+}
+
+function buildLocalAiReply(message, summary) {
+  const text = String(message || "").toLowerCase();
+  const lines = [];
+
+  lines.push(`目前資料總數 ${summary.total} 筆，OK ${summary.okCount} 筆，NG ${summary.ngCount} 筆。`);
+  lines.push(`良率 = ${summary.yieldRate}%；NG率 = ${summary.defectRate}%。`);
+
+  if (text.includes("mqtt") || text.includes("測試資料") || text.includes("payload") || text.includes("格式")) {
+    lines.push("MQTT Topic 建議使用：factory/defect/report");
+    lines.push('OK 範例：{"system_id":"你的機台ID","id":"case_001","status":"OK","product":"螺帽"}');
+    lines.push('NG 範例：{"system_id":"你的機台ID","id":"case_002","status":"NG","product":"螺帽"}');
+    lines.push("重點：system_id 一定要和網站登入後可查看的機台一致，status 建議只打 OK 或 NG。");
+  }
+
+  if (text.includes("沒資料") || text.includes("沒有資料") || text.includes("不顯示")) {
+    lines.push("事件紀錄沒有資料時，優先檢查：1. MQTT topic 是否是 factory/defect/report；2. JSON 是否正確；3. system_id 是否存在；4. 該登入帳號是否有該機台權限；5. MongoDB defects 是否有存入資料。");
+  }
+
+  if (summary.total === 0) {
+    lines.push("目前沒有符合條件的檢測紀錄，可以先從 MQTT 發送 OK/NG 測試資料，或確認機台 system_id 是否正確。");
+    return lines.join("\n");
+  }
+
+  if (text.includes("良率") || text.includes("yield")) {
+    lines.push("公式：良率 = OK ÷ (OK + NG) × 100%。如果良率偏低，建議先看 NG 最多的產品與最近 20 筆紀錄。");
+  }
+
+  if (text.includes("ng") || text.includes("瑕疵") || text.includes("異常") || text.includes("警報")) {
+    lines.push(`最近 20 筆中有 ${summary.last20Ng} 筆 NG。若連續 NG 過多，建議先停機檢查鏡頭、光源、治具位置與產品分類是否正確。`);
+  }
+
+  const productRows = Object.entries(summary.byProduct)
+    .sort((a, b) => b[1].ng - a[1].ng || b[1].total - a[1].total)
+    .slice(0, 5);
+
+  if (productRows.length) {
+    lines.push("產品統計：");
+    for (const [name, item] of productRows) {
+      lines.push(`- ${name}：總數 ${item.total}，OK ${item.ok}，NG ${item.ng}，良率 ${item.yieldRate}%，NG率 ${item.defectRate}%`);
+    }
+  }
+
+  lines.push("若要更像 GPT 一樣用自然語言分析，請在 Render Environment Variables 加上 OPENAI_API_KEY。");
+  return lines.join("\n");
+}
+
+function extractOpenAIText(responseData) {
+  if (responseData?.output_text) return responseData.output_text;
+
+  const output = responseData?.output || [];
+  for (const item of output) {
+    const content = item?.content || [];
+    for (const part of content) {
+      if (part?.text) return part.text;
+      if (part?.type === "output_text" && part?.text) return part.text;
+    }
+  }
+
+  return "AI 已回應，但無法讀取文字內容。";
+}
+
+app.get("/api/ai/status", auth, (req, res) => {
+  res.json({
+    enabled: Boolean(process.env.OPENAI_API_KEY),
+    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+    mode: process.env.OPENAI_API_KEY ? "openai" : "local-summary"
+  });
+});
+
+app.post("/api/ai/chat", auth, async (req, res) => {
+  try {
+    const { message, system_id, tenant_id, products } = req.body || {};
+
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ message: "請輸入問題" });
+    }
+
+    const query = buildAiQuery(req.user, { system_id, tenant_id, products });
+    const defects = await Defect.find(query).sort({ timestamp: -1 }).limit(500).lean();
+    const summary = summarizeDefectsForAi(defects);
+
+    if (!process.env.OPENAI_API_KEY) {
+      return res.json({
+        mode: "local-summary",
+        reply: buildLocalAiReply(message, summary),
+        summary
+      });
+    }
+
+    const systemPrompt = `你是「瑕疵辨識與分流系統」的 AI 助理。請用繁體中文回答，語氣要像在教初學者。
+你只能根據下列系統功能與統計資料回答，不要假裝看到不存在的資料。
+系統功能：WebCam 即時預覽、MQTT 訊息接收、MongoDB 瑕疵紀錄、登入權限、首頁儀表板、事件紀錄、系統設定、緊急停止、產品良率與 NG 率分析。
+公式：良率 = OK ÷ (OK + NG) × 100%；NG率 = NG ÷ (OK + NG) × 100%。
+回答時優先給可操作建議，例如檢查 system_id、tenant_id、產品分類、MQTT payload、鏡頭光源、資料是否有存入 MongoDB。`;
+
+    const aiInput = [
+      { role: "system", content: systemPrompt },
+      {
+        role: "user",
+        content: `使用者問題：${String(message).slice(0, 2000)}\n\n目前可用統計資料：\n${JSON.stringify(summary, null, 2).slice(0, 12000)}`
+      }
+    ];
+
+    const aiResponse = await axios.post(
+      "https://api.openai.com/v1/responses",
+      {
+        model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
+        input: aiInput,
+        temperature: 0.2
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 30000
+      }
+    );
+
+    res.json({
+      mode: "openai",
+      reply: extractOpenAIText(aiResponse.data),
+      summary
+    });
+  } catch (err) {
+    console.error("AI chat error:", err?.response?.data || err.message);
+    res.status(500).json({
+      message: "AI 助理暫時無法回覆，請檢查 OPENAI_API_KEY 或網路連線。",
+      fallback: err.message
+    });
+  }
+});
+
 app.post("/api/current-product", auth, async (req, res) => {
   try {
     const { tenant_id, system_id, product } = req.body;
@@ -1033,115 +1264,3 @@ app.post("/api/current-product", auth, async (req, res) => {
   }
 });
 
-client.on("message", async (topic, message) => {
-  if (topic === "factory/defect/report") {
-    const data = JSON.parse(message.toString());
-
-    // 處理多產品寫入 MongoDB
-    const systemId = data.system_id;
-    const systemDoc = await mongoose.connection.collection("systems").findOne({ system_id: systemId });
-    const userDoc = await mongoose.connection.collection("users").findOne({ tenant_id: systemDoc.tenant_id });
-
-    const owner = { user_id: userDoc?.username || "unknown", tenant_id: systemDoc.tenant_id };
-
-    let insertedDefects;
-    if (Array.isArray(data.items)) {
-      insertedDefects = await Defect.insertMany(
-        data.items.map(item => ({
-          tenant_id: owner.tenant_id,
-          user_id: owner.user_id,
-          system_id: systemId,
-          id: item.id,
-          status: item.status,
-          product: item.product,
-          timestamp: new Date()
-        }))
-      );
-    } else {
-      const newDefect = new Defect({
-        tenant_id: owner.tenant_id,
-        user_id: owner.user_id,
-        system_id: systemId,
-        id: data.id,
-        status: data.status,
-        product: data.product || "未分類",
-        timestamp: new Date()
-      });
-      insertedDefects = [await newDefect.save()];
-    }
-
-    // 🔹 新增 SSE 推送事件
-    insertedDefects.forEach(d => {
-      // 如果你有一個全域的 SSE clients list，例如 sseClients[]
-      sseClients.forEach(res => {
-        res.write(`data: ${JSON.stringify(d)}\n\n`);
-      });
-    });
-  }
-});
-
-// 假設你有一個全域的 SSE clients list
-const sseClients = [];
-
-// 1️⃣ 新增 SSE endpoint，前端會訂閱
-app.get("/api/defects/stream", auth, (req, res) => {
-  res.set({
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-cache",
-    "Connection": "keep-alive"
-  });
-  res.flushHeaders();
-
-  // 將前端連線加到 clients list
-  sseClients.push(res);
-
-  req.on("close", () => {
-    const index = sseClients.indexOf(res);
-    if(index !== -1) sseClients.splice(index,1);
-  });
-});
-
-// 2️⃣ MQTT 收到 defect 後推送 SSE
-client.on("message", async (topic, message) => {
-  if(topic === "factory/defect/report"){
-    const data = JSON.parse(message.toString());
-
-    const systemId = data.system_id;
-    const systemDoc = await mongoose.connection.collection("systems").findOne({ system_id: systemId });
-    const userDoc = await mongoose.connection.collection("users").findOne({ tenant_id: systemDoc.tenant_id });
-    const owner = { user_id: userDoc?.username || "unknown", tenant_id: systemDoc.tenant_id };
-
-    let insertedDefects;
-    if(Array.isArray(data.items)){
-      insertedDefects = await Defect.insertMany(
-        data.items.map(item => ({
-          tenant_id: owner.tenant_id,
-          user_id: owner.user_id,
-          system_id: systemId,
-          id: item.id,
-          status: item.status,
-          product: item.product,
-          timestamp: new Date()
-        }))
-      );
-    } else {
-      const newDefect = new Defect({
-        tenant_id: owner.tenant_id,
-        user_id: owner.user_id,
-        system_id: systemId,
-        id: data.id,
-        status: data.status,
-        product: data.product || "未分類",
-        timestamp: new Date()
-      });
-      insertedDefects = [await newDefect.save()];
-    }
-
-    // 🔹 這裡是新增 SSE 推送
-    insertedDefects.forEach(d => {
-      sseClients.forEach(res => {
-        res.write(`data: ${JSON.stringify(d)}\n\n`);
-      });
-    });
-  }
-});
