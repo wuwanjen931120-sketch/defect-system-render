@@ -2,6 +2,9 @@
 // 1. 套件引入與環境設定 (地基)
 // ==========================================
 const dns = require("dns");
+// Render 有時候連 Gmail SMTP 會先走 IPv6，但 Render 環境可能沒有 IPv6 出口，
+// 會出現 connect ENETUNREACH 2607:f8b0...:465。這裡強制 DNS 優先使用 IPv4。
+try { dns.setDefaultResultOrder("ipv4first"); } catch (_) {}
 dns.setServers(["8.8.8.8", "1.1.1.1"]); // 解決手機熱點 DNS 阻擋
 require("dotenv").config(); // 讀取保險箱 .env
 
@@ -369,11 +372,18 @@ app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admi
 
 
 // 📧 Gmail 郵差機車與鑰匙設定
+// 不用 service:"gmail"，改成明確 SMTP 設定並指定 family:4，避免 Render 走 IPv6 導致 ENETUNREACH。
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  family: 4,
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_PASS
+  },
+  tls: {
+    servername: "smtp.gmail.com"
   }
 });
 
