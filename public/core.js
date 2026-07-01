@@ -118,45 +118,44 @@
   }
   window.toast = toast;
 
+  function isIgnorableRuntimeMessage(message){
+    const msg = String(message || "").trim();
+    if(!msg) return true;
+    return (
+      msg.includes("Script error") ||
+      msg.includes("ResizeObserver") ||
+      msg.includes("chrome-extension") ||
+      msg.includes("extension") ||
+      msg.includes("DevTools") ||
+      msg.includes("Non-Error promise rejection captured")
+    );
+  }
+  window.isIgnorableRuntimeMessage = isIgnorableRuntimeMessage;
+
   function ensureOverlay(){
-    if(document.getElementById("errorOverlay")) return;
-    const ov = document.createElement("div");
-    ov.id = "errorOverlay";
-    ov.innerHTML = `
-      <div class="errorCard">
-        <h2>⚠️ 系統發生錯誤（已防止白畫面）</h2>
-        <div id="errorOverlayMsg" style="color:var(--muted); font-size:13px; line-height:1.6;">請重新整理頁面，或按「清快取」後重開。</div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-          <button class="btn btnPrimary" id="btnReload" type="button">重新整理</button>
-          <button class="btn" id="btnFix" type="button">修復灰底/警告（清快取）</button>
-          <button class="btn" id="btnClose" type="button">關閉</button>
-        </div>
-        <pre id="errorOverlayDetail"></pre>
-      </div>`;
-    document.body.appendChild(ov);
-    ov.querySelector("#btnReload").addEventListener("click", ()=>location.reload());
-    ov.querySelector("#btnFix").addEventListener("click", ()=>swHardReset());
-    ov.querySelector("#btnClose").addEventListener("click", ()=>ov.classList.remove("show"));
+    // 保留函式名稱，避免舊程式呼叫時出錯；但新版不再自動彈出遮罩。
+    return;
   }
 
   function showError(msg, detail){
-    try{
-      toast("⚠️ " + (msg || "發生錯誤"), "ERR");
-      ensureOverlay();
-      document.getElementById("errorOverlayMsg").textContent = msg || "發生錯誤";
-      document.getElementById("errorOverlayDetail").textContent = String(detail || "");
-      document.getElementById("errorOverlay").classList.add("show");
-    }catch(e){ console.warn("showError failed", e); }
+    const message = String(msg || detail || "").trim();
+    if(isIgnorableRuntimeMessage(message)) return;
+    console.warn("[系統錯誤已記錄，不再阻擋畫面]", msg, detail || "");
+    try{ toast("⚠️ " + (msg || "發生錯誤"), "WARN"); }catch(_){ }
   }
   window.showError = showError;
 
   window.addEventListener("error", (e)=>{
-    console.error("[GlobalError]", e?.message, e?.error);
-    showError("頁面執行發生錯誤", e?.error || e?.message || "");
+    const message = e?.message || e?.error?.message || "";
+    if(isIgnorableRuntimeMessage(message)) return;
+    console.warn("[GlobalError 已記錄，不顯示遮罩]", message, e?.error || "");
   });
+
   window.addEventListener("unhandledrejection", (e)=>{
-    console.error("[UnhandledRejection]", e?.reason);
-    showError("資料處理發生錯誤（Promise）", e?.reason || "");
+    const reason = e?.reason;
+    const message = reason?.message || (typeof reason === "string" ? reason : "");
+    if(isIgnorableRuntimeMessage(message)) return;
+    console.warn("[UnhandledRejection 已記錄，不顯示遮罩]", reason || "");
   });
 
   async function swHardReset(){

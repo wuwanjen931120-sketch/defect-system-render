@@ -549,6 +549,23 @@ if (!token) {
       flex:1;
     }
 
+    .brand p{
+      display:block;
+      font-size:12px;
+      color:var(--muted);
+      margin:3px 0 0;
+    }
+    .nav .pill{
+      margin-left:auto;
+      flex-shrink:0;
+      font-size:12px;
+      padding:4px 10px;
+      border-radius:999px;
+      color:rgba(231,238,252,.80);
+      background:rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.12);
+    }
+
     .side-footer .btn{
       width:100%;
       min-height:56px;
@@ -928,24 +945,34 @@ if (!token) {
         <div class="logo"></div>
         <div>
           <h1>瑕疵辨識與分流系統</h1>
+          <p>Defect System</p>
         </div>
       </div>
 
       <div class="nav">
         <a href="dashboard.html" class="active">
           <span class="nav-label">🏠 首頁</span>
+          <span class="pill">Dashboard</span>
         </a>
 
         <a href="logs.html">
           <span class="nav-label">🧾 事件紀錄</span>
+          <span class="pill">Logs</span>
         </a>
 
         <a href="settings.html">
           <span class="nav-label">⚙️ 系統設定</span>
+          <span class="pill">Settings</span>
+        </a>
+
+        <a href="ai.html">
+          <span class="nav-label">🤖 AI 助理</span>
+          <span class="pill">AI</span>
         </a>
 
         <a href="admin.html" id="adminNavLinkDrawer" style="display:none;">
           <span class="nav-label">🧑‍💼 管理後台</span>
+          <span class="pill">Admin</span>
         </a>
       </div>
 
@@ -965,24 +992,34 @@ if (!token) {
         <div class="logo"></div>
         <div>
           <h1>瑕疵辨識與分流系統</h1>
+          <p>Defect System</p>
         </div>
       </div>
 
       <div class="nav">
         <a href="dashboard.html" class="active">
           <span class="nav-label">🏠 首頁</span>
+          <span class="pill">Dashboard</span>
         </a>
 
         <a href="logs.html">
           <span class="nav-label">🧾 事件紀錄</span>
+          <span class="pill">Logs</span>
         </a>
 
         <a href="settings.html">
           <span class="nav-label">⚙️ 系統設定</span>
+          <span class="pill">Settings</span>
+        </a>
+
+        <a href="ai.html">
+          <span class="nav-label">🤖 AI 助理</span>
+          <span class="pill">AI</span>
         </a>
 
         <a href="admin.html" id="adminNavLink" style="display:none;">
           <span class="nav-label">🧑‍💼 管理後台</span>
+          <span class="pill">Admin</span>
         </a>
       </div>
 
@@ -1295,14 +1332,29 @@ function forceReload(e){
   location.reload();
 }
 
+function isIgnorableRuntimeMessage(message) {
+  const msg = String(message || "").trim();
+  if (!msg) return true;
+  return (
+    msg.includes("Script error") ||
+    msg.includes("ResizeObserver") ||
+    msg.includes("chrome-extension") ||
+    msg.includes("extension") ||
+    msg.includes("DevTools")
+  );
+}
+
 window.addEventListener("error", function(e) {
-  console.warn("已攔截錯誤，不顯示白畫面", e.message);
-  e.preventDefault();
+  const msg = e?.message || e?.error?.message || "";
+  if (isIgnorableRuntimeMessage(msg)) return;
+  console.warn("Dashboard JS 錯誤已記錄，不再跳出遮罩：", msg, e?.error || "");
 });
 
 window.addEventListener("unhandledrejection", function(e) {
-  console.warn("Promise錯誤已攔截", e.reason);
-  e.preventDefault();
+  const reason = e?.reason;
+  const msg = reason?.message || (typeof reason === "string" ? reason : "");
+  if (isIgnorableRuntimeMessage(msg)) return;
+  console.warn("Dashboard Promise 錯誤已記錄，不再跳出遮罩：", reason);
 });
 
 const role = sessionStorage.getItem("role") || "user";
