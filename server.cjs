@@ -5,7 +5,7 @@ const dns = require("dns");
 // Render 有時候連 Gmail SMTP 會先走 IPv6，但 Render 環境可能沒有 IPv6 出口，
 // 會出現 connect ENETUNREACH 2607:f8b0...:465。這裡強制 DNS 優先使用 IPv4。
 try { dns.setDefaultResultOrder("ipv4first"); } catch (_) {}
-dns.setServers(["8.8.8.8", "1.1.1.1"]); // 解決手機熱點 DNS 阻擋
+// 不指定 dns.setServers，讓 Render 使用平台自己的 DNS；後面寄信會再強制解析 IPv4。
 require("dotenv").config(); // 讀取保險箱 .env
 
 const express = require("express");
@@ -372,20 +372,74 @@ app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admi
 
 
 // 📧 Gmail 郵差機車與鑰匙設定
-// 不用 service:"gmail"，改成明確 SMTP 設定並指定 family:4，避免 Render 走 IPv6 導致 ENETUNREACH。
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  family: 4,
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS
-  },
-  tls: {
-    servername: "smtp.gmail.com"
+// Render 有時候仍會把 smtp.gmail.com 連到 IPv6，導致 ENETUNREACH。
+// 這裡改成「寄信時」依序嘗試：465 / 587 / 直接解析 IPv4 位址，避免卡在 IPv6。
+async function resolveGmailIPv4() {
+  const addresses = await dns.promises.resolve4("smtp.gmail.com");
+  if (!addresses || addresses.length === 0) {
+    throw new Error("無法解析 smtp.gmail.com 的 IPv4 位址");
   }
-});
+  return addresses[0];
+}
+
+function createSmtpTransport(options) {
+  return nodemailer.createTransport({
+    host: options.host,
+    port: options.port,
+    secure: options.secure,
+    requireTLS: options.requireTLS || false,
+    family: 4,
+    connectionTimeout: 20000,
+    greetingTimeout: 20000,
+    socketTimeout: 30000,
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS
+    },
+    tls: {
+      servername: "smtp.gmail.com",
+      minVersion: "TLSv1.2"
+    }
+  });
+}
+
+async function sendMailSafe(mailOptions) {
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+    throw new Error("Render Environment 缺少 GMAIL_USER 或 GMAIL_PASS");
+  }
+
+  const attempts = [
+    { label: "Gmail 465 hostname IPv4", host: "smtp.gmail.com", port: 465, secure: true },
+    { label: "Gmail 587 hostname IPv4", host: "smtp.gmail.com", port: 587, secure: false, requireTLS: true }
+  ];
+
+  try {
+    const ipv4 = await resolveGmailIPv4();
+    attempts.push(
+      { label: `Gmail 465 direct IPv4 ${ipv4}`, host: ipv4, port: 465, secure: true },
+      { label: `Gmail 587 direct IPv4 ${ipv4}`, host: ipv4, port: 587, secure: false, requireTLS: true }
+    );
+  } catch (err) {
+    console.warn("⚠️ Gmail IPv4 解析失敗，先改用 hostname 嘗試：", err.message);
+  }
+
+  let lastError = null;
+
+  for (const attempt of attempts) {
+    try {
+      console.log("📧 嘗試寄信方式：", attempt.label);
+      const mailer = createSmtpTransport(attempt);
+      const info = await mailer.sendMail(mailOptions);
+      console.log("✅ Gmail 驗證信寄出：", info.messageId || attempt.label);
+      return info;
+    } catch (err) {
+      lastError = err;
+      console.error(`❌ ${attempt.label} 寄信失敗：`, err.message);
+    }
+  }
+
+  throw new Error(`Gmail SMTP 全部嘗試失敗：${lastError ? lastError.message : "未知錯誤"}`);
+}
 
 // ================= 寄送登入驗證碼 =================
 app.post("/api/login/send-code", async (req, res) => {
@@ -425,7 +479,7 @@ app.post("/api/login/send-code", async (req, res) => {
       expiresAt: Date.now() + 5 * 60 * 1000
     });
 
-    await transporter.sendMail({
+    await sendMailSafe({
       from: process.env.GMAIL_USER,
       to: user.email || user.username,
       subject: "瑕疵辨識與分流系統登入驗證碼",
@@ -709,7 +763,7 @@ if (ngCount > 0) {
 if (ngCounterMap[counterKey] >= ALERT_THRESHOLD) {
   console.log("🚨 連續NG警報");
 
-  await transporter.sendMail({
+  await sendMailSafe({
     from: process.env.GMAIL_USER,
     to: process.env.GMAIL_USER,
     subject: "🚨 產線異常",
