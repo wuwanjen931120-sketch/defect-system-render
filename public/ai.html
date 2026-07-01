@@ -140,6 +140,11 @@
       font-weight:800;
       margin:2px 0 -4px;
     }
+    .aiFilterActions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
     .summaryGrid{
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -248,7 +253,10 @@
             <div class="labelText">產品名稱 products</div>
             <input id="productsInput" placeholder="可空白，例如：螺帽,手機殼" />
 
-            <button class="btn" id="refreshSummary" type="button">重新讀取統計</button>
+            <div class="aiFilterActions">
+              <button class="btn btnPrimary" id="showAllSummary" type="button">查看全部</button>
+              <button class="btn" id="refreshSummary" type="button">重新讀取統計</button>
+            </div>
           </div>
 
           <div class="summaryGrid">
@@ -259,8 +267,9 @@
           </div>
 
           <div class="helpText">
-            <b>Render 要開真正 AI：</b><br>
-            Environment Variables 加上 <code>OPENAI_API_KEY</code>。沒有加也能用本機統計模式，但回答會比較像固定分析。
+            <b>OPENAI_API_KEY 說明：</b><br>
+            沒設定不會影響登入、事件紀錄、良率統計，也可以用本機統計模式。<br>
+            只有想讓 AI 像 GPT 一樣自然分析時，才需要在 Render Environment Variables 加上 <code>OPENAI_API_KEY</code>。
           </div>
         </aside>
       </section>

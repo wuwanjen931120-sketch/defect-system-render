@@ -1,6 +1,6 @@
 
 
-const CACHE_NAME = "aiot-pwa-v5-ai"; // ✅ bump version
+const CACHE_NAME = "aiot-pwa-v6-sidebar-all-ai"; // ✅ bump version
 const ASSETS = [
   "./",
   "./index.html",

@@ -1,141 +1,69 @@
-"use strict"; // 如果要全程啟用嚴格模式，請將它放在檔案的最前面
+"use strict";
 /* core.js
- * ✅ 1) 防止輸入造成崩潰（safe parse / safe number / safe text）
- * ✅ 2) 保護頁面：dashboard/logs/settings 未登入 → 導回 login.html
- * ✅ 3) 全域錯誤處理：避免白畫面，顯示 errorBar + overlay
- * ✅ 4) 提供 swHardReset：解灰底/三警告（清 SW + CacheStorage）
+ * 統一側邊欄 + 登入保護 + 錯誤處理 + 清快取工具
+ * 目的：讓首頁、事件紀錄、系統設定、AI 助理左邊選單都長一樣。
  */
+(function(){
+  const PROTECTED_PAGES = ["dashboard.html", "logs.html", "settings.html", "ai.html", "admin.html", "mongo-admin.html"];
 
-
-
-
-console.log("swHardReset triggered");
-
-function someFunction() {
-  // Your function logic here
-}
-
-// 其他程式碼...
-
-
-  // -------------------------
-  // Error UI
-  // -------------------------
-  function ensureOverlay(){
-    if(document.getElementById("errorOverlay")) return;
-    const ov = document.createElement("div");
-    ov.id = "errorOverlay";
-    ov.innerHTML = `
-      <div class="errorCard">
-        <h2>⚠️ 系統發生錯誤（已防止白畫面）</h2>
-        <div id="errorOverlayMsg" style="color:var(--muted); font-size:13px; line-height:1.6;">
-          請重新整理頁面，或按「清快取」後重開。
-        </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
-          <button class="btn btnPrimary" id="btnReload">重新整理</button>
-          <button class="btn" id="btnFix">修復灰底/警告（清快取）</button>
-          <button class="btn" id="btnClose">關閉</button>
-        </div>
-        <pre id="errorOverlayDetail"></pre>
-      </div>
-    `;
-    document.body.appendChild(ov);
-
-
-    ov.querySelector("#btnReload").addEventListener("click", ()=> location.reload());
-    ov.querySelector("#btnFix").addEventListener("click", ()=> swHardReset());
-    ov.querySelector("#btnClose").addEventListener("click", ()=> ov.classList.remove("show"));
+  function currentFile(){
+    const p = location.pathname.toLowerCase();
+    const last = p.split("/").pop() || "dashboard.html";
+    return last === "" ? "dashboard.html" : last;
   }
 
-function toast(msg, state="OK") {
-  const el = document.getElementById("errorBar");
-  if (!el) return;
-
-  el.textContent = msg || "";
-
-  // 根據狀態設定顏色
-  if (state === "OK") {
-    el.style.backgroundColor = "rgba(34,197,94,.35)";
-    el.style.color = "green";
-  } else if (state === "WARN") {
-    el.style.backgroundColor = "rgba(245,158,11,.35)";
-    el.style.color = "yellow";
-  } else {
-    el.style.backgroundColor = "rgba(239,68,68,.35)";
-    el.style.color = "red";
+  function isProtectedPage(){
+    return PROTECTED_PAGES.includes(currentFile());
   }
 
-  el.style.display = "block";  // 顯示提示
-  setTimeout(() => {
-    el.style.display = "none";  // 4秒後隱藏提示
-  }, 4000);
-}
-
-  function showError(msg, detail){
+  function parseJwtPayload(token){
     try{
-      // errorBar（底部）
-      const bar = document.getElementById("errorBar");
-      if(bar){
-        bar.style.display = "block";
-        bar.textContent = "⚠️ " + (msg || "發生錯誤");
-        setTimeout(()=>{ bar.style.display = "none"; }, 4000);
+      if(!token || !token.includes(".")) return null;
+      const payload = token.split(".")[1];
+      const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+      return JSON.parse(decodeURIComponent(Array.prototype.map.call(json, c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
+    }catch{
+      try{
+        const payload = token.split(".")[1];
+        return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+      }catch{
+        return null;
       }
-
-
-      // overlay（避免白畫面）
-      ensureOverlay();
-      document.getElementById("errorOverlayMsg").textContent = msg || "發生錯誤";
-      document.getElementById("errorOverlayDetail").textContent = String(detail || "");
-      document.getElementById("errorOverlay").classList.add("show");
-    }catch(e){
-      console.warn("showError failed", e);
     }
   }
 
+  function getLoginInfo(){
+    const token = sessionStorage.getItem("token") || "";
+    const payload = parseJwtPayload(token) || {};
+    const loginUser = safeJsonParse(sessionStorage.getItem("loginUser"), {}) || {};
+    return {
+      token,
+      email: sessionStorage.getItem("email") || sessionStorage.getItem("loginEmail") || payload.email || loginUser.email || loginUser.username || "",
+      role: sessionStorage.getItem("role") || payload.role || loginUser.role || "",
+      tenant_id: sessionStorage.getItem("tenant_id") || payload.tenant_id || loginUser.tenant_id || ""
+    };
+  }
 
-  window.toast = toast;
-
-  window.showError = showError;
-
-
-  // 全域錯誤攔截（避免白畫面）
-  window.addEventListener("error", (e)=>{
-    console.error("[GlobalError]", e?.message, e?.error);
-    showError("頁面執行發生錯誤", e?.error || e?.message || "");
-  });
-  window.addEventListener("unhandledrejection", (e)=>{
-    console.error("[UnhandledRejection]", e?.reason);
-    showError("資料處理發生錯誤（Promise）", e?.reason || "");
-  });
-
-
-  // -------------------------
-  // Safe helpers (輸入防爆核心)
-  // -------------------------
   function safeText(v, fallback="-"){
     try{
       if(v === undefined || v === null) return fallback;
-      const s = String(v);
-      // 避免控制字元
-      return s.replace(/[\u0000-\u001F\u007F]/g, "").trim() || fallback;
+      const s = String(v).replace(/[\u0000-\u001F\u007F]/g, "").trim();
+      return s || fallback;
     }catch{
       return fallback;
     }
   }
   window.safeText = safeText;
 
-
   function safeNumber(v, fallback=0){
     try{
-      if(v === undefined || v === null) return fallback;
-      const n = Number(String(v).trim());
+      const n = Number(String(v ?? "").trim());
       return Number.isFinite(n) ? n : fallback;
     }catch{
       return fallback;
     }
   }
   window.safeNumber = safeNumber;
-
 
   function safeJsonParse(raw, fallback=null){
     try{
@@ -147,142 +75,222 @@ function toast(msg, state="OK") {
   }
   window.safeJsonParse = safeJsonParse;
 
-
   function hasControlChar(s){
-    try{
-      return /[\u0000-\u001F\u007F]/.test(String(s));
-    }catch{
-      return false;
-    }
+    try{ return /[\u0000-\u001F\u007F]/.test(String(s)); }
+    catch{ return false; }
   }
   window.hasControlChar = hasControlChar;
 
-
-  // localStorage 安全讀寫（避免崩潰）
   function safeGet(key, fallback=null){
     try{
       const raw = localStorage.getItem(key);
       if(raw === null) return fallback;
-      // 如果是 JSON，嘗試 parse，不是就直接回傳字串
-      const obj = safeJsonParse(raw, "__NOT_JSON__");
-      return obj === "__NOT_JSON__" ? raw : obj;
-    }catch(e){
-      console.warn("safeGet error", e);
+      return safeJsonParse(raw, raw);
+    }catch{
       return fallback;
     }
   }
   window.safeGet = safeGet;
 
-
   function safeSet(key, value){
     try{
-      // 物件用 JSON，字串直接存
-      if(typeof value === "string"){
-        localStorage.setItem(key, value);
-      }else{
-        localStorage.setItem(key, JSON.stringify(value));
-      }
+      localStorage.setItem(key, typeof value === "string" ? value : JSON.stringify(value));
       return true;
-    }catch(e){
-      console.warn("safeSet error", e);
+    }catch{
       return false;
     }
   }
   window.safeSet = safeSet;
 
+  function toast(msg, state="OK"){
+    let el = document.getElementById("errorBar");
+    if(!el){
+      el = document.createElement("div");
+      el.id = "errorBar";
+      document.body.appendChild(el);
+    }
+    el.textContent = msg || "";
+    el.style.display = "block";
+    el.style.backgroundColor = state === "OK" ? "rgba(34,197,94,.20)" : state === "WARN" ? "rgba(245,158,11,.22)" : "rgba(239,68,68,.22)";
+    el.style.borderColor = state === "OK" ? "rgba(34,197,94,.35)" : state === "WARN" ? "rgba(245,158,11,.35)" : "rgba(239,68,68,.35)";
+    el.style.color = "rgba(231,238,252,.95)";
+    setTimeout(()=>{ el.style.display = "none"; }, 3800);
+  }
+  window.toast = toast;
 
-
-
-
-  // -------------------------
-  // Auth guard（防止 dashboard/logs/settings 未登入）
-  // -------------------------
-  function isProtectedPage(){
-    const p = location.pathname.toLowerCase();
-    return p.endsWith("dashboard.html") || p.endsWith("logs.html") || p.endsWith("settings.html") || p.endsWith("ai.html");
+  function ensureOverlay(){
+    if(document.getElementById("errorOverlay")) return;
+    const ov = document.createElement("div");
+    ov.id = "errorOverlay";
+    ov.innerHTML = `
+      <div class="errorCard">
+        <h2>⚠️ 系統發生錯誤（已防止白畫面）</h2>
+        <div id="errorOverlayMsg" style="color:var(--muted); font-size:13px; line-height:1.6;">請重新整理頁面，或按「清快取」後重開。</div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn btnPrimary" id="btnReload" type="button">重新整理</button>
+          <button class="btn" id="btnFix" type="button">修復灰底/警告（清快取）</button>
+          <button class="btn" id="btnClose" type="button">關閉</button>
+        </div>
+        <pre id="errorOverlayDetail"></pre>
+      </div>`;
+    document.body.appendChild(ov);
+    ov.querySelector("#btnReload").addEventListener("click", ()=>location.reload());
+    ov.querySelector("#btnFix").addEventListener("click", ()=>swHardReset());
+    ov.querySelector("#btnClose").addEventListener("click", ()=>ov.classList.remove("show"));
   }
 
+  function showError(msg, detail){
+    try{
+      toast("⚠️ " + (msg || "發生錯誤"), "ERR");
+      ensureOverlay();
+      document.getElementById("errorOverlayMsg").textContent = msg || "發生錯誤";
+      document.getElementById("errorOverlayDetail").textContent = String(detail || "");
+      document.getElementById("errorOverlay").classList.add("show");
+    }catch(e){ console.warn("showError failed", e); }
+  }
+  window.showError = showError;
+
+  window.addEventListener("error", (e)=>{
+    console.error("[GlobalError]", e?.message, e?.error);
+    showError("頁面執行發生錯誤", e?.error || e?.message || "");
+  });
+  window.addEventListener("unhandledrejection", (e)=>{
+    console.error("[UnhandledRejection]", e?.reason);
+    showError("資料處理發生錯誤（Promise）", e?.reason || "");
+  });
+
+  async function swHardReset(){
+    try{
+      if("serviceWorker" in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+      if(window.caches?.keys){
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      toast("✅ 已清除快取，正在重新整理", "OK");
+      setTimeout(()=>location.reload(), 350);
+    }catch(e){
+      console.warn("swHardReset failed", e);
+      toast("⚠️ 清除快取失敗，仍會重新整理", "WARN");
+      setTimeout(()=>location.reload(), 350);
+    }
+  }
+  window.swHardReset = swHardReset;
+
+  function logout(){
+    try{
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("isLogin");
+      sessionStorage.removeItem("loginUser");
+      sessionStorage.removeItem("role");
+      sessionStorage.removeItem("tenant_id");
+      sessionStorage.removeItem("system_id");
+    }catch{}
+    location.replace("login.html");
+  }
+  window.logout = logout;
+
+  function injectUnifiedSidebarCss(){
+    if(document.getElementById("unifiedSidebarCss")) return;
+    const style = document.createElement("style");
+    style.id = "unifiedSidebarCss";
+    style.textContent = `
+      .app{ grid-template-columns:240px 1fr !important; }
+      .sidebar{
+        width:240px !important; min-width:240px !important; max-width:240px !important;
+        background:linear-gradient(180deg, rgba(15,27,45,.96), rgba(15,27,45,.82)) !important;
+        border-right:1px solid rgba(255,255,255,.10) !important;
+        padding:18px 16px !important;
+        position:sticky !important; top:0 !important; height:100vh !important;
+        overflow:auto !important; display:flex !important; flex-direction:column !important;
+      }
+      .drawer .sidebar{ position:static !important; display:flex !important; height:100vh !important; }
+      .brand{ min-height:82px !important; padding:10px 10px 16px !important; margin-bottom:14px !important; }
+      .brand h1{ font-size:14px !important; line-height:1.35 !important; margin:0 !important; white-space:normal !important; }
+      .brand p{ display:block !important; font-size:12px !important; color:var(--muted) !important; margin:3px 0 0 !important; }
+      .nav{ display:flex !important; flex-direction:column !important; gap:12px !important; }
+      .nav a{
+        width:100% !important; min-height:56px !important; padding:0 18px !important; margin:0 !important;
+        display:flex !important; align-items:center !important; justify-content:flex-start !important; gap:8px !important;
+        border-radius:20px !important; background:linear-gradient(180deg, rgba(40,78,130,.95), rgba(30,58,95,.95)) !important;
+        color:#fff !important; border:1px solid rgba(255,255,255,.16) !important;
+        font-size:16px !important; font-weight:800 !important; line-height:1.2 !important;
+        text-decoration:none !important; box-sizing:border-box !important; overflow:hidden !important; white-space:nowrap !important;
+      }
+      .nav a:hover{ background:linear-gradient(180deg, rgba(52,100,165,.98), rgba(37,72,118,.98)) !important; }
+      .nav a.active{ background:linear-gradient(180deg, rgba(58,106,172,1), rgba(44,83,136,1)) !important; border-color:rgba(160,205,255,.45) !important; }
+      .nav-label{ display:inline-flex !important; align-items:center !important; gap:10px !important; min-width:0 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; word-break:keep-all !important; }
+      .nav .pill{ margin-left:auto !important; flex-shrink:0 !important; font-size:12px !important; padding:4px 10px !important; border-radius:999px !important; color:rgba(231,238,252,.80) !important; background:rgba(0,0,0,.18) !important; border:1px solid rgba(255,255,255,.12) !important; }
+      .side-footer{ margin-top:16px !important; padding:10px !important; border-top:1px solid rgba(255,255,255,.10) !important; display:grid !important; gap:10px !important; }
+      .side-footer .btn{ width:100% !important; min-height:52px !important; display:flex !important; align-items:center !important; justify-content:center !important; border-radius:18px !important; font-size:15px !important; font-weight:800 !important; white-space:nowrap !important; text-decoration:none !important; }
+      #aiFloatBtn{ position:fixed; right:18px; bottom:18px; z-index:9998; padding:12px 18px; border-radius:999px; background:linear-gradient(90deg,#38bdf8,#22c55e); color:white; font-weight:900; box-shadow:0 14px 34px rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.18); text-decoration:none !important; }
+      #aiFloatBtn:hover{ filter:brightness(1.08); }
+      @media(max-width:980px){ .app{ grid-template-columns:1fr !important; } .sidebar{ display:none !important; } .drawer .sidebar{ display:flex !important; } .hamburger{ display:inline-flex !important; } }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function navLink(file, label, pill){
+    const active = currentFile() === file ? " active" : "";
+    return `<a href="${file}" class="${active.trim()}"><span class="nav-label">${label}</span><span class="pill">${pill}</span></a>`;
+  }
+
+  function standardizeSidebar(){
+    const sidebars = Array.from(document.querySelectorAll(".sidebar"));
+    if(!sidebars.length) return;
+    const info = getLoginInfo();
+    const canAdmin = info.role === "super_admin" || info.role === "tenant_admin";
+    const adminHtml = canAdmin ? navLink("admin.html", "🧑‍💼 管理後台", "Admin") : "";
+    const html = `
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>瑕疵辨識與分流系統</h1>
+          <p>Defect System</p>
+        </div>
+      </div>
+      <div class="nav">
+        ${navLink("dashboard.html", "🏠 首頁", "Dashboard")}
+        ${navLink("logs.html", "🧾 事件紀錄", "Logs")}
+        ${navLink("settings.html", "⚙️ 系統設定", "Settings")}
+        ${navLink("ai.html", "🤖 AI 助理", "AI")}
+        ${adminHtml}
+      </div>
+      <div class="side-footer">
+        <button class="btn" type="button" onclick="swHardReset()">修復灰底/警告（清快取）</button>
+        <button class="btn" type="button" onclick="logout()">登出</button>
+      </div>`;
+    sidebars.forEach(side => { side.innerHTML = html; });
+  }
+
+  function ensureAiFloatingButton(){
+    const info = getLoginInfo();
+    if(!info.token) return;
+    if(document.getElementById("aiFloatBtn")) return;
+    if(currentFile() === "ai.html") return;
+    const btn = document.createElement("a");
+    btn.id = "aiFloatBtn";
+    btn.href = "ai.html";
+    btn.textContent = "🤖 AI 助理";
+    btn.setAttribute("aria-label", "開啟 AI 助理");
+    document.body.appendChild(btn);
+  }
 
   document.addEventListener("DOMContentLoaded", ()=>{
     try{
-      if(isProtectedPage() && !sessionStorage.getItem("token")){
+      const info = getLoginInfo();
+      if(isProtectedPage() && !info.token){
         location.replace("login.html");
         return;
       }
-      ensureAiAssistantEntry();
+      injectUnifiedSidebarCss();
+      standardizeSidebar();
+      ensureAiFloatingButton();
     }catch(e){
-      location.replace("login.html");
+      console.warn("core init failed", e);
+      if(isProtectedPage()) location.replace("login.html");
     }
   });
-
-
-  // 登出
-window.logout = function(){
-  try{
-    sessionStorage.removeItem("isLogin");
-    sessionStorage.removeItem("loginUser");
-  }catch(e){}
-  location.replace("login.html");
-};
-
-
-
-
-  function ensureAiAssistantEntry(){
-    try{
-      const isLoggedIn = sessionStorage.getItem("isLogin") === "true" || !!sessionStorage.getItem("token");
-      if(!isLoggedIn) return;
-
-      document.querySelectorAll(".nav").forEach(nav => {
-        if(nav.querySelector('a[href="ai.html"]')) return;
-        const a = document.createElement("a");
-        a.href = "ai.html";
-        if(location.pathname.toLowerCase().endsWith("ai.html")) a.classList.add("active");
-        a.innerHTML = '<span class="nav-label">🤖 AI 助理</span><span class="pill">AI</span>';
-        nav.appendChild(a);
-      });
-
-      if(document.getElementById("aiFloatBtn")) return;
-      const btn = document.createElement("a");
-      btn.id = "aiFloatBtn";
-      btn.href = "ai.html";
-      btn.textContent = "🤖 AI 助理";
-      btn.setAttribute("aria-label", "開啟 AI 助理");
-      document.body.appendChild(btn);
-    }catch(e){
-      console.warn("ensureAiAssistantEntry failed", e);
-    }
-  }
-
-  // -------------------------
-  // SW hard reset（修灰底/警告/白畫面常見：舊快取污染）
-  // -------------------------
-async function swHardReset() {
-  try {
-    // 清除 Service Worker 並清除 Cache
-    if ("serviceWorker" in navigator) {
-      const regs = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(regs.map(r => r.unregister()));
-    }
-
-    if (window.caches?.keys) {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(k => caches.delete(k)));
-    }
-
-    // 顯示成功通知
-    toast("✅ 已清除修復快取", "OK");
-
-    // 重新載入頁面
-    location.reload();
-
-  } catch (e) {
-    console.warn("swHardReset failed", e);
-    // 顯示錯誤通知
-    toast("❌ 清除快取失敗", "WARN");
-    location.reload();
-  }
-  
-}
-window.swHardReset = swHardReset;
-
+})();

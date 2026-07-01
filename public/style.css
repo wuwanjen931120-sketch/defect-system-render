@@ -606,3 +606,58 @@ img, video, canvas {
     font-size:14px;
   }
 }
+
+/* ==================================================
+   ✅ 2026-07 修正版：統一所有頁面的左側選單
+   - core.js 也會動態注入同樣樣式，這裡是避免快取或頁面載入順序造成差異。
+   ================================================== */
+.app{ grid-template-columns:240px 1fr !important; }
+.sidebar{
+  width:240px !important;
+  min-width:240px !important;
+  max-width:240px !important;
+  background:linear-gradient(180deg, rgba(15,27,45,.96), rgba(15,27,45,.82)) !important;
+  border-right:1px solid rgba(255,255,255,.10) !important;
+  padding:18px 16px !important;
+  position:sticky !important;
+  top:0 !important;
+  height:100vh !important;
+  overflow:auto !important;
+  display:flex !important;
+  flex-direction:column !important;
+}
+.drawer .sidebar{ position:static !important; display:flex !important; height:100vh !important; }
+.brand{ min-height:82px !important; padding:10px 10px 16px !important; margin-bottom:14px !important; }
+.brand h1{ font-size:14px !important; line-height:1.35 !important; margin:0 !important; white-space:normal !important; }
+.brand p{ display:block !important; font-size:12px !important; color:var(--muted) !important; margin:3px 0 0 !important; }
+.nav{ display:flex !important; flex-direction:column !important; gap:12px !important; }
+.nav a{
+  width:100% !important;
+  min-height:56px !important;
+  padding:0 18px !important;
+  margin:0 !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-start !important;
+  gap:8px !important;
+  border-radius:20px !important;
+  background:linear-gradient(180deg, rgba(40,78,130,.95), rgba(30,58,95,.95)) !important;
+  color:#fff !important;
+  border:1px solid rgba(255,255,255,.16) !important;
+  font-size:16px !important;
+  font-weight:800 !important;
+  line-height:1.2 !important;
+  text-decoration:none !important;
+  box-sizing:border-box !important;
+  overflow:hidden !important;
+  white-space:nowrap !important;
+}
+.nav a:hover{ background:linear-gradient(180deg, rgba(52,100,165,.98), rgba(37,72,118,.98)) !important; }
+.nav a.active{ background:linear-gradient(180deg, rgba(58,106,172,1), rgba(44,83,136,1)) !important; border-color:rgba(160,205,255,.45) !important; }
+.nav-label{ display:inline-flex !important; align-items:center !important; gap:10px !important; min-width:0 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; word-break:keep-all !important; }
+.nav .pill{ margin-left:auto !important; flex-shrink:0 !important; font-size:12px !important; padding:4px 10px !important; border-radius:999px !important; color:rgba(231,238,252,.80) !important; background:rgba(0,0,0,.18) !important; border:1px solid rgba(255,255,255,.12) !important; }
+.side-footer{ margin-top:16px !important; padding:10px !important; border-top:1px solid rgba(255,255,255,.10) !important; display:grid !important; gap:10px !important; }
+.side-footer .btn{ width:100% !important; min-height:52px !important; display:flex !important; align-items:center !important; justify-content:center !important; border-radius:18px !important; font-size:15px !important; font-weight:800 !important; white-space:nowrap !important; text-decoration:none !important; }
+#aiFloatBtn{ position:fixed; right:18px; bottom:18px; z-index:9998; padding:12px 18px; border-radius:999px; background:linear-gradient(90deg,#38bdf8,#22c55e); color:white; font-weight:900; box-shadow:0 14px 34px rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.18); text-decoration:none !important; }
+#aiFloatBtn:hover{ filter:brightness(1.08); }
+@media(max-width:980px){ .app{ grid-template-columns:1fr !important; } .sidebar{ display:none !important; } .drawer .sidebar{ display:flex !important; } .hamburger{ display:inline-flex !important; } }

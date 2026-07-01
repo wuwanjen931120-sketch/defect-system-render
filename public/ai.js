@@ -12,6 +12,7 @@
   const productsInput = document.getElementById("productsInput");
   const aiDot = document.getElementById("aiDot");
   const aiMode = document.getElementById("aiMode");
+  const showAllSummary = document.getElementById("showAllSummary");
 
   if (role === "super_admin" || role === "tenant_admin") {
     const adminNav = document.getElementById("adminNav");
@@ -145,7 +146,16 @@
   });
 
   document.getElementById("refreshSummary").addEventListener("click", refreshSummary);
+  if (showAllSummary) {
+    showAllSummary.addEventListener("click", () => {
+      systemSelect.value = "";
+      productsInput.value = "";
+      refreshSummary();
+      addMessage("已切換成查看全部可查看機台與全部產品。", "bot");
+    });
+  }
   systemSelect.addEventListener("change", refreshSummary);
+  productsInput.addEventListener("change", refreshSummary);
 
   Promise.resolve()
     .then(checkAiStatus)
