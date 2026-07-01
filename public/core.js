@@ -207,7 +207,8 @@
         overflow:auto !important; display:flex !important; flex-direction:column !important;
       }
       .drawer .sidebar{ position:static !important; display:flex !important; height:100vh !important; }
-      .brand{ min-height:82px !important; padding:10px 10px 16px !important; margin-bottom:14px !important; }
+      .sidebar .logo{ flex-shrink:0 !important; }
+      .brand{ display:flex !important; align-items:center !important; gap:12px !important; min-height:82px !important; padding:10px 10px 16px !important; margin-bottom:14px !important; }
       .brand h1{ font-size:14px !important; line-height:1.35 !important; margin:0 !important; white-space:normal !important; }
       .brand p{ display:block !important; font-size:12px !important; color:var(--muted) !important; margin:3px 0 0 !important; }
       .nav{ display:flex !important; flex-direction:column !important; gap:12px !important; }
@@ -285,9 +286,21 @@
         location.replace("login.html");
         return;
       }
+      document.body.classList.add("unified-sidebar-ready");
       injectUnifiedSidebarCss();
       standardizeSidebar();
       ensureAiFloatingButton();
+      // 有些頁面會在載入後用自己的舊版側邊欄覆蓋，這裡再補跑幾次，確保每頁左側固定統一。
+      setTimeout(standardizeSidebar, 80);
+      setTimeout(standardizeSidebar, 450);
+      setTimeout(standardizeSidebar, 1200);
+      try{
+        const observer = new MutationObserver(()=>{
+          const bad = Array.from(document.querySelectorAll(".sidebar")).some(side => !side.textContent.includes("AI 助理") || !side.textContent.includes("Defect System") || !side.textContent.includes("登出"));
+          if(bad) standardizeSidebar();
+        });
+        observer.observe(document.body, { childList:true, subtree:true });
+      }catch(_){}
     }catch(e){
       console.warn("core init failed", e);
       if(isProtectedPage()) location.replace("login.html");
