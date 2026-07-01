@@ -1,6 +1,6 @@
 
 
-const CACHE_NAME = "aiot-pwa-v4"; // ✅ bump version
+const CACHE_NAME = "aiot-pwa-v5-ai"; // ✅ bump version
 const ASSETS = [
   "./",
   "./index.html",
@@ -8,9 +8,11 @@ const ASSETS = [
   "./dashboard.html",
   "./logs.html",
   "./settings.html",
+  "./ai.html",
   "./style.css",
   "./core.js",
   "./script.js",
+  "./ai.js",
   "./manifest.webmanifest"
 ];
 

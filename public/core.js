@@ -93,6 +93,8 @@ function toast(msg, state="OK") {
   }
 
 
+  window.toast = toast;
+
   window.showError = showError;
 
 
@@ -197,15 +199,17 @@ function toast(msg, state="OK") {
   // -------------------------
   function isProtectedPage(){
     const p = location.pathname.toLowerCase();
-    return p.endsWith("dashboard.html") || p.endsWith("logs.html") || p.endsWith("settings.html");
+    return p.endsWith("dashboard.html") || p.endsWith("logs.html") || p.endsWith("settings.html") || p.endsWith("ai.html");
   }
 
 
   document.addEventListener("DOMContentLoaded", ()=>{
     try{
-      if(isProtectedPage() && sessionStorage.getItem("isLogin") !== "true"){
-  location.replace("login.html");
-}
+      if(isProtectedPage() && !sessionStorage.getItem("token")){
+        location.replace("login.html");
+        return;
+      }
+      ensureAiAssistantEntry();
     }catch(e){
       location.replace("login.html");
     }
@@ -221,6 +225,34 @@ window.logout = function(){
   location.replace("login.html");
 };
 
+
+
+
+  function ensureAiAssistantEntry(){
+    try{
+      const isLoggedIn = sessionStorage.getItem("isLogin") === "true" || !!sessionStorage.getItem("token");
+      if(!isLoggedIn) return;
+
+      document.querySelectorAll(".nav").forEach(nav => {
+        if(nav.querySelector('a[href="ai.html"]')) return;
+        const a = document.createElement("a");
+        a.href = "ai.html";
+        if(location.pathname.toLowerCase().endsWith("ai.html")) a.classList.add("active");
+        a.innerHTML = '<span class="nav-label">🤖 AI 助理</span><span class="pill">AI</span>';
+        nav.appendChild(a);
+      });
+
+      if(document.getElementById("aiFloatBtn")) return;
+      const btn = document.createElement("a");
+      btn.id = "aiFloatBtn";
+      btn.href = "ai.html";
+      btn.textContent = "🤖 AI 助理";
+      btn.setAttribute("aria-label", "開啟 AI 助理");
+      document.body.appendChild(btn);
+    }catch(e){
+      console.warn("ensureAiAssistantEntry failed", e);
+    }
+  }
 
   // -------------------------
   // SW hard reset（修灰底/警告/白畫面常見：舊快取污染）

@@ -1,1814 +1,2044 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+  
   <meta charset="UTF-8" />
+  <script>
+const token = sessionStorage.getItem("token");
+
+// ⭐ 沒登入直接踢回去
+if (!token) {
+  alert("請先登入");
+  window.location.replace("login.html");
+}
+</script>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>瑕疵辨識與分流系統 - 首頁</title>
 
-  <!-- 保留原專案共用樣式；本檔內也有完整備援樣式 -->
   <link rel="stylesheet" href="style.css" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <meta name="theme-color" content="#0b1220" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
   <style>
-    :root{
-      --bg:#08111f;
-      --panel:#11233b;
-      --panel2:#0d1b2e;
-      --line:rgba(255,255,255,.11);
-      --text:#e7eefc;
-      --muted:#9bb0cf;
-      --good:#3ddc84;
-      --bad:#ff6b6b;
-      --blue:#60a5fa;
-      --shadow:0 16px 38px rgba(0,0,0,.22);
+    .page-bg {
+      background: linear-gradient(180deg, rgba(60,140,210,.35), rgba(11,18,32,0) 55%);
+      border-radius: 18px;
+      padding: 14px;
     }
 
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      min-height:100vh;
-      color:var(--text);
-      background:linear-gradient(180deg,#06101d,#0a1525 46%,#08111f);
-      font-family:Arial,"Microsoft JhengHei",sans-serif;
+    .heroGrid{
+      display:grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap:14px;
+      align-items:stretch;
+      margin-top:14px;
     }
 
-    button,input,select{font:inherit}
-    button{cursor:pointer}
+    .liveCard{
+      background: rgba(18,35,59,.75);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+    }
 
-    .app{display:grid;grid-template-columns:210px minmax(0,1fr);min-height:100vh}
-    .sidebar{
-      padding:14px 12px;
-      background:rgba(8,21,37,.94);
-      border-right:1px solid var(--line);
+    .liveTitle{
+      font-weight:800;
+      font-size:18px;
+      margin: 2px 0 10px;
+      letter-spacing:.5px;
     }
-    .brand{display:flex;gap:10px;align-items:center;padding:6px 4px 18px;border-bottom:1px solid var(--line)}
-    .logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,#2d8ce5,#31b66f)}
-    .brand h1{font-size:13px;margin:0;line-height:1.3}
-    .nav{display:flex;flex-direction:column;gap:10px;margin-top:16px}
-    .nav a{
-      display:flex;align-items:center;min-height:48px;padding:0 14px;border-radius:16px;
-      color:#fff;text-decoration:none;font-size:14px;font-weight:800;
-      border:1px solid rgba(255,255,255,.13);
-      background:linear-gradient(180deg,rgba(40,78,130,.96),rgba(30,58,95,.96));
-    }
-    .nav a:hover,.nav a.active{background:linear-gradient(180deg,rgba(58,106,172,1),rgba(44,83,136,1))}
-    .side-footer{margin-top:18px;color:var(--muted);font-size:12px;line-height:1.7}
 
-    .main{min-width:0;padding:14px 16px 22px}
-    .topbar{
-      display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
-      padding:14px;border-radius:16px;background:rgba(13,27,46,.88);border:1px solid var(--line)
-    }
-    .leftTop{display:flex;gap:12px;align-items:flex-start;min-width:0;flex:1}
-    .pageTitle{display:flex;flex-direction:column;gap:7px;min-width:0}
-    .pageTitle b{font-size:16px}.pageTitle span{font-size:12px;color:var(--muted)}
-    .rightTop{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .hamburger{display:none}
-
-    .systemBar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px}
-    .userChip,.systemSwitchWrap{
-      display:flex;align-items:center;gap:8px;min-height:36px;padding:0 10px;
-      border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--line)
-    }
-    .userChip{font-size:12px;font-weight:800;color:#eaf2ff}
-    .systemLabel{font-size:12px;font-weight:800;color:var(--muted);white-space:nowrap}
-    .systemSelect{
-      min-width:155px;height:30px;padding:0 8px;border-radius:8px;color:#fff;
-      border:1px solid rgba(255,255,255,.16);background:#0b1220;font-size:12px;font-weight:700
-    }
-    .status{display:flex;gap:7px;align-items:center;color:var(--muted);font-size:12px}
-    .dot{width:10px;height:10px;border-radius:999px;background:#f59e0b;box-shadow:0 0 14px rgba(245,158,11,.72)}
-    .dot.online{background:#22c55e;box-shadow:0 0 14px rgba(34,197,94,.72)}
-    .dot.offline{background:#ef4444;box-shadow:0 0 14px rgba(239,68,68,.72)}
-
-    .btn{
-      min-height:34px;padding:0 12px;border-radius:10px;border:1px solid var(--line);
-      color:#fff;background:rgba(14,31,53,.88);font-weight:800;font-size:13px
-    }
-    .btn:hover{background:rgba(30,65,110,.96)}
-    .btnPrimary{background:#173e74;border-color:rgba(96,165,250,.38)}
-
-    .page-bg{
-      margin-top:14px;padding:12px;border-radius:18px;
-      background:linear-gradient(180deg,rgba(60,140,210,.35),rgba(11,18,32,0) 55%)
-    }
-    .productInputBar{
-      display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap;
-      padding:12px;border-radius:16px;background:rgba(18,35,59,.80);border:1px solid var(--line)
-    }
-    .productInputTitle{font-size:15px;font-weight:900}
-    #currentProductsText{margin-left:8px;color:#22c55e;font-size:13px}
-    .productInputRow{display:flex;gap:8px;flex-wrap:wrap}
-    #productInput{
-      width:250px;height:34px;padding:0 10px;border-radius:7px;color:#fff;
-      border:1px solid rgba(255,255,255,.19);background:#10182a
-    }
-    .scopeHint{width:100%;color:var(--muted);font-size:12px}
-
-    .heroGrid{display:grid;grid-template-columns:1.15fr 1fr;gap:12px;align-items:start;margin-top:12px}
-    .liveCard,.statusCard,.productStatsCard{
-      padding:12px;border-radius:16px;background:rgba(18,35,59,.76);border:1px solid var(--line);box-shadow:var(--shadow)
-    }
-    .liveTitle,.productTitleLine{font-size:17px;font-weight:900;margin:0 0 10px}
     .liveFrame{
-      display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;
-      aspect-ratio:16/9;border-radius:14px;border:2px solid rgba(121,89,255,.88);background:rgba(0,0,0,.24)
+      border-radius: 16px;
+      border: 3px solid rgba(121, 89, 255, .85);
+      background: rgba(0,0,0,.25);
+      overflow:hidden;
+      position:relative;
+      aspect-ratio: 16 / 9;
+      display:flex;
+      align-items:center;
+      justify-content:center;
     }
-    .liveFrame img{width:100%;height:100%;display:block;object-fit:contain}
+
+    .liveFrame img,
+    .liveFrame video,
+    .liveFrame canvas{
+      width:100%;
+      height:100%;
+      display:block;
+      filter:none !important;
+    }
+
+    .liveFrame video{
+      object-fit: contain;
+    }
+
     .liveHint{
-      position:absolute;left:8px;right:8px;bottom:8px;padding:7px 9px;border-radius:10px;
-      color:rgba(231,238,252,.82);background:rgba(0,0,0,.35);border:1px solid var(--line);font-size:11px
+      position:absolute;
+      inset:auto 10px 10px 10px;
+      font-size:12px;
+      color:rgba(231,238,252,.78);
+      background: rgba(0,0,0,.35);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 12px;
+      padding:8px 10px;
+      backdrop-filter: blur(6px);
     }
-    .estopWrap{display:flex;justify-content:center;margin-top:10px}
+
+    .estopWrap{
+      margin-top:12px;
+      display:flex;
+      justify-content:center;
+    }
+
     .estopBig{
-      width:min(430px,100%);padding:14px;border:0;border-radius:14px;color:#fff;background:#ff2d2d;
-      font-size:24px;font-weight:900;letter-spacing:2px;box-shadow:0 0 26px rgba(255,45,45,.58)
+      width:min(560px, 100%);
+      padding: 18px 18px;
+      border-radius: 18px;
+      border: none;
+      cursor:pointer;
+      font-size: 30px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color:#fff;
+      background: #ff2d2d;
+      box-shadow: 0 18px 40px rgba(255,45,45,.25);
+      animation: pulseRed 1.8s infinite;
     }
-    .liveActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px}
+
+    .estopBig:active{
+      transform: translateY(1px);
+    }
+
+    .statusCard{
+      background: rgba(18,35,59,.75);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 12px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .gaugeBox{
+  background: rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:12px;
+  width: 260px;
+  min-height: 210px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  align-items:center;
+}
+
+#dynamicProductGaugeArea{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:flex-start;
+  justify-content:flex-start;
+}
+
+#dynamicProductGaugeArea .gaugeBox{
+  width:260px;
+  flex:0 0 260px;
+}
+
+#dynamicProductGaugeArea .gauge{
+  width:100%;
+  max-width:220px;
+}
+
+#dynamicProductGaugeArea .gaugeLabel{
+  width:100%;
+  text-align:left;
+  color:rgba(231,238,252,.92);
+  font-size:14px;
+  font-weight:800;
+}
+
+    .gaugeLabel{
+      color: var(--muted);
+      font-size:13px;
+      font-weight:600;
+    }
+
+    .gauge{
+      --p: 0;
+      width: 100%;
+      max-width: 260px;
+      margin: 8px auto 2px;
+      aspect-ratio: 2 / 1;
+      border-radius: 999px 999px 0 0;
+      position:relative;
+      overflow:hidden;
+      background:
+        conic-gradient(
+          from 180deg,
+          rgba(59,130,246,.95) calc(var(--p) * 1%),
+          rgba(255,255,255,.10) 0
+        );
+    }
+
+    .gauge::after{
+      content:"";
+      position:absolute;
+      inset: 12% 12% 0 12%;
+      background: rgba(18,35,59,.95);
+      border-radius: 999px 999px 0 0;
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .gaugeValue{
+      position:absolute;
+      left:50%;
+      bottom: 8px;
+      transform: translateX(-50%);
+      z-index:2;
+      font-size:34px;
+      font-weight:900;
+    }
+
+    .gaugeSub{
+      text-align:center;
+      margin-top:-2px;
+      color: var(--muted);
+      font-size:12px;
+      font-weight:600;
+    }
+
+   .gaugeBar{
+  height:12px;
+  border-radius:999px;
+  background: rgba(255,255,255,.10);
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.10);
+}
+
+.gaugeBar > div{
+  height:100%;
+  width: 0%;
+  background: rgba(34,197,94,.85);
+  border-radius:999px;
+  transition: width .35s ease;
+}
+
+.smallGaugeBar{
+  width:120px;
+  margin-top:8px;
+}
+
+    .areaCard{
+      background: rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:16px;
+      padding:12px;
+      min-height:120px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      gap:6px;
+    }
+
+    .areaTop{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .areaName{
+      font-size:13px;
+      color: rgba(231,238,252,.92);
+      font-weight:800;
+      line-height:1.3;
+    }
+
+    .areaSub{
+      font-size:12px;
+      color: var(--muted);
+      margin-top:2px;
+    }
+
+    .defectCard{
+      grid-column: 1 / -1;
+      background: rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:16px;
+      padding:12px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      min-height: 88px;
+    }
+
+    .defectLeft{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color: var(--muted);
+      font-weight:700;
+    }
+
+    .warnIcon{
+      width:22px;
+      height:22px;
+      border-radius:6px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      color:#ff6b6b;
+      background: rgba(239,68,68,.12);
+      border:1px solid rgba(239,68,68,.25);
+      font-weight:900;
+    }
+
+    .defectValue{
+      font-size:34px;
+      font-weight:900;
+      color: rgba(239,68,68,.95);
+    }
 
     .defect-table{
-      display:flex;flex-direction:column;gap:7px;min-height:94px;max-height:300px;overflow:auto;
-      margin-top:10px;padding:8px;border-radius:12px;background:rgba(0,0,0,.17);border:1px solid var(--line)
+      grid-column: 1 / -1;
+      background: rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:16px;
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      min-height: 80px;
+      max-height: 300px;
+      overflow-y: auto;
     }
+
     .defect-row{
-      display:grid;grid-template-columns:minmax(0,1fr) 152px 190px;gap:8px;align-items:center;
-      padding:8px 9px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);font-size:12px
+      display:grid;
+      grid-template-columns: 1fr 120px 220px;
+      gap:10px;
+      align-items:center;
+      padding:10px 12px;
+      border-radius:12px;
+      background: rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      font-size:14px;
     }
-    .defect-id{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e7eefc}
-    .defect-status{padding:5px 7px;border-radius:999px;text-align:center;font-weight:900;border:1px solid var(--line)}
-    .status-ok{color:var(--good);background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.24)}
-    .status-ng{color:var(--bad);background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.24)}
-    .defect-time{text-align:right;color:var(--muted)}
-    .emptyText{padding:14px;color:var(--muted);text-align:center;font-size:13px}
 
-    .statusTopRow{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
-    .gaugeCard,.defectMiniCard,.summaryMiniCard{
-      min-height:190px;padding:11px;border-radius:14px;background:rgba(0,0,0,.18);border:1px solid var(--line)
+    .defect-id{
+      font-weight:700;
+      color: rgba(231,238,252,.95);
+      word-break:break-all;
     }
-    .gaugeCard{width:215px}.defectMiniCard{width:170px}.summaryMiniCard{width:230px}
-    .gaugeTitle,.areaName{font-size:13px;font-weight:900}.areaSub{margin-top:3px;color:var(--muted);font-size:11px}
-    .gauge{
-      --p:0;width:190px;max-width:100%;aspect-ratio:2/1;position:relative;overflow:hidden;
-      margin:11px auto 3px;border-radius:999px 999px 0 0;
-      background:conic-gradient(from 180deg,rgba(59,130,246,.95) calc(var(--p) * 1%),rgba(255,255,255,.10) 0)
-    }
-    .gauge::after{
-      content:"";position:absolute;inset:12% 12% 0;background:rgba(18,35,59,.96);
-      border-radius:999px 999px 0 0;border:1px solid rgba(255,255,255,.08)
-    }
-    .gaugeValue{position:absolute;z-index:2;left:50%;bottom:6px;transform:translateX(-50%);font-size:28px;font-weight:900}
-    .gaugeSub{text-align:center;color:var(--muted);font-size:11px;line-height:1.5}
-    .gaugeBar{height:9px;margin:8px auto 0;max-width:120px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.1)}
-    .gaugeBar>div{height:100%;border-radius:999px;background:rgba(34,197,94,.86);transition:width .3s ease}
-    .defectInfoBody{display:flex;height:125px;flex-direction:column;justify-content:end;padding:0 0 11px 5px}
-    .defectInfoValue{font-size:38px;font-weight:900;line-height:1;color:var(--bad)}
-    .defectInfoLabel{margin-top:5px;color:var(--muted);font-size:12px;font-weight:800}
-    .summaryText{margin-top:12px;line-height:1.75;color:#e7eefc;font-size:12px}
 
-    .categoryWrap{margin-top:11px;padding-top:10px;border-top:1px solid var(--line)}
-    .detectedProducts{font-size:12px;color:#e7eefc;margin-bottom:8px}
-    .categoryButtons{display:flex;gap:7px;flex-wrap:wrap}
-    .categoryButtons button{
-      padding:5px 10px;border-radius:999px;color:#e7eefc;background:rgba(255,255,255,.05);
-      border:1px solid var(--line);font-size:12px;font-weight:800
+    .defect-status{
+      font-weight:800;
+      text-align:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
     }
-    .categoryButtons button.active{color:#fff;background:#1f5b9f;border-color:rgba(96,165,250,.65)}
 
-    .dynamicTitle{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:14px;font-weight:900}
-    #dynamicProductGaugeArea{display:flex;gap:9px;flex-wrap:wrap;margin-top:8px}
-    .gaugeBox{
-      width:205px;min-height:176px;padding:10px;border-radius:14px;background:rgba(0,0,0,.18);border:1px solid var(--line)
+    .status-ng{
+      color:#ff8080;
+      background: rgba(239,68,68,.12);
+      border-color: rgba(239,68,68,.25);
     }
-    .gaugeBox .gauge{width:170px;margin-top:7px}.gaugeBox .gaugeValue{font-size:25px}
-    .gaugeLabel{font-size:13px;font-weight:900}.rateBlue{color:#80b8ff}.rateRed{color:var(--bad)}
-    /* 各品項 Gauge：藍色代表 OK 良率，紅色代表 NG 率。NG 較多時會以紅色為主。 */
-    .qualityGauge{
-      --ok-stop:0%;
-      --total-stop:0%;
-      background:conic-gradient(
-        from 180deg,
-        rgba(59,130,246,.98) 0 var(--ok-stop),
-        rgba(239,68,68,.98) var(--ok-stop) var(--total-stop),
-        rgba(255,255,255,.10) var(--total-stop) 100%
-      );
-    }
-    .qualityGauge .gaugeValue.isNgHigher{color:var(--bad)}
-    .qualityGauge .gaugeValue.isOkHigher{color:#dbeafe}
 
-    .productStatsCard{grid-column:1/-1}
-    .productTableCard{overflow:auto;border-radius:14px;border:1px solid var(--line)}
-    .productTableHeader{display:flex;justify-content:space-between;gap:10px;padding:12px;background:rgba(255,255,255,.04)}
-    .productTableTitle{font-size:15px;font-weight:900}.productTableSub{color:var(--muted);font-size:11px}
-    .productTable{min-width:760px}
+    .status-ok{
+      color:#3ddc84;
+      background: rgba(34,197,94,.12);
+      border-color: rgba(34,197,94,.25);
+    }
+
+    .defect-time{
+      color: var(--muted);
+      text-align:right;
+      font-size:13px;
+    }
+
+    #errorBar{
+      margin-top:14px;
+      color:#ffb4b4;
+      font-weight:700;
+    }
+
+    .statusGrid2x2{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      align-items:stretch;
+    }
+
+    .productTitleLine{
+      margin-top:14px;
+      padding-top:16px;
+      border-top:1px solid rgba(255,255,255,.10);
+      font-weight:900;
+      font-size:20px;
+      letter-spacing:.6px;
+      color:rgba(255,255,255,.95);
+    }
+
+    .productTableCard{
+      margin-top:12px;
+      background: rgba(255,255,255,.03);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:16px;
+      overflow:hidden;
+      box-shadow: 0 10px 24px rgba(0,0,0,.18);
+    }
+
+    .productTableHeader{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 16px 10px;
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+      border-bottom:1px solid rgba(255,255,255,.08);
+    }
+
+    .productTableTitle{
+      font-size:16px;
+      font-weight:900;
+      color:rgba(255,255,255,.96);
+      letter-spacing:.4px;
+    }
+
+    .productTableSub{
+      font-size:12px;
+      color:var(--muted);
+      white-space:nowrap;
+    }
+
+    .productTable{
+      width:100%;
+    }
+
     .pt-row{
-      display:grid;grid-template-columns:1.45fr .78fr .78fr .78fr .78fr;gap:8px;align-items:center;text-align:center;
-      padding:11px 12px;border-top:1px solid rgba(255,255,255,.06);font-size:13px
-    }
-    .pt-head{font-weight:900;background:rgba(255,255,255,.035)}
-    .pt-name{text-align:left;font-weight:900}.pt-ok,.pt-ng,.pt-okRate,.pt-ngRate{font-weight:900;padding:5px 8px;border-radius:999px}
-    .pt-ok,.pt-okRate{color:var(--good);background:rgba(34,197,94,.10)}
-    .pt-ng,.pt-ngRate{color:var(--bad);background:rgba(239,68,68,.10)}
-    .pt-total{background:rgba(59,130,246,.075)}
-
-    #errorBar{display:none;margin-top:12px;padding:10px;border-radius:10px;color:#ffb4b4;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.22);font-size:12px;font-weight:800}
-    .footer{margin-top:12px;color:rgba(155,176,207,.9);font-size:11px}
-
-    .drawer,.drawerOverlay{display:none}
-
-    @media(max-width:1100px){
-      .app{grid-template-columns:1fr}.app>.sidebar{display:none}.hamburger{display:inline-flex}
-      .heroGrid{grid-template-columns:1fr}.drawer{display:block;position:fixed;left:-235px;top:0;bottom:0;width:225px;z-index:30;transition:left .22s ease}.drawer.open{left:0}
-      .drawerOverlay{display:none;position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.45)}.drawerOverlay.open{display:block}
-    }
-    @media(max-width:640px){
-      .main{padding:10px}.productInputRow,#productInput,.productInputRow .btn{width:100%}
-      .systemSwitchWrap{width:100%;justify-content:space-between}.systemSelect{flex:1;min-width:0}
-      .defect-row{grid-template-columns:1fr}.defect-time{text-align:left}
+      display:grid;
+      grid-template-columns: 1.4fr 1fr 1fr;
+      align-items:center;
+      text-align:center;
+      gap:12px;
+      padding:14px 16px;
+      border-bottom:1px solid rgba(255,255,255,.06);
     }
 
-    /* ===== 新增：NG 圖片、趨勢圖、良率警報 ===== */
-    .qualityAlarmBanner{display:none;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px;padding:12px 14px;border-radius:14px;color:#ffe6e6;background:linear-gradient(90deg,rgba(127,29,29,.96),rgba(87,22,22,.90));border:1px solid rgba(248,113,113,.65);box-shadow:0 0 24px rgba(239,68,68,.22)}
-    .qualityAlarmBanner.show{display:flex}.qualityAlarmTitle{font-size:14px;font-weight:900}.qualityAlarmText{margin-top:4px;font-size:12px;line-height:1.6}.qualityAlarmBadge{padding:5px 9px;border-radius:999px;background:rgba(255,255,255,.12);font-size:11px;font-weight:900}
-    .enhancementGrid{grid-column:1/-1;display:grid;grid-template-columns:1.15fr .85fr;gap:12px}
-    .featureCard{min-width:0;padding:12px;border-radius:16px;background:rgba(18,35,59,.76);border:1px solid var(--line);box-shadow:var(--shadow)}
-    .featureCard.full{grid-column:1/-1}.featureHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}.featureTitle{font-size:16px;font-weight:900}.featureSub{margin-top:4px;color:var(--muted);font-size:11px;line-height:1.55}
-    .inlineControls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.inlineControls label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:11px;font-weight:800}
-    .miniInput,.miniSelect{height:31px;padding:0 8px;border-radius:8px;color:#fff;background:#0b1220;border:1px solid rgba(255,255,255,.17);font-size:12px}.miniInput{width:72px}.miniSelect{min-width:104px}
-    .trendCanvasWrap{height:270px;padding:8px;border-radius:12px;background:rgba(0,0,0,.16);border:1px solid var(--line)}#yieldTrendCanvas{display:block;width:100%;height:100%}.trendLegend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;color:var(--muted);font-size:11px}.legendDot{display:inline-block;width:9px;height:9px;border-radius:999px;margin-right:5px}.legendBlue{background:#60a5fa}.legendRed{background:#f87171}
-    .alertSettingGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.settingBox{padding:9px;border-radius:10px;background:rgba(0,0,0,.15);border:1px solid var(--line)}.settingBox label{display:block;color:var(--muted);font-size:11px;font-weight:800}.settingBox input{width:100%;height:30px;margin-top:5px;padding:0 8px;border-radius:7px;color:#fff;background:#0b1220;border:1px solid rgba(255,255,255,.16)}.alertActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}
-    .alertList{display:flex;flex-direction:column;gap:7px;max-height:192px;overflow:auto;margin-top:10px}.alertItem{padding:8px 9px;border-radius:10px;background:rgba(239,68,68,.09);border:1px solid rgba(248,113,113,.2)}.alertItem.resolved{background:rgba(34,197,94,.07);border-color:rgba(74,222,128,.18)}.alertItemTop{display:flex;justify-content:space-between;gap:8px;font-size:11px;font-weight:900}.alertItemText{margin-top:4px;color:#f8d7da;font-size:11px;line-height:1.5}.alertItem.resolved .alertItemText{color:#c9f7d8}.alertEmpty{padding:14px;color:var(--muted);font-size:12px;text-align:center}
-    .ngImageGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}.ngImageCard{overflow:hidden;border-radius:12px;background:rgba(0,0,0,.16);border:1px solid var(--line)}.ngImagePreview{display:flex;align-items:center;justify-content:center;height:120px;background:#08111f;overflow:hidden}.ngImagePreview img{width:100%;height:100%;object-fit:cover}.ngImagePlaceholder{padding:12px;color:var(--muted);font-size:12px;text-align:center;line-height:1.55}.ngImageBody{padding:9px}.ngImageProduct{font-size:13px;font-weight:900}.ngImageMeta{margin-top:4px;color:var(--muted);font-size:11px;line-height:1.55}.ngImageActions{display:flex;gap:7px;margin-top:7px;flex-wrap:wrap}.tinyBtn{min-height:28px;padding:0 8px;border-radius:7px;color:#fff;background:#173e74;border:1px solid rgba(96,165,250,.34);font-size:11px;font-weight:900}.tinyBtn:disabled{cursor:not-allowed;opacity:.5}.dangerBtn{background:rgba(127,29,29,.86);border-color:rgba(248,113,113,.34)}
-    .imageModal{display:none;position:fixed;inset:0;z-index:80;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.72)}.imageModal.show{display:flex}.imageModalCard{width:min(900px,96vw);max-height:92vh;overflow:auto;padding:12px;border-radius:15px;background:#0d1b2e;border:1px solid var(--line);box-shadow:0 20px 60px rgba(0,0,0,.55)}.imageModalHeader{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}.imageModalHeader b{font-size:15px}.imageModal img{display:block;width:100%;max-height:72vh;object-fit:contain;border-radius:10px;background:#07101d}.imageModalMeta{margin-top:9px;color:var(--muted);font-size:12px;line-height:1.7}
-    @media(max-width:1100px){.enhancementGrid{grid-template-columns:1fr}.featureCard.full{grid-column:auto}}@media(max-width:640px){.alertSettingGrid{grid-template-columns:1fr}.trendCanvasWrap{height:220px}}
+    .pt-row:last-child{
+      border-bottom:none;
+    }
+
+    .pt-head{
+      font-size:18px;
+      font-weight:900;
+      background: rgba(255,255,255,.04);
+    }
+
+    .pt-name{
+      text-align:left;
+      font-size:18px;
+      font-weight:800;
+    }
+
+    .pt-ok,
+    .pt-ng{
+      font-size:20px;
+      padding:8px 14px;
+      border-radius:999px;
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .pt-ok{
+      color:#3ddc84;
+      background: rgba(34,197,94,.12);
+      border:1px solid rgba(34,197,94,.28);
+    }
+
+    .pt-ng{
+      color:#ff6b6b;
+      background: rgba(239,68,68,.12);
+      border:1px solid rgba(239,68,68,.28);
+    }
+
+    .pt-total{
+      background: linear-gradient(180deg, rgba(59,130,246,.10), rgba(59,130,246,.05));
+    }
+
+    .pt-total .pt-ok,
+    .pt-total .pt-ng{
+      font-size:22px;
+    }
+
+    .pt-row:not(.pt-head):hover{
+      background: rgba(255,255,255,.06);
+      transform: translateY(-1px);
+      transition: all .2s ease;
+    }
+
+    @keyframes pulseRed{
+      0% { box-shadow: 0 0 0 rgba(255,45,45,.4); }
+      50% { box-shadow: 0 0 30px rgba(255,45,45,.8); }
+      100% { box-shadow: 0 0 0 rgba(255,45,45,.4); }
+    }
+
+    .nav{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .nav a{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      min-height:56px;
+      padding:0 18px;
+      margin:0;
+      border-radius:20px;
+      background: linear-gradient(180deg, rgba(40,78,130,.95), rgba(30,58,95,.95));
+      color:#ffffff;
+      border:1px solid rgba(255,255,255,.16);
+      font-size:16px;
+      font-weight:800;
+      line-height:1.2;
+      text-decoration:none;
+      box-sizing:border-box;
+      transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+
+    .nav a,
+    .nav a:hover,
+    .nav a:focus,
+    .nav a:active,
+    .nav a *,
+    .nav a *:hover,
+    .nav a *:focus,
+    .nav a *:active,
+    .pill{
+      text-decoration:none !important;
+    }
+
+    .nav a:hover{
+      background: linear-gradient(180deg, rgba(52,100,165,.98), rgba(37,72,118,.98));
+      border-color: rgba(255,255,255,.22);
+      box-shadow: 0 8px 18px rgba(0,0,0,.18);
+    }
+
+    .nav a.active{
+      background: linear-gradient(180deg, rgba(58,106,172,1), rgba(44,83,136,1));
+      border-color: rgba(160,205,255,.45);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 8px 18px rgba(0,0,0,.22);
+      color:#ffffff;
+    }
+
+    .nav a .nav-label{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      flex:1;
+    }
+
+    .side-footer .btn{
+      width:100%;
+      min-height:56px;
+      padding:0 18px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      border-radius:20px;
+      font-size:16px;
+      font-weight:800;
+      line-height:1.35;
+      background: rgba(14,31,53,.88);
+      color:#ffffff;
+      border:1px solid rgba(255,255,255,.12);
+      box-sizing:border-box;
+      text-decoration:none;
+    }
+
+    .side-footer .btn:hover{
+      background: rgba(22,44,74,.96);
+      border-color: rgba(255,255,255,.18);
+    }
+
+    .systemBar{
+      margin-top:10px;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    .userChip{
+      display:inline-flex;
+      align-items:center;
+      min-height:40px;
+      padding:0 14px;
+      border-radius:999px;
+      background: linear-gradient(180deg, rgba(59,130,246,.18), rgba(59,130,246,.08));
+      border:1px solid rgba(96,165,250,.35);
+      color:#eaf2ff;
+      font-size:14px;
+      font-weight:800;
+      box-shadow: 0 8px 18px rgba(0,0,0,.12);
+    }
+
+    .systemSwitchWrap{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 12px;
+      border-radius:14px;
+      background: rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.10);
+    }
+
+    .systemLabel{
+      color: rgba(231,238,252,.9);
+      font-size:14px;
+      font-weight:800;
+      white-space:nowrap;
+    }
+
+    .systemSelect{
+      min-width:130px;
+      height:38px;
+      border-radius:10px;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(11,18,32,.9);
+      color:#ffffff;
+      padding:0 12px;
+      font-size:14px;
+      font-weight:700;
+      outline:none;
+      cursor:pointer;
+    }
+
+    .systemSelect:focus{
+      border-color: rgba(96,165,250,.75);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+
+    .leftTop{
+      display:flex;
+      align-items:flex-start;
+      gap:14px;
+      flex:1;
+      min-width:0;
+    }
+
+    .pageTitle{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      min-width:0;
+    }
+
+    .rightTop{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+
+    @media (max-width: 768px){
+      .nav a{
+        min-height:54px;
+        padding:0 16px;
+        font-size:15px;
+      }
+
+      .side-footer .btn{
+        min-height:54px;
+        font-size:15px;
+        padding:0 16px;
+      }
+
+      .systemBar{
+        align-items:stretch;
+        flex-direction:column;
+      }
+
+      .userChip,
+      .systemSwitchWrap{
+        width:100%;
+        box-sizing:border-box;
+      }
+
+      .systemSwitchWrap{
+        justify-content:space-between;
+      }
+
+      .systemSelect{
+        flex:1;
+        min-width:0;
+      }
+
+      .topbar{
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      .rightTop{
+        justify-content:flex-start;
+      }
+    }
+    .productInputBar{
+  margin:14px 0;
+  background:rgba(18,35,59,.78);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;
+  padding:16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  flex-wrap:wrap;
+}
+
+.productInputTitle{
+  font-size:16px;
+  font-weight:900;
+  color:#eaf2ff;
+}
+
+.productInputTitle span{
+  margin-left:10px;
+  color:#22c55e;
+}
+
+.productInputRow{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.productInputRow input{
+  min-width:260px;
+  height:42px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.16);
+  background:#0b1220;
+  color:white;
+  padding:0 14px;
+  font-size:15px;
+  outline:none;
+}
+
+@media(max-width:900px){
+  .heroGrid{
+    grid-template-columns:1fr;
+  }
+
+  .productInputRow,
+  .productInputRow input,
+  .productInputRow button{
+    width:100%;
+  }
+}
+.gaugeCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(0,0,0,.18);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 16px;
+  padding: 12px;
+  min-height: 210px;
+}
+
+.totalSummary {
+  position: static !important;
+  margin-top: 6px;
+  font-size: 14px;
+  text-align: center;
+  color: rgba(231,238,252,.95);
+  font-weight: 800;
+}
+
+.statusTopRow{
+  display:flex;
+  align-items:stretch;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.statusTopRow .gaugeCard{
+  width:260px;
+  flex:0 0 260px;
+}
+
+.defectMiniCard{
+  width:220px;
+  min-height:210px;
+  background: rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+}
+
+.defectInfoBody{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  flex:1;
+  padding-left:4px;
+}
+
+.defectInfoValue{
+  font-size:42px;
+  font-weight:900;
+  color:#ff6b6b;
+  line-height:1.1;
+}
+
+.defectInfoLabel{
+  margin-top:6px;
+  font-size:14px;
+  color:rgba(231,238,252,.72);
+  font-weight:700;
+}
 
 
-    /* ===== 新增：生產批次／工單管理、各機台比較排行 ===== */
-    .operationsGrid{grid-column:1/-1;display:grid;grid-template-columns:1.15fr .85fr;gap:12px}
-    .opsCard{min-width:0;padding:12px;border-radius:16px;background:rgba(18,35,59,.76);border:1px solid var(--line);box-shadow:var(--shadow)}
-    .opsCard.full{grid-column:1/-1}.opsHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}.opsTitle{font-size:16px;font-weight:900}.opsSub{margin-top:4px;color:var(--muted);font-size:11px;line-height:1.55}
-    .workOrderForm{display:grid;grid-template-columns:1fr 1fr 1fr 120px auto;gap:8px;align-items:end;padding:10px;border-radius:12px;background:rgba(0,0,0,.15);border:1px solid var(--line)}
-    .workOrderForm label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:11px;font-weight:900}.opsInput,.opsSelect{width:100%;height:32px;padding:0 8px;border-radius:8px;color:#fff;background:#0b1220;border:1px solid rgba(255,255,255,.17);font-size:12px}
-    .activeOrderCard{margin-top:10px;padding:11px;border-radius:12px;background:linear-gradient(90deg,rgba(23,62,116,.38),rgba(15,32,55,.42));border:1px solid rgba(96,165,250,.27)}
-    .activeOrderTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}.activeOrderName{font-size:14px;font-weight:900}.activeOrderMeta{margin-top:5px;color:var(--muted);font-size:11px;line-height:1.65}.orderStatusBadge{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:900;border:1px solid rgba(255,255,255,.15)}
-    .order-running{color:#bbf7d0;background:rgba(34,197,94,.13);border-color:rgba(74,222,128,.28)}.order-paused{color:#fde68a;background:rgba(245,158,11,.12);border-color:rgba(251,191,36,.28)}.order-completed{color:#bfdbfe;background:rgba(59,130,246,.13);border-color:rgba(96,165,250,.28)}.order-planned{color:#d1d5db;background:rgba(148,163,184,.11)}
-    .orderStats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;margin-top:9px}.orderStat{padding:8px;border-radius:9px;text-align:center;background:rgba(0,0,0,.16);border:1px solid rgba(255,255,255,.08)}.orderStat b{display:block;font-size:17px}.orderStat span{display:block;margin-top:3px;color:var(--muted);font-size:10px}
-    .orderProgress{height:10px;margin-top:9px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.10)}.orderProgress>div{height:100%;border-radius:999px;background:linear-gradient(90deg,#2563eb,#22c55e);transition:width .3s ease}.orderProgressText{margin-top:5px;color:var(--muted);font-size:11px;text-align:right}
-    .orderActions{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
-    .orderTableWrap,.rankingTableWrap{margin-top:10px;overflow:auto;border-radius:12px;border:1px solid var(--line)}.orderTable{min-width:900px}.rankingTable{min-width:620px}
-    .orderRow{display:grid;grid-template-columns:1.1fr .9fr .85fr .9fr .7fr .7fr .7fr 1.28fr;gap:7px;align-items:center;padding:9px 10px;border-top:1px solid rgba(255,255,255,.06);font-size:11px}.orderRow.head{border-top:0;background:rgba(255,255,255,.04);font-weight:900;color:#dbeafe}.orderRow.active{background:rgba(37,99,235,.12)}.orderCellMuted{color:var(--muted)}
-    .rankingRow{display:grid;grid-template-columns:48px 1.35fr .75fr .75fr .75fr .8fr .86fr;gap:8px;align-items:center;padding:10px;border-top:1px solid rgba(255,255,255,.06);font-size:12px}.rankingRow.head{border-top:0;background:rgba(255,255,255,.04);font-weight:900;color:#dbeafe}.rankingRow.current{background:rgba(37,99,235,.13)}.rankNo{font-size:15px;font-weight:900}.rankYield{font-weight:900}.rankGood{color:var(--good)}.rankWarn{color:#fde68a}.rankBad{color:var(--bad)}
-    .rankingBadge{display:inline-flex;padding:4px 7px;border-radius:999px;font-size:10px;font-weight:900;border:1px solid rgba(255,255,255,.14)}.ranking-good{color:#bbf7d0;background:rgba(34,197,94,.12)}.ranking-warn{color:#fde68a;background:rgba(245,158,11,.12)}.ranking-bad{color:#fecaca;background:rgba(239,68,68,.12)}.ranking-empty{padding:16px;color:var(--muted);font-size:12px;text-align:center}
-    .opsHint{margin-top:8px;color:var(--muted);font-size:11px;line-height:1.6}.opsTinyBtn{min-height:27px;padding:0 7px;border-radius:7px;color:#fff;background:#173e74;border:1px solid rgba(96,165,250,.34);font-size:10px;font-weight:900}.opsTinyBtn.warn{background:rgba(146,64,14,.8);border-color:rgba(251,191,36,.35)}.opsTinyBtn.danger{background:rgba(127,29,29,.86);border-color:rgba(248,113,113,.34)}
-    @media(max-width:1180px){.operationsGrid{grid-template-columns:1fr}.opsCard.full{grid-column:auto}.workOrderForm{grid-template-columns:1fr 1fr}.workOrderForm .btn{width:100%}}
-    @media(max-width:640px){.workOrderForm{grid-template-columns:1fr}.orderStats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
+.statusTopRow{
+  display:flex;
+  align-items:stretch;
+  gap:18px;
+  flex-wrap:wrap;
+  margin-bottom:18px;
+}
+
+/* 後端資料總數 */
+.statusTopRow .gaugeCard{
+  width:260px;
+  flex:0 0 260px;
+}
+
+/* 瑕疵品數 */
+.defectMiniCard{
+  width:220px;
+  min-height:210px;
+  flex:0 0 220px;
+  background: rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+}
+
+/* 真實統計分析：往右一點、寬一點 */
+.summaryMiniCard{
+  width:280px;
+  min-height:210px;
+  flex:0 0 280px;
+  background: rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:12px;
+  margin-left:6px;
+}
+
+/* 瑕疵品數內容 */
+.defectInfoBody{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:flex-end;
+  flex:1;
+  padding-left:8px;
+  padding-bottom:14px;
+}
+
+.defectInfoValue{
+  font-size:42px;
+  font-weight:900;
+  color:#ff6b6b;
+  line-height:1.1;
+}
+
+.defectInfoLabel{
+  margin-top:6px;
+  font-size:14px;
+  color:rgba(231,238,252,.72);
+  font-weight:700;
+}
+
+/* 真實統計分析內容靠下 */
+.summaryText{
+  line-height:1.9;
+  font-size:14px;
+  margin-top:auto;
+  padding-bottom:4px;
+}
+.productStatsCard{
+  grid-column: 1 / -1;
+  background: rgba(18,35,59,.75);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;
+  box-shadow: var(--shadow);
+  padding:12px;
+}
+
+.productStatsCard .productTableCard{
+  margin-top:0;
+  width:100%;
+}
   </style>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
+
 <body>
   <div id="overlay" class="drawerOverlay" onclick="toggleDrawer(false)"></div>
+
   <aside id="drawer" class="drawer">
-    <div class="sidebar" style="height:100vh">
-      <div class="brand"><div class="logo"></div><h1>瑕疵辨識與分流系統</h1></div>
-      <div class="nav">
-        <a href="dashboard.html" class="active">🏠 首頁</a>
-        <a href="logs.html">🧾 事件紀錄</a>
-        <a href="settings.html">⚙️ 系統設定</a>
-        <a href="admin.html" id="adminNavLinkDrawer" style="display:none">🧑‍💼 管理後台</a>
+    <div class="sidebar" style="display:block; position:static; height:100vh;">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>瑕疵辨識與分流系統</h1>
+        </div>
       </div>
+
+      <div class="nav">
+        <a href="dashboard.html" class="active">
+          <span class="nav-label">🏠 首頁</span>
+        </a>
+
+        <a href="logs.html">
+          <span class="nav-label">🧾 事件紀錄</span>
+        </a>
+
+        <a href="settings.html">
+          <span class="nav-label">⚙️ 系統設定</span>
+        </a>
+
+        <a href="admin.html" id="adminNavLinkDrawer" style="display:none;">
+          <span class="nav-label">🧑‍💼 管理後台</span>
+        </a>
+      </div>
+
       <div class="side-footer">
-        <div>狀態：<span style="color:var(--good);font-weight:900">● 正常</span></div>
-        <div>提示：統計依目前機台分開計算。</div>
-        <button type="button" class="btn" style="margin-top:10px;width:100%" onclick="handleHardReset(event)">修復灰底/警告（清快取）</button>
+        <div>狀態：<span style="color:var(--good); font-weight:800;">● 正常</span></div>
+        <div>提示：此頁已接後端 API。</div>
+        <div style="margin-top:10px;">
+          <button type="button" class="btn" onclick="handleHardReset(event)">修復灰底/警告（清快取）</button>
+        </div>
       </div>
     </div>
   </aside>
 
   <div class="app">
     <aside class="sidebar">
-      <div class="brand"><div class="logo"></div><h1>瑕疵辨識與分流系統</h1></div>
-      <div class="nav">
-        <a href="dashboard.html" class="active">🏠 首頁</a>
-        <a href="logs.html">🧾 事件紀錄</a>
-        <a href="settings.html">⚙️ 系統設定</a>
-        <a href="admin.html" id="adminNavLink" style="display:none">🧑‍💼 管理後台</a>
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>瑕疵辨識與分流系統</h1>
+        </div>
       </div>
+
+      <div class="nav">
+        <a href="dashboard.html" class="active">
+          <span class="nav-label">🏠 首頁</span>
+        </a>
+
+        <a href="logs.html">
+          <span class="nav-label">🧾 事件紀錄</span>
+        </a>
+
+        <a href="settings.html">
+          <span class="nav-label">⚙️ 系統設定</span>
+        </a>
+
+        <a href="admin.html" id="adminNavLink" style="display:none;">
+          <span class="nav-label">🧑‍💼 管理後台</span>
+        </a>
+      </div>
+
       <div class="side-footer">
         <div>系統概念：即時檢測 + 分流統計 + 遠端急停</div>
-        <button type="button" class="btn" style="margin-top:10px;width:100%" onclick="swHardReset()">修復灰底/警告（清快取）</button>
+        <div style="margin-top:10px;">
+          <button class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button>
+        </div>
       </div>
     </aside>
 
     <main class="main">
       <div class="topbar">
         <div class="leftTop">
-          <button class="btn hamburger" type="button" onclick="toggleDrawer(true)">☰</button>
+          <button class="hamburger" onclick="toggleDrawer(true)">☰</button>
+
           <div class="pageTitle">
             <b>瑕疵辨識與分流系統</b>
-            <span id="pageSubTitle">即時檢測畫面 + 各機台獨立統計</span>
+            <span id="pageSubTitle">即時檢測畫面 + 系統狀態與數據</span>
+
             <div class="systemBar">
               <div class="userChip" id="userChip">使用者：未登入</div>
-              <div class="systemSwitchWrap" id="tenantSwitchWrap">
-                <label class="systemLabel" for="tenantSelect">目前客戶</label>
+
+              <div class="systemSwitchWrap" id="tenantSwitchWrap" style="display:none;">
+                <label class="systemLabel">目前客戶</label>
                 <select id="tenantSelect" class="systemSelect"></select>
               </div>
-              <div class="systemSwitchWrap" id="systemSwitchWrap">
-                <label class="systemLabel" for="systemSelect">目前機台</label>
-                <select id="systemSelect" class="systemSelect"></select>
-              </div>
+
+              <div class="systemSwitchWrap" id="systemSwitchWrap" style="display:none;">
+  <label class="systemLabel">目前機台</label>
+  <select id="systemSelect" class="systemSelect"></select>
+</div>
+
             </div>
           </div>
         </div>
+
+        
+
         <div class="rightTop">
-          <div class="status"><span class="dot" id="mqttDot"></span><span id="mqttText">資料讀取中...</span></div>
-          <button type="button" class="btn btnPrimary" onclick="forceReload(event)">⟳ 重新整理</button>
+          <div class="status">
+            <span class="dot" id="mqttDot"></span>
+            <span id="mqttText">狀態讀取中...</span>
+          </div>
+
+          <button class="btn btnPrimary" onclick="forceReload(event)">
+            ⟳ 重新整理
+          </button>
         </div>
       </div>
 
       <div class="page-bg">
-        <div class="qualityAlarmBanner" id="qualityAlarmBanner">
-          <div>
-            <div class="qualityAlarmTitle">⚠️ 良率警報</div>
-            <div class="qualityAlarmText" id="qualityAlarmText">目前沒有警報。</div>
-          </div>
-          <div class="qualityAlarmBadge" id="qualityAlarmBadge">即時監控</div>
-        </div>
         <div class="productInputBar">
-          <div class="productInputTitle">多產品檢測 <span id="currentProductsText">尚未設定</span></div>
-          <div class="productInputRow">
-            <input id="productInput" type="text" autocomplete="off" placeholder="輸入產品（例如：手機殼、書本）" />
-            <button type="button" class="btn btnPrimary" id="addProductBtn">加入</button>
-          </div>
-          <div class="scopeHint" id="machineScopeHint">資料載入中...</div>
-        </div>
 
+  <div class="productInputTitle">
+    多產品檢測
+    <span id="currentProductsText">尚未設定</span>
+  </div>
+
+  <div class="productInputRow">
+    <input id="productInput"
+           placeholder="輸入產品（例如：立可帶、手機殼、螺帽）">
+
+    <button class="btn btnPrimary" onclick="addProduct()">加入</button>
+  </div>
+
+  <div id="productList"></div>
+
+</div>
         <div class="heroGrid">
           <section class="liveCard">
             <div class="liveTitle">即時檢測畫面</div>
+
             <div class="liveFrame">
-              <img id="camera" alt="即時檢測畫面" />
-              <div class="liveHint" id="liveHint">正在連接 ESP32-CAM...</div>
+              <img id="camera" />
+              <div class="liveHint" id="liveHint">
+                正在連接 ESP32-CAM...
+              </div>
             </div>
-            <div class="estopWrap"><button type="button" class="estopBig" onclick="demoEstop()">緊急停止</button></div>
-            <div class="liveActions">
-              <button type="button" class="btn" onclick="downloadCSV()">下載目前機台報表</button>
-              <span class="scopeHint" id="recordCountText">尚未載入事件紀錄</span>
+
+            <div class="estopWrap">
+              <button class="estopBig" onclick="demoEstop()">緊急停止</button>
             </div>
-            <div id="defect-list" class="defect-table"><div class="emptyText">正在載入 MongoDB 舊有事件紀錄...</div></div>
+            <button class="btn" onclick="downloadCSV()">下載報表</button>
+            <div id="defect-list" class="defect-table"></div>
           </section>
 
           <section class="statusCard">
             <div class="productTitleLine">產品分類與良率</div>
-            <div class="statusTopRow">
-              <div class="gaugeCard">
-                <div class="gaugeTitle">後端資料總數</div>
-                <div class="gauge" id="gauge"><div class="gaugeValue" id="gaugeValue">0</div></div>
-                <div class="gaugeSub">目前機台的 OK + NG 總筆數</div>
-                <div class="gaugeBar"><div id="gaugeBarFill" style="width:0%"></div></div>
-              </div>
 
-              <div class="defectMiniCard">
-                <div class="areaName">❗ 瑕疵品數</div>
-                <div class="areaSub">目前機台的 NG 數量</div>
-                <div class="defectInfoBody">
-                  <div class="defectInfoValue" id="defectCount">0</div>
-                  <div class="defectInfoLabel">NG 件</div>
-                </div>
-              </div>
+           <div class="statusTopRow">
+  <div class="gaugeCard">
 
-              <div class="summaryMiniCard">
-                <div class="areaName">真實統計分析</div>
-                <div class="areaSub">依 MongoDB 舊有資料 + SSE 新資料計算</div>
-                <div class="summaryText">
-                  <div id="summaryTotal">總數：0</div>
-                  <div id="summaryOk">OK：0</div>
-                  <div id="summaryNg">NG：0</div>
-                  <div id="summaryYield">良率：0%</div>
-                  <div id="summaryDefect">NG 率：0%</div>
-                  <div id="summaryLast20">最近 20 筆異常：0</div>
-                </div>
+    <div class="gaugeTitle">後端資料總數</div>
+
+    <div class="gauge" id="gauge">
+      <div class="gaugeValue" id="gaugeValue">0</div>
+    </div>
+
+    <div class="gaugeSubTitle">總筆數</div>
+
+    <div class="totalSummary">
+      OK: <span id="totalOk">0</span> |
+      NG: <span id="totalNg">0</span>
+    </div>
+
+    <div class="gaugeBar smallGaugeBar">
+      <div id="gaugeBarFill" style="width:0%"></div>
+    </div>
+
+  </div>
+
+  <div class="defectMiniCard">
+  <div class="areaTop">
+    <div>
+      <div class="areaName">
+        <span class="warnIcon">!</span>
+        瑕疵品數
+      </div>
+      <div class="areaSub">目前篩選資料中的 NG 數量</div>
+    </div>
+  </div>
+
+  <div class="defectInfoBody">
+    <div class="defectInfoValue" id="defectCount">0</div>
+    <div class="defectInfoLabel">NG 件</div>
+  </div>
+</div>
+
+  <div class="areaCard summaryMiniCard">
+    <div class="areaTop">
+      <div>
+        <div class="areaName">真實統計分析</div>
+        <div class="areaSub">依 MongoDB 即時資料計算</div>
+      </div>
+    </div>
+
+    <div class="summaryText">
+      <div id="summaryTotal">總數：0</div>
+      <div id="summaryOk">OK：0</div>
+      <div id="summaryNg">NG：0</div>
+      <div id="summaryYield">良率：0%</div>
+      <div id="summaryDefect">瑕疵率：0%</div>
+      <div id="summaryLast20">最近20筆異常：0</div>
+    </div>
+  </div>
+</div>
+
+  <div id="dynamicProductGaugeArea"></div>
+</div>
+              
+               
               </div>
             </div>
 
-            <div class="categoryWrap">
-              <div class="detectedProducts">已偵測產品：<span id="detectedProductsText">尚未設定</span></div>
-              <div class="categoryButtons" id="categoryButtons"></div>
-            </div>
-
-            <div class="dynamicTitle">各品項良率</div>
-            <div id="dynamicProductGaugeArea"></div>
-          </section>
+            
+                   </section>
 
           <section class="productStatsCard">
             <div class="productTableCard">
               <div class="productTableHeader">
                 <div class="productTableTitle">產品統計表</div>
-                <div class="productTableSub">良率 = OK ÷ (OK + NG) × 100%；NG 率 = NG ÷ (OK + NG) × 100%</div>
+                <div class="productTableSub">各產品 OK / NG 即時統計</div>
               </div>
+
               <div class="productTable">
                 <div class="pt-row pt-head">
-                  <div>產品</div><div>優良（OK）</div><div>瑕疵（NG）</div><div>良率</div><div>NG 率</div>
+                  <div>產品</div>
+                  <div>優良（OK）</div>
+                  <div>瑕疵（NG）</div>
                 </div>
+
                 <div id="dynamicProductRows"></div>
+
                 <div class="pt-row pt-total">
                   <div class="pt-name">總計</div>
                   <div class="pt-ok" id="table-ok-total">0</div>
                   <div class="pt-ng" id="table-ng-total">0</div>
-                  <div class="pt-okRate" id="table-ok-rate-total">0%</div>
-                  <div class="pt-ngRate" id="table-ng-rate-total">0%</div>
                 </div>
               </div>
             </div>
           </section>
 
-          <!-- ===== 新增功能區：保留原本版面，只在下方加入功能 ===== -->
-          <section class="enhancementGrid">
-            <div class="featureCard">
-              <div class="featureHeader">
-                <div>
-                  <div class="featureTitle">📈 良率趨勢折線圖</div>
-                  <div class="featureSub">依目前客戶與機台的事件紀錄即時計算。折線為最近資料的移動良率，紅色虛線為警戒值。</div>
-                </div>
-                <div class="inlineControls">
-                  <label>產品
-                    <select id="trendProductSelect" class="miniSelect">
-                      <option value="">全部產品</option>
-                    </select>
-                  </label>
-                  <label>筆數
-                    <select id="trendRangeSelect" class="miniSelect">
-                      <option value="20">最近 20 筆</option>
-                      <option value="50" selected>最近 50 筆</option>
-                      <option value="100">最近 100 筆</option>
-                    </select>
-                  </label>
-                </div>
-              </div>
-              <div class="trendCanvasWrap"><canvas id="yieldTrendCanvas"></canvas></div>
-              <div class="trendLegend">
-                <span><i class="legendDot legendBlue"></i>移動良率</span>
-                <span><i class="legendDot legendRed"></i>警戒值</span>
-                <span id="trendSummaryText">等待資料...</span>
-              </div>
-            </div>
-
-            <div class="featureCard">
-              <div class="featureHeader">
-                <div>
-                  <div class="featureTitle">🚨 良率過低自動警報</div>
-                  <div class="featureSub">符合警戒條件後，首頁會自動顯示紅色警報。設定依不同客戶與機台分開保存。</div>
-                </div>
-              </div>
-              <div class="alertSettingGrid">
-                <div class="settingBox">
-                  <label for="yieldAlarmThreshold">良率警戒值（%）</label>
-                  <input id="yieldAlarmThreshold" type="number" min="0" max="100" step="1" value="90" />
-                </div>
-                <div class="settingBox">
-                  <label for="yieldAlarmMinSamples">最少檢測筆數</label>
-                  <input id="yieldAlarmMinSamples" type="number" min="1" max="9999" step="1" value="5" />
-                </div>
-                <div class="settingBox">
-                  <label for="consecutiveNgThreshold">連續 NG 警戒值</label>
-                  <input id="consecutiveNgThreshold" type="number" min="1" max="999" step="1" value="3" />
-                </div>
-              </div>
-              <div class="alertActions">
-                <button type="button" class="btn btnPrimary" id="saveAlarmSettingsBtn">儲存警報設定</button>
-                <button type="button" class="btn" id="enableNotificationBtn">允許瀏覽器通知</button>
-                <button type="button" class="btn" id="clearAlertHistoryBtn">清除警報紀錄</button>
-              </div>
-              <div class="alertList" id="qualityAlertList"><div class="alertEmpty">目前沒有警報紀錄。</div></div>
-            </div>
-
-            <div class="featureCard full">
-              <div class="featureHeader">
-                <div>
-                  <div class="featureTitle">🖼️ NG 瑕疵圖片留存</div>
-                  <div class="featureSub">NG 訊息若包含 image_url、image_data 或 snapshot_url，會自動留存並顯示。若沒有圖片欄位，系統會嘗試擷取目前 ESP32-CAM 畫面；攝影機若未允許跨網域擷取，仍會保留事件資料。</div>
-                </div>
-                <div class="inlineControls">
-                  <button type="button" class="btn" id="clearNgImagesBtn">清除目前機台圖片</button>
-                </div>
-              </div>
-              <div class="ngImageGrid" id="ngImageGrid"><div class="alertEmpty">尚未留存 NG 瑕疵圖片。</div></div>
-            </div>
-          </section>
-
-          <!-- ===== 新增功能區：生產批次／工單管理、各機台比較排行 ===== -->
-          <section class="operationsGrid">
-            <div class="opsCard">
-              <div class="opsHeader">
-                <div>
-                  <div class="opsTitle">📋 生產批次與工單管理</div>
-                  <div class="opsSub">為目前客戶建立工單，並指定目前機台開始生產。工單進度會依 OK／NG 事件即時計算。</div>
-                </div>
-              </div>
-
-              <div class="workOrderForm">
-                <label>工單編號
-                  <input id="workOrderIdInput" class="opsInput" type="text" autocomplete="off" placeholder="例如：WO-20260610-001" />
-                </label>
-                <label>生產批次
-                  <input id="batchIdInput" class="opsInput" type="text" autocomplete="off" placeholder="例如：BATCH-A01" />
-                </label>
-                <label>產品
-                  <select id="workOrderProductSelect" class="opsSelect"><option value="">請選擇產品</option></select>
-                </label>
-                <label>目標數量
-                  <input id="workOrderTargetInput" class="opsInput" type="number" min="1" step="1" value="100" />
-                </label>
-                <button type="button" class="btn btnPrimary" id="createWorkOrderBtn">建立並啟用</button>
-              </div>
-
-              <div class="activeOrderCard" id="activeWorkOrderCard">
-                <div class="ranking-empty">目前機台尚未啟用工單。</div>
-              </div>
-
-              <div class="orderTableWrap">
-                <div class="orderTable">
-                  <div class="orderRow head"><div>工單編號</div><div>批次</div><div>產品</div><div>機台</div><div>目標</div><div>完成</div><div>良率</div><div>操作</div></div>
-                  <div id="workOrderRows"><div class="ranking-empty">尚未建立生產工單。</div></div>
-                </div>
-              </div>
-              <div class="opsHint">建議 MQTT 資料加入 <b>work_order_id</b> 與 <b>batch_id</b>，即可永久精準歸類。未附欄位時，網頁也會將啟用後收到且產品相同的資料暫時歸入目前工單。</div>
-            </div>
-
-            <div class="opsCard">
-              <div class="opsHeader">
-                <div>
-                  <div class="opsTitle">🏆 各機台比較排行</div>
-                  <div class="opsSub">依目前客戶的 MongoDB 資料，即時計算每台機台的 OK、NG 與良率排行。</div>
-                </div>
-                <button type="button" class="btn" id="refreshRankingBtn">重新讀取排行</button>
-              </div>
-              <div class="rankingTableWrap">
-                <div class="rankingTable">
-                  <div class="rankingRow head"><div>排名</div><div>機台</div><div>總數</div><div>OK</div><div>NG</div><div>良率</div><div>狀態</div></div>
-                  <div id="machineRankingRows"><div class="ranking-empty">正在載入各機台資料...</div></div>
-                </div>
-              </div>
-              <div class="opsHint" id="rankingUpdatedText">尚未載入排行。</div>
-            </div>
-          </section>
-
+      
+  
         </div>
       </div>
 
-      <div id="errorBar"></div>
-      <div class="footer">© 2026 AIoT Dashboard</div>
+      <div id="errorBar" style="display: none;"></div>
+
+      <div style="margin-top:14px; color:rgba(155,176,207,.9); font-size:12px;">
+        © 2026 AIoT Dashboard
+      </div>
     </main>
   </div>
 
-
-  <div class="imageModal" id="ngImageModal" role="dialog" aria-modal="true" aria-label="NG 瑕疵圖片">
-    <div class="imageModalCard">
-      <div class="imageModalHeader">
-        <b id="ngImageModalTitle">NG 瑕疵圖片</b>
-        <button type="button" class="btn" id="closeNgImageModalBtn">關閉</button>
-      </div>
-      <div id="ngImageModalContent"></div>
-    </div>
-  </div>
-
 <script>
-"use strict";
-
-/*
- * dashboard.html 完整修正版
- * 1. 載入 MongoDB 舊有事件紀錄，不再只有新加入產品的 0 筆資料。
- * 2. 統計依 tenant_id + system_id 分機台計算。
- * 3. 良率 = OK / (OK + NG) * 100%；NG 率 = NG / (OK + NG) * 100%。
- * 4. SSE 新事件到達時立即更新；另外每 1.2 秒從 API 自動同步，無須按重新整理。
- * 5. 各品項 Gauge 同時顯示藍色 OK 區段與紅色 NG 區段。
- */
+console.log("JS 已啟動");
 
 const API_BASE = window.location.origin;
-const DEFECT_LIST_ENDPOINTS = ["/api/defects", "/api/logs"];
-const DEFECT_STREAM_ENDPOINT = "/api/defects/stream";
-const MAX_VISIBLE_EVENTS = 10;
-const POLL_INTERVAL_MS = 1200; // SSE 之外，每 1.2 秒向 MongoDB API 自動同步一次
+let dashboardTimer = null;
+let selectedProducts = [];
 
-const state = {
-  tenantOptions: [],
-  systemOptions: [],
-  defects: [],
-  selectedProducts: [],
-  productStats: {},
-  filterProduct: "",
-  eventSource: null,
-  pollTimer: null,
-  pollBusy: false,
-  loadSerial: 0,
-  warnedUntagged: false
-};
-
-function byId(id){ return document.getElementById(id); }
-function asText(value){ return value == null ? "" : String(value).trim(); }
-function upper(value){ return asText(value).toUpperCase(); }
-function normalizeProductName(value){ return asText(value).replace(/\s+/g, " ") || "未知產品"; }
-function safeArray(value){ return Array.isArray(value) ? value : []; }
-function unique(values){ return [...new Set(values.filter(Boolean))]; }
-function percent(part, total){ return total > 0 ? Math.round((part / total) * 1000) / 10 : 0; }
-function percentText(value){ return `${Number(value || 0).toFixed(1).replace(/\.0$/, "")}%`; }
-function escapeHtml(value){
-  return asText(value).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[ch]));
-}
-function readJson(raw){ try { return JSON.parse(raw); } catch { return null; } }
-function storageGet(key){ return sessionStorage.getItem(key) ?? localStorage.getItem(key); }
-function storageSet(key,value){ sessionStorage.setItem(key,value); localStorage.setItem(key,value); }
-function firstStorage(keys){ for(const key of keys){ const value = asText(storageGet(key)); if(value) return value; } return ""; }
-
-function getToken(){
-  return firstStorage(["token","authToken","access_token","accessToken","jwt"]);
+function getProductStorageKey() {
+  const tenantId = sessionStorage.getItem("tenant_id") || "defaultTenant";
+  return `selectedProducts_${tenantId}`;
 }
 
-async function fetchJson(url, options = {}){
-  const headers = Object.assign({Accept:"application/json"}, options.headers || {});
-  const token = getToken();
-  if(token && !headers.Authorization) headers.Authorization = `Bearer ${token}`;
-  const response = await fetch(url, Object.assign({cache:"no-store"}, options, {headers}));
-  if(!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  const contentType = response.headers.get("content-type") || "";
-  if(!contentType.includes("application/json")) throw new Error("API 回傳格式不是 JSON");
-  return response.json();
+function saveSelectedProducts() {
+  localStorage.setItem(
+    getProductStorageKey(),
+    JSON.stringify(selectedProducts)
+  );
 }
 
-function extractArray(payload){
-  if(Array.isArray(payload)) return payload;
-  if(!payload || typeof payload !== "object") return [];
-  const candidates = [payload.data,payload.items,payload.defects,payload.logs,payload.records,payload.results,payload.systems,payload.tenants];
-  for(const candidate of candidates) if(Array.isArray(candidate)) return candidate;
-  return [];
-}
+function loadSelectedProducts() {
+  try {
+    const raw = localStorage.getItem(getProductStorageKey());
+    selectedProducts = raw ? JSON.parse(raw) : [];
 
-function recordTenantId(record){ return asText(record.tenant_id ?? record.tenantId ?? record.customer_id ?? record.customerId); }
-function recordSystemId(record){ return asText(record.system_id ?? record.systemId ?? record.machine_id ?? record.machineId ?? record.device_id ?? record.deviceId); }
-function recordProduct(record){ return normalizeProductName(record.product ?? record.product_name ?? record.productName ?? record.item ?? record.category); }
-function recordStatus(record){ return upper(record.status ?? record.result ?? record.quality ?? record.state); }
-function recordTime(record){ return record.timestamp ?? record.createdAt ?? record.created_at ?? record.time ?? record.date ?? ""; }
-function recordId(record){ return asText(record.id ?? record._id ?? record.defect_id ?? record.defectId ?? record.uuid); }
-function recordMongoId(record){ return asText(record._id ?? record.mongo_id ?? record.mongoId); }
-function recordKey(record){
-  /*
-   * MongoDB 的 _id 才是真正唯一值。
-   * 測試時常會重複使用 id，例如 case_001；不能只用 id 判斷重複，
-   * 否則新送出的 OK / NG 會被首頁誤判成舊資料而不更新。
-   */
-  const mongoId = recordMongoId(record);
-  if(mongoId) return `mongo:${mongoId}`;
-  return [
-    `id:${recordId(record)}`,
-    recordTenantId(record),
-    recordSystemId(record),
-    recordProduct(record),
-    recordStatus(record),
-    asText(recordTime(record)),
-    asText(record._dashboardReceivedAt ?? record.receivedAt ?? record.received_at)
-  ].join("|");
-}
-function recordSignature(record){
-  return [recordKey(record),recordProduct(record),recordStatus(record),asText(recordTime(record))].join("|");
-}
-function dedupeRecords(records){
-  const map = new Map();
-  safeArray(records).forEach(record => {
-    if(record && typeof record === "object") map.set(recordKey(record),record);
-  });
-  return [...map.values()];
-}
-function recordsSignature(records){
-  return safeArray(records).map(recordSignature).sort().join("\n");
-}
-function formatTime(value){
-  if(!value) return "-";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? asText(value) : date.toLocaleString("zh-TW", {hour12:false});
-}
-
-function getCurrentTenantId(){ return asText(byId("tenantSelect")?.value) || firstStorage(["currentTenantId","selectedTenantId","tenant_id","tenantId"]); }
-function getCurrentSystemId(){ return asText(byId("systemSelect")?.value) || firstStorage(["currentSystemId","selectedSystemId","system_id","systemId","machine_id","machineId"]); }
-
-function makeQuery(params){
-  const search = new URLSearchParams();
-  Object.entries(params).forEach(([key,value]) => { if(asText(value)) search.set(key, asText(value)); });
-  return search.toString();
-}
-
-function showError(message){
-  const bar = byId("errorBar");
-  if(!bar) return;
-  bar.style.display = message ? "block" : "none";
-  bar.textContent = message || "";
-}
-
-function setDataStatus(kind, text){
-  const dot = byId("mqttDot");
-  const label = byId("mqttText");
-  if(dot) dot.className = `dot ${kind || ""}`;
-  if(label) label.textContent = text;
-}
-
-function optionFromItem(item, type){
-  if(item == null) return null;
-  if(typeof item === "string" || typeof item === "number"){
-    const id = asText(item);
-    return id ? {id,label:id} : null;
-  }
-  if(typeof item !== "object") return null;
-  const id = type === "tenant"
-    ? asText(item.tenant_id ?? item.tenantId ?? item.customer_id ?? item.customerId ?? item.id ?? item._id ?? item.value)
-    : asText(item.system_id ?? item.systemId ?? item.machine_id ?? item.machineId ?? item.device_id ?? item.deviceId ?? item.id ?? item._id ?? item.value);
-  const label = type === "tenant"
-    ? asText(item.tenant_name ?? item.tenantName ?? item.customer_name ?? item.customerName ?? item.name ?? item.label ?? id)
-    : asText(item.system_name ?? item.systemName ?? item.machine_name ?? item.machineName ?? item.device_name ?? item.deviceName ?? item.name ?? item.label ?? id);
-  return id ? {id,label:label || id} : null;
-}
-
-function mergeOptions(...groups){
-  const map = new Map();
-  groups.flat().forEach(option => {
-    if(option && option.id && !map.has(option.id)) map.set(option.id, option);
-  });
-  return [...map.values()];
-}
-
-function optionsFromStorage(keys,type){
-  const out = [];
-  keys.forEach(key => {
-    const raw = storageGet(key);
-    if(!raw) return;
-    const parsed = readJson(raw);
-    const list = Array.isArray(parsed) ? parsed : extractArray(parsed);
-    list.forEach(item => { const option = optionFromItem(item,type); if(option) out.push(option); });
-  });
-  return out;
-}
-
-async function tryEndpointOptions(paths,type){
-  for(const path of paths){
-    try{
-      const payload = await fetchJson(`${API_BASE}${path}`);
-      const options = extractArray(payload).map(item => optionFromItem(item,type)).filter(Boolean);
-      if(options.length) return options;
-    }catch(error){ console.debug(`略過 ${path}`, error.message); }
-  }
-  return [];
-}
-
-async function discoverOptionsFromDefects(){
-  try{
-    const payload = await fetchJson(`${API_BASE}/api/defects`);
-    const list = extractArray(payload);
-    return {
-      tenants: unique(list.map(recordTenantId)).map(id => ({id,label:id})),
-      systems: unique(list.map(recordSystemId)).map(id => ({id,label:id}))
-    };
-  }catch{
-    return {tenants:[],systems:[]};
-  }
-}
-
-function renderSelect(selectId, options, selectedId, fallbackId, fallbackLabel){
-  const select = byId(selectId);
-  if(!select) return "";
-  const finalOptions = options.length ? options : [{id:fallbackId,label:fallbackLabel || fallbackId}];
-  select.innerHTML = finalOptions.map(option => `<option value="${escapeHtml(option.id)}">${escapeHtml(option.label)}｜${escapeHtml(option.id)}</option>`).join("");
-  const wanted = asText(selectedId);
-  if(wanted && finalOptions.some(option => option.id === wanted)) select.value = wanted;
-  return select.value;
-}
-
-async function initSelectors(){
-  const currentTenant = firstStorage(["currentTenantId","selectedTenantId","tenant_id","tenantId"]);
-  const currentSystem = firstStorage(["currentSystemId","selectedSystemId","system_id","systemId","machine_id","machineId"]);
-
-  const storedTenants = optionsFromStorage(["tenants","availableTenants","userTenants","tenantList"],"tenant");
-  const storedSystems = optionsFromStorage(["systems","availableSystems","userSystems","machines","machineList"],"system");
-  const [apiTenants, discovered] = await Promise.all([
-    tryEndpointOptions(["/api/tenants","/api/admin/tenants"],"tenant"),
-    discoverOptionsFromDefects()
-  ]);
-
-  state.tenantOptions = mergeOptions(storedTenants,apiTenants,discovered.tenants,currentTenant ? [{id:currentTenant,label:currentTenant}] : []);
-  const tenantId = renderSelect("tenantSelect",state.tenantOptions,currentTenant,"defaultTenant","預設客戶");
-  storageSet("currentTenantId",tenantId);
-
-  const systemQuery = makeQuery({tenant_id:tenantId});
-  const apiSystems = await tryEndpointOptions([
-    `/api/systems${systemQuery ? `?${systemQuery}` : ""}`,
-    `/api/admin/systems${systemQuery ? `?${systemQuery}` : ""}`
-  ],"system");
-  state.systemOptions = mergeOptions(storedSystems,apiSystems,discovered.systems,currentSystem ? [{id:currentSystem,label:currentSystem}] : []);
-  const systemId = renderSelect("systemSelect",state.systemOptions,currentSystem,"defaultSystem","預設機台");
-  storageSet("currentSystemId",systemId);
-}
-
-async function refreshSystemsForTenant(){
-  const tenantId = getCurrentTenantId();
-  const currentSystem = getCurrentSystemId();
-  const systemQuery = makeQuery({tenant_id:tenantId});
-  const apiSystems = await tryEndpointOptions([
-    `/api/systems${systemQuery ? `?${systemQuery}` : ""}`,
-    `/api/admin/systems${systemQuery ? `?${systemQuery}` : ""}`
-  ],"system");
-  state.systemOptions = mergeOptions(apiSystems,state.systemOptions,currentSystem ? [{id:currentSystem,label:currentSystem}] : []);
-  const systemId = renderSelect("systemSelect",state.systemOptions,currentSystem,"defaultSystem","預設機台");
-  storageSet("currentSystemId",systemId);
-}
-
-function allowUntaggedRecords(){
-  return state.systemOptions.length <= 1 || getCurrentSystemId() === "defaultSystem";
-}
-
-function belongsToCurrentScope(record){
-  const currentTenant = getCurrentTenantId();
-  const currentSystem = getCurrentSystemId();
-  const tenantId = recordTenantId(record);
-  const systemId = recordSystemId(record);
-  if(tenantId && currentTenant && currentTenant !== "defaultTenant" && tenantId !== currentTenant) return false;
-  if(systemId && currentSystem && currentSystem !== "defaultSystem" && systemId !== currentSystem) return false;
-  if(!systemId && !allowUntaggedRecords()) return false;
-  return true;
-}
-
-async function fetchDefectsForCurrentMachine(){
-  const tenantId = getCurrentTenantId();
-  const systemId = getCurrentSystemId();
-  const scopedQuery = makeQuery({tenant_id:tenantId,system_id:systemId});
-  const systemQuery = makeQuery({system_id:systemId});
-  const candidates = [];
-  DEFECT_LIST_ENDPOINTS.forEach(path => {
-    if(scopedQuery) candidates.push(`${path}?${scopedQuery}`);
-    if(systemQuery) candidates.push(`${path}?${systemQuery}`);
-    candidates.push(path);
-  });
-
-  let firstEmpty = null;
-  let lastError = null;
-  for(const path of unique(candidates)){
-    try{
-      const payload = await fetchJson(`${API_BASE}${path}`);
-      const list = extractArray(payload);
-      if(firstEmpty === null) firstEmpty = list;
-      if(list.length) return list;
-    }catch(error){ lastError = error; console.debug(`舊資料端點略過：${path}`, error.message); }
-  }
-  if(firstEmpty) return firstEmpty;
-  throw lastError || new Error("找不到事件紀錄 API");
-}
-
-function manualProductsKey(){ return `dashboard.manualProducts.${getCurrentTenantId()}.${getCurrentSystemId()}`; }
-function loadManualProducts(){
-  const parsed = readJson(localStorage.getItem(manualProductsKey()) || "[]");
-  return safeArray(parsed).map(normalizeProductName).filter(Boolean);
-}
-function saveManualProducts(){
-  const historyProducts = new Set(state.defects.map(recordProduct));
-  const manual = state.selectedProducts.filter(product => !historyProducts.has(product));
-  localStorage.setItem(manualProductsKey(), JSON.stringify(unique(manual)));
-}
-
-function rebuildStatistics(){
-  const stats = {};
-  const products = unique([...loadManualProducts(), ...state.defects.map(recordProduct)]);
-  products.forEach(product => { stats[product] = {ok:0,ng:0,total:0}; });
-  state.defects.forEach(record => {
-    const product = recordProduct(record);
-    const status = recordStatus(record);
-    if(!stats[product]) stats[product] = {ok:0,ng:0,total:0};
-    if(status === "OK") stats[product].ok += 1;
-    else if(status === "NG") stats[product].ng += 1;
-    stats[product].total = stats[product].ok + stats[product].ng;
-  });
-  state.selectedProducts = unique([...products,...Object.keys(stats)]);
-  state.productStats = stats;
-}
-
-function totals(){
-  return Object.values(state.productStats).reduce((sum,item) => {
-    sum.ok += item.ok; sum.ng += item.ng; return sum;
-  }, {ok:0,ng:0});
-}
-
-function updateDetectedProducts(){
-  const text = state.selectedProducts.length ? state.selectedProducts.join("、") : "尚未設定";
-  if(byId("currentProductsText")) byId("currentProductsText").textContent = text;
-  if(byId("detectedProductsText")) byId("detectedProductsText").textContent = text;
-}
-
-function renderSummary(){
-  const sum = totals();
-  const total = sum.ok + sum.ng;
-  const yieldRate = percent(sum.ok,total);
-  const ngRate = percent(sum.ng,total);
-  const recentNg = [...state.defects]
-    .sort((a,b) => new Date(recordTime(b) || 0) - new Date(recordTime(a) || 0))
-    .slice(0,20).filter(record => recordStatus(record) === "NG").length;
-
-  byId("gaugeValue").textContent = String(total);
-  byId("gauge").style.setProperty("--p", Math.min(total,100));
-  byId("gaugeBarFill").style.width = `${Math.min(total,100)}%`;
-  byId("defectCount").textContent = String(sum.ng);
-  byId("summaryTotal").textContent = `總數：${total}`;
-  byId("summaryOk").textContent = `OK：${sum.ok}`;
-  byId("summaryNg").textContent = `NG：${sum.ng}`;
-  byId("summaryYield").textContent = `良率：${percentText(yieldRate)}`;
-  byId("summaryDefect").textContent = `NG 率：${percentText(ngRate)}`;
-  byId("summaryLast20").textContent = `最近 20 筆異常：${recentNg}`;
-  byId("table-ok-total").textContent = String(sum.ok);
-  byId("table-ng-total").textContent = String(sum.ng);
-  byId("table-ok-rate-total").textContent = percentText(yieldRate);
-  byId("table-ng-rate-total").textContent = percentText(ngRate);
-  byId("recordCountText").textContent = `目前機台已載入 ${total} 筆有效資料`;
-}
-
-function renderProductStats(){
-  const gaugeArea = byId("dynamicProductGaugeArea");
-  const tableArea = byId("dynamicProductRows");
-  const products = Object.keys(state.productStats);
-
-  if(!products.length){
-    gaugeArea.innerHTML = '<div class="emptyText">目前機台尚未有產品資料，可從上方加入產品，或等待偵測事件。</div>';
-    tableArea.innerHTML = '<div class="emptyText">目前機台尚未有產品統計。</div>';
-    renderSummary();
-    updateDetectedProducts();
-    renderCategoryButtons();
-    return;
-  }
-
-  gaugeArea.innerHTML = products.map(product => {
-    const item = state.productStats[product];
-    const total = item.ok + item.ng;
-    const yieldRate = percent(item.ok,total);
-    const ngRate = percent(item.ng,total);
-    const hasData = total > 0;
-    const valueClass = ngRate > yieldRate ? "isNgHigher" : "isOkHigher";
-    const okStop = hasData ? `${yieldRate}%` : "0%";
-    const totalStop = hasData ? "100%" : "0%";
-    return `
-      <div class="gaugeBox">
-        <div class="gaugeLabel">${escapeHtml(product)}</div>
-        <div class="gauge qualityGauge" style="--ok-stop:${okStop};--total-stop:${totalStop}"><div class="gaugeValue ${valueClass}">${percentText(yieldRate)}</div></div>
-        <div class="gaugeSub"><span class="rateBlue">良率 ${percentText(yieldRate)}</span> ｜ <span class="rateRed">NG 率 ${percentText(ngRate)}</span><br>OK：${item.ok} ｜ NG：${item.ng}</div>
-      </div>`;
-  }).join("");
-
-  tableArea.innerHTML = products.map(product => {
-    const item = state.productStats[product];
-    const total = item.ok + item.ng;
-    return `
-      <div class="pt-row">
-        <div class="pt-name">${escapeHtml(product)}</div>
-        <div class="pt-ok">${item.ok}</div>
-        <div class="pt-ng">${item.ng}</div>
-        <div class="pt-okRate">${percentText(percent(item.ok,total))}</div>
-        <div class="pt-ngRate">${percentText(percent(item.ng,total))}</div>
-      </div>`;
-  }).join("");
-
-  renderSummary();
-  updateDetectedProducts();
-  renderCategoryButtons();
-}
-
-function renderCategoryButtons(){
-  const container = byId("categoryButtons");
-  if(!container) return;
-  const products = Object.keys(state.productStats);
-  container.innerHTML = [{id:"",label:"全部"},...products.map(product => ({id:product,label:product}))].map(item => {
-    const active = item.id === state.filterProduct ? " active" : "";
-    return `<button type="button" class="${active}" data-product="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>`;
-  }).join("");
-  container.querySelectorAll("button").forEach(button => {
-    button.addEventListener("click", () => { state.filterProduct = button.dataset.product || ""; renderEventRows(); renderCategoryButtons(); });
-  });
-}
-
-function renderEventRows(){
-  const list = byId("defect-list");
-  const rows = [...state.defects]
-    .sort((a,b) => new Date(recordTime(b) || 0) - new Date(recordTime(a) || 0))
-    .filter(record => !state.filterProduct || recordProduct(record) === state.filterProduct)
-    .slice(0,MAX_VISIBLE_EVENTS);
-
-  if(!rows.length){
-    list.innerHTML = '<div class="emptyText">目前機台沒有符合條件的舊有事件紀錄。</div>';
-    return;
-  }
-  list.innerHTML = rows.map(record => {
-    const status = recordStatus(record) || "-";
-    const statusClass = status === "OK" ? "status-ok" : "status-ng";
-    return `
-      <div class="defect-row">
-        <div class="defect-id" title="${escapeHtml(recordId(record) || "-")}">${escapeHtml(recordId(record) || "-")}</div>
-        <div class="defect-status ${statusClass}">${escapeHtml(status)}（${escapeHtml(recordProduct(record))}）</div>
-        <div class="defect-time">${escapeHtml(formatTime(recordTime(record)))}</div>
-      </div>`;
-  }).join("");
-}
-
-function updateScopeHint(rawCount, scopedCount){
-  const tenant = getCurrentTenantId();
-  const system = getCurrentSystemId();
-  byId("machineScopeHint").textContent = `目前只統計客戶 ${tenant}／機台 ${system}：從 ${rawCount} 筆 API 資料中載入 ${scopedCount} 筆。切換機台後會重新讀取舊資料。`;
-}
-
-function applyMachineRecords(raw, options = {}){
-  const previousSignature = recordsSignature(state.defects);
-  const scoped = safeArray(raw).filter(belongsToCurrentScope);
-  state.defects = dedupeRecords(scoped);
-  const nextSignature = recordsSignature(state.defects);
-  const changed = previousSignature !== nextSignature;
-
-  if(changed || options.forceRender){
-    rebuildStatistics();
-    renderProductStats();
-    renderEventRows();
-  }
-  updateScopeHint(safeArray(raw).length,state.defects.length);
-  return changed;
-}
-
-async function pollMachineData(){
-  if(state.pollBusy) return;
-  state.pollBusy = true;
-  try{
-    const raw = await fetchDefectsForCurrentMachine();
-    const changed = applyMachineRecords(raw);
-    if(changed) setDataStatus("online","資料已即時更新");
-    else if(!state.eventSource || state.eventSource.readyState !== EventSource.OPEN) setDataStatus("online","自動同步中");
-  }catch(error){
-    console.warn("自動同步暫時失敗",error.message);
-    if(!state.eventSource || state.eventSource.readyState !== EventSource.OPEN) setDataStatus("","自動同步重試中...");
-  }finally{
-    state.pollBusy = false;
-  }
-}
-
-function closePollingUpdates(){
-  if(state.pollTimer){ clearInterval(state.pollTimer); state.pollTimer = null; }
-}
-
-function startPollingUpdates(){
-  closePollingUpdates();
-  state.pollTimer = setInterval(pollMachineData,POLL_INTERVAL_MS);
-}
-
-async function reloadMachineData(){
-  const serial = ++state.loadSerial;
-  closeRealtimeUpdates();
-  closePollingUpdates();
-  showError("");
-  setDataStatus("", "正在讀取目前機台舊資料...");
-  byId("defect-list").innerHTML = '<div class="emptyText">正在載入 MongoDB 舊有事件紀錄...</div>';
-  try{
-    const raw = await fetchDefectsForCurrentMachine();
-    if(serial !== state.loadSerial) return;
-    const untagged = raw.filter(record => !recordSystemId(record)).length;
-    applyMachineRecords(raw,{forceRender:true});
-    setDataStatus("online", "舊資料已載入，開始即時同步");
-    if(untagged && !allowUntaggedRecords()){
-      showError(`注意：有 ${untagged} 筆舊資料缺少 system_id，因此無法自動分配到機台。請在後端或 MongoDB 補上 system_id。`);
+    if (!Array.isArray(selectedProducts)) {
+      selectedProducts = [];
     }
-  }catch(error){
-    console.error(error);
-    state.defects = [];
-    rebuildStatistics();
-    renderProductStats();
-    renderEventRows();
-    updateScopeHint(0,0);
-    setDataStatus("offline", "無法載入舊資料");
-    showError(`讀取舊有事件紀錄失敗：${error.message}。請確認後端存在 /api/defects，且 Render 已完成部署。`);
-  }finally{
-    /* SSE 速度最快；API 輪詢是備援。即使 SSE 尚未接好，首頁仍會自動更新。 */
-    startRealtimeUpdates();
-    startPollingUpdates();
+  } catch (e) {
+    selectedProducts = [];
   }
 }
 
-function addProductDynamic(name){
-  const product = normalizeProductName(name);
-  if(!asText(name)) return;
-  if(!state.selectedProducts.includes(product)) state.selectedProducts.push(product);
-  saveManualProducts();
-  rebuildStatistics();
-  renderProductStats();
-  byId("productInput").value = "";
+function normalizeProductName(name) {
+  if (!name) return "未分類"; // ⭐ 先擋掉 null/undefined
+
+  const s = String(name)
+  .trim()
+  .toLowerCase()
+  .replace(/\s+/g, "")
+  .replace(/[^\u4e00-\u9fa5a-z0-9]/g, ""); // ⭐ 清掉奇怪符號
+
+  // ⭐ 再次保險
+  if (s === "" || s === "null" || s === "undefined") {
+    return "未分類";
+  }
+
+  if (s.includes("橡皮") || s.includes("eraser")) return "橡皮擦";
+  if (s.includes("立可帶") || s.includes("修正帶") || s.includes("tape")) return "立可帶";
+  if (s.includes("螺帽") || s.includes("螺母") || s.includes("nut")) return "螺帽";
+
+  return "未分類";
 }
 
-function addRealtimeRecord(record){
-  if(!record || typeof record !== "object" || !belongsToCurrentScope(record)) return;
-  if(!recordTime(record)) record._dashboardReceivedAt = new Date().toISOString();
-  const key = recordKey(record);
-  const exists = state.defects.some(item => recordKey(item) === key);
-  if(exists) return;
-  state.defects.push(record);
-  rebuildStatistics();
-  renderProductStats();
-  renderEventRows();
-  updateScopeHint(state.defects.length,state.defects.length);
-  setDataStatus("online","收到即時資料");
-  /* SSE 收到後再快速對 MongoDB 對帳，避免畫面與後端資料不同步。 */
-  setTimeout(pollMachineData,180);
+async function apiFetch(url, options = {}) {
+  const token = sessionStorage.getItem("token");
+
+ // console.log("目前 token:", token);
+
+  if (!token) {
+    alert("⚠️ 請重新登入");
+    window.location.replace("login.html");
+    return null;
+  }
+
+  const fullUrl = url.startsWith("http")
+    ? url
+    : API_BASE + url;
+
+  const res = await fetch(fullUrl, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token,
+      "ngrok-skip-browser-warning": "true",
+      ...(options.headers || {})
+    }
+  });
+
+  if (res.status === 401) {
+    alert("登入過期，請重新登入");
+    sessionStorage.clear();
+    window.location.replace("login.html");
+    return null;
+  }
+
+  if (!res.ok) {
+    throw new Error("API 錯誤：" + res.status);
+  }
+
+  return await res.json();
 }
 
-function closeRealtimeUpdates(){
-  if(state.eventSource){ state.eventSource.close(); state.eventSource = null; }
-}
+function handleHardReset(e){
+  e.preventDefault();
+  e.stopPropagation();
 
-function startRealtimeUpdates(){
-  closeRealtimeUpdates();
-  if(!window.EventSource) return;
-  const query = makeQuery({tenant_id:getCurrentTenantId(),system_id:getCurrentSystemId()});
-  const url = `${API_BASE}${DEFECT_STREAM_ENDPOINT}${query ? `?${query}` : ""}`;
   try{
-    const stream = new EventSource(url);
-    state.eventSource = stream;
-    stream.onopen = () => setDataStatus("online","即時資料連線中");
-    stream.onmessage = event => {
-      try{
-        const payload = JSON.parse(event.data);
-        const record = payload && typeof payload.data === "object" && !Array.isArray(payload.data) ? payload.data : payload;
-        addRealtimeRecord(record);
-      }catch(error){ console.warn("SSE 資料格式錯誤",error); }
-    };
-    stream.onerror = () => setDataStatus("","即時連線重試中...");
-  }catch(error){ console.warn("無法建立 SSE",error); }
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister());
+        location.replace("login.html");
+      });
+    } else {
+      location.replace("login.html");
+    }
+  } catch(err){
+    console.error("清快取失敗：", err);
+  }
+}
+
+function forceReload(e){
+  e.preventDefault();
+  e.stopPropagation();
+  location.reload();
+}
+
+window.addEventListener("error", function(e) {
+  console.warn("已攔截錯誤，不顯示白畫面", e.message);
+  e.preventDefault();
+});
+
+window.addEventListener("unhandledrejection", function(e) {
+  console.warn("Promise錯誤已攔截", e.reason);
+  e.preventDefault();
+});
+
+const role = sessionStorage.getItem("role") || "user";
+const isSuperAdmin = role === "super_admin" || role === "admin";
+const isTenantAdmin = role === "tenant_admin";
+const canOpenAdmin = isSuperAdmin || isTenantAdmin;
+
+function getCurrentTenantId(){
+  const role = sessionStorage.getItem("role");
+
+  if (role !== "super_admin" && role !== "tenant_admin") {
+    return sessionStorage.getItem("tenant_id") || "";
+  }
+
+  return sessionStorage.getItem("tenant_id") || "";
+}
+
+function setCurrentTenantId(tenantId){
+  sessionStorage.setItem("tenant_id", tenantId || "");
+}
+
+function setCurrentSystemId(systemId){
+  sessionStorage.setItem("system_id", systemId || "");
+}
+
+function getCurrentSystemId(){
+  return sessionStorage.getItem("system_id") || "";
+}
+
+function getDisplayUserName(userId) {
+  const userMap = {
+    "user_001": "使用者A",
+    "user_002": "使用者B",
+    "user_003": "使用者C",
+    "admin": "系統管理員"
+  };
+
+  return userMap[userId] || userId || "未知使用者";
+}
+
+function getDisplaySystemName(systemId) {
+  return systemId ? `機台 ${systemId}` : "未選擇";
+}
+
+function forceCloseErrorOverlay() {
+  const selectors = [
+    ".fatal-overlay",
+    ".error-overlay",
+    ".panic-overlay",
+    ".app-error-overlay",
+    ".global-error-overlay",
+    ".white-screen-guard",
+    ".runtime-error-modal"
+  ];
+
+  selectors.forEach(selector => {
+    document.querySelectorAll(selector).forEach(el => {
+      el.style.display = "none";
+      el.remove();
+    });
+  });
+
+  document.body.classList.remove("has-error", "app-crashed", "panic-mode", "white-screen-protected");
+  document.documentElement.classList.remove("has-error", "app-crashed", "panic-mode", "white-screen-protected");
+
+  try {
+    localStorage.removeItem("fatalError");
+    localStorage.removeItem("appError");
+    localStorage.removeItem("panicMode");
+    sessionStorage.removeItem("fatalError");
+    sessionStorage.removeItem("appError");
+    sessionStorage.removeItem("panicMode");
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById("errorBar");
+  if (!el) return;
+  el.textContent = msg || "";
+}
+
+function addProduct() {
+  const input = document.getElementById("productInput");
+  const name = input.value.trim();
+
+  if (!name) return;
+
+  const normalized = normalizeProductName(name);
+
+  if (!selectedProducts.includes(normalized)) {
+    selectedProducts.push(normalized);
+  }
+
+  saveSelectedProducts();
+
+  input.value = "";
+  renderProductList();
+  window.refreshDashboard();
+}
+
+function removeProduct(name){
+  selectedProducts = selectedProducts.filter(p => p !== name);
+
+  saveSelectedProducts();
+
+  renderProductList();
+  window.refreshDashboard();
+}
+function renderProductList() {
+  const div = document.getElementById("productList");
+  const text = document.getElementById("currentProductsText");
+
+  if (text) {
+    text.textContent = selectedProducts.length > 0
+      ? selectedProducts.join("、")
+      : "尚未設定";
+  }
+
+  if (!div) return;
+
+  div.innerHTML = selectedProducts.map(p => `
+    <span style="
+      display:inline-block;
+      padding:6px 12px;
+      margin:4px;
+      border-radius:10px;
+      background:#2563eb;
+      cursor:pointer;
+    " onclick="removeProduct('${p}')">
+      ${p} ❌
+    </span>
+  `).join("");
+}
+
+function updateMqttStatus(ok, textMsg = "") {
+  const dot = document.getElementById("mqttDot");
+  const text = document.getElementById("mqttText");
+  if (!dot || !text) return;
+
+  if (ok) {
+    dot.style.background = "#22c55e";
+    dot.style.boxShadow = "0 0 12px rgba(34,197,94,.8)";
+    text.textContent = textMsg || "MQTT 已連線";
+  } else {
+    dot.style.background = "#ef4444";
+    dot.style.boxShadow = "0 0 12px rgba(239,68,68,.8)";
+    text.textContent = textMsg || "MQTT 未連線";
+  }
+}
+
+async function loadHealth() {
+  const data = await apiFetch("/api/health");
+  if (!data) return;
+
+  updateMqttStatus(
+    !!data?.mqttConnected,
+    data?.mqttConnected ? "後端 MQTT 已連線" : "後端 MQTT 未連線"
+  );
+}
+
+function buildDefectsUrl(){
+  const role = sessionStorage.getItem("role");
+  const params = new URLSearchParams();
+
+  if (role === "super_admin" || role === "tenant_admin") {
+    const tenantId = getCurrentTenantId();
+    const systemId = getCurrentSystemId();
+
+    if (tenantId) params.append("tenant_id", tenantId);
+    if (systemId) params.append("system_id", systemId);
+  } else {
+    const tenantId = sessionStorage.getItem("tenant_id") || "";
+    const systemId = sessionStorage.getItem("system_id") || "";
+
+    if (tenantId) params.append("tenant_id", tenantId);
+    if (systemId) params.append("system_id", systemId);
+  }
+
+  return `/api/defects?${params.toString()}`;
+}
+
+async function loadDashboardStats() {
+  try {
+    const data = await apiFetch(buildDefectsUrl());
+    const list = Array.isArray(data) ? data : [];
+
+// 1. 先整理 MongoDB 裡實際存在的產品
+const dbProducts = [
+  ...new Set(
+    list
+      .map(x => normalizeProductName(x.product))
+      .filter(p => p && p !== "未分類")
+  )
+];
+
+// 2. 畫面手動加入的產品 + MongoDB 已存在的產品，合併後去重
+const displayProducts = [
+  ...new Set([
+    ...selectedProducts.map(p => normalizeProductName(p)),
+    ...dbProducts
+  ])
+].filter(p => p && p !== "未分類");
+
+// 3. 只統計要顯示的產品資料
+const filteredList = displayProducts.length === 0
+  ? []
+  : list.filter(x => {
+      const productName = normalizeProductName(x.product);
+      return displayProducts.includes(productName);
+    });
+
+const totalCount = filteredList.length;
+
+    const defectCount = filteredList.filter(
+      x => String(x.status || "").toUpperCase() === "NG"
+    ).length;
+
+const productStats = {};
+
+// 先把要顯示的產品建立出來
+// 包含：手動加入的產品 + MongoDB 裡實際存在的產品
+displayProducts.forEach(p => {
+  const product = normalizeProductName(p);
+
+  if (product !== "未分類") {
+    productStats[product] = { ok: 0, ng: 0 };
+  }
+});
+filteredList.forEach(item => {
+
+  // 🔥 關鍵修正（這行）
+const product = normalizeProductName(item.product);
+
+  const status = String(item.status || "").toUpperCase();
+
+      if (!productStats[product]) {
+        productStats[product] = { ok: 0, ng: 0 };
+      }
+
+      if (status === "OK") productStats[product].ok++;
+      if (status === "NG") productStats[product].ng++;
+    });
+
+    document.getElementById("gaugeValue").textContent = totalCount;
+    document.getElementById("defectCount").textContent = defectCount;
+
+    const gaugePercent = Math.min(totalCount * 10, 100);
+    document.getElementById("gauge").style.setProperty("--p", gaugePercent);
+    document.getElementById("gaugeBarFill").style.width = gaugePercent + "%";
+
+    const gaugeArea = document.getElementById("dynamicProductGaugeArea");
+    const dynamicRows = document.getElementById("dynamicProductRows");
+
+    if (gaugeArea) gaugeArea.innerHTML = "";
+    if (dynamicRows) dynamicRows.innerHTML = "";
+
+    let totalOK = 0;
+    let totalNG = 0;
+
+    Object.keys(productStats).forEach(productName => {
+  if (productName === "未分類") return;
+
+  const stats = productStats[productName];
+  const total = stats.ok + stats.ng;
+  const yieldRate = total > 0 ? Math.round((stats.ok / total) * 100) : 0;
+      totalOK += stats.ok;
+      totalNG += stats.ng;
+
+      if (gaugeArea) {
+        gaugeArea.innerHTML += `
+          <div class="gaugeBox">
+            <div class="gaugeLabel">${productName}</div>
+            <div class="gauge" style="
+              --p:${yieldRate};
+              background: conic-gradient(
+                from 180deg,
+                rgba(34,197,94,.95) ${yieldRate}%,
+                rgba(239,68,68,.95) ${yieldRate}% 100%
+              );
+            ">
+              <div class="gaugeValue">${yieldRate}%</div>
+            </div>
+            <div class="gaugeSub">
+              <span style="color:#3ddc84">OK: ${stats.ok}</span> |
+              <span style="color:#ff8080">NG: ${stats.ng}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      if (dynamicRows) {
+        dynamicRows.innerHTML += `
+          <div class="pt-row">
+            <div class="pt-name">${productName}</div>
+            <div class="pt-ok">${stats.ok}</div>
+            <div class="pt-ng">${stats.ng}</div>
+          </div>
+        `;
+      }
+    });
+
+    document.getElementById("table-ok-total").textContent = totalOK;
+    document.getElementById("table-ng-total").textContent = totalNG;
+const totalOkEl = document.getElementById("totalOk");
+const totalNgEl = document.getElementById("totalNg");
+
+if (totalOkEl) totalOkEl.textContent = totalOK;
+if (totalNgEl) totalNgEl.textContent = totalNG;
+   
+
+    showError("");
+  } catch (e) {
+    console.error(e);
+    showError("讀取統計資料失敗");
+  }
+}
+
+async function loadDefects() {
+  try {
+    const data = await apiFetch(buildDefectsUrl());
+    const list = document.getElementById("defect-list");
+    if (!list) return;
+
+    list.innerHTML = "";
+
+    if (!Array.isArray(data) || data.length === 0) {
+      const empty = document.createElement("div");
+      empty.style.color = "rgba(155,176,207,.9)";
+      empty.style.padding = "12px";
+      empty.textContent = "目前沒有資料";
+      list.appendChild(empty);
+      return;
+    }
+
+    data.slice(0, 10).forEach(item => {
+      const row = document.createElement("div");
+      row.className = "defect-row";
+
+      const statusText = (item.status || "-").toString().toUpperCase();
+      const statusClass =
+        statusText === "NG" ? "status-ng" :
+        statusText === "OK" ? "status-ok" : "";
+
+      row.innerHTML = `
+        <div class="defect-id">${item.id || "-"}</div>
+        <div class="defect-status ${statusClass}">
+          ${statusText} ${item.product ? `(${item.product})` : ""}
+        </div>
+        <div class="defect-time">
+          ${item.timestamp ? new Date(item.timestamp).toLocaleString("zh-TW") : "-"}
+        </div>
+      `;
+
+      list.appendChild(row);
+    });
+  } catch (e) {
+    console.error(e);
+    showError("讀取瑕疵資料失敗");
+  }
+}
+
+async function loadLatestMqtt() {
+  try {
+    const result = await apiFetch("/api/mqtt/latest");
+    const liveHint = document.querySelector(".liveHint");
+    if (!liveHint) return;
+
+    if (result?.data?.payload) {
+      const p = result.data.payload;
+      liveHint.textContent =
+        `最新 MQTT：ID=${p.id || "-"} / STATUS=${p.status || "-"} / PRODUCT=${p.product || "-"} / 時間=${result.data.receivedAt || "-"}`;
+    } else {
+      liveHint.textContent = "目前尚未收到 MQTT 資料";
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function loadSummary() {
+  try {
+    const systemId = getCurrentSystemId();
+    const tenantId = getCurrentTenantId();
+
+    const params = new URLSearchParams();
+    if (tenantId) params.append("tenant_id", tenantId);
+    if (systemId) params.append("system_id", systemId);
+
+    const data = await apiFetch(`/api/summary?${params.toString()}`);
+    if (!data) return;
+
+    document.getElementById("summaryTotal").textContent = `總數：${data.total}`;
+    document.getElementById("summaryOk").textContent = `OK：${data.okCount}`;
+    document.getElementById("summaryNg").textContent = `NG：${data.ngCount}`;
+    document.getElementById("summaryYield").textContent = `良率：${data.yieldRate}%`;
+    document.getElementById("summaryDefect").textContent = `瑕疵率：${data.defectRate}%`;
+    document.getElementById("summaryLast20").textContent = `最近20筆異常：${data.last20Ng}`;
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 function downloadCSV(){
-  const header = ["tenant_id","system_id","時間","產品","狀態","事件ID"];
-  const rows = [...state.defects]
-    .sort((a,b) => new Date(recordTime(b) || 0) - new Date(recordTime(a) || 0))
-    .map(record => [getCurrentTenantId(),getCurrentSystemId(),formatTime(recordTime(record)),recordProduct(record),recordStatus(record),recordId(record)]);
-  const csv = [header,...rows].map(row => row.map(cell => `"${asText(cell).replace(/"/g,'""')}"`).join(",")).join("\r\n");
-  const blob = new Blob(["\ufeff" + csv],{type:"text/csv;charset=utf-8"});
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `瑕疵報表_${getCurrentSystemId()}_${new Date().toISOString().slice(0,10)}.csv`;
-  document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+  apiFetch(buildDefectsUrl())
+    .then(data => {
+      if (!Array.isArray(data)) data = [];
+
+      let csv = "\uFEFF";
+      csv += "id,status,product,time\r\n";
+
+      data.forEach(d => {
+        const id = d.id || "";
+        const status = d.status || "";
+        const product = d.product || "";
+
+        const time = d.timestamp
+          ? new Date(d.timestamp).toLocaleString("zh-TW", {
+              year: "numeric",
+              month: "2-digit",
+              day: "2-digit",
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+              hour12: false
+            }).replace(/\//g, "-")
+          : "";
+
+        csv += `"${id}","${status}","${product}","${time}"\r\n`;
+      });
+
+      const blob = new Blob([csv], {
+        type: "text/csv;charset=utf-8;"
+      });
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+
+      a.href = url;
+      a.download = "瑕疵檢測報表.csv";
+      a.click();
+
+      URL.revokeObjectURL(url);
+    });
 }
 
-function initUserChip(){
-  const raw = storageGet("user") || storageGet("currentUser") || storageGet("authUser");
-  const user = readJson(raw || "") || {};
-  const displayName = asText(user.name ?? user.username ?? user.email ?? firstStorage(["username","userName","email"]));
-  byId("userChip").textContent = `使用者：${displayName || "未登入"}`;
-  const role = upper(user.role ?? firstStorage(["role","userRole"]));
-  if(role.includes("ADMIN")){
-    if(byId("adminNavLink")) byId("adminNavLink").style.display = "flex";
-    if(byId("adminNavLinkDrawer")) byId("adminNavLinkDrawer").style.display = "flex";
+async function loadSiteConfig() {
+  try {
+    const tenantId = getCurrentTenantId();
+    if (!tenantId) return;
+
+    const result = await apiFetch(`/api/site-config?tenant_id=${tenantId}`);
+    const config = result?.data;
+    if (!config) return;
+
+    document.title = config.site_title || "瑕疵辨識與分流系統";
+
+    const mainTitle = document.querySelector(".pageTitle b");
+    if (mainTitle && config.site_title) {
+      mainTitle.textContent = config.site_title;
+    }
+
+    const subTitle = document.getElementById("pageSubTitle");
+    if (subTitle && config.site_subtitle) {
+      subTitle.textContent = config.site_subtitle;
+    }
+
+  } catch (e) {
+    console.warn("載入網站設定失敗", e);
   }
 }
 
-function initCamera(){
-  const url = firstStorage(["cameraUrl","camera_url","esp32CamUrl","esp32_cam_url"]);
-  if(url){ byId("camera").src = url; byId("liveHint").textContent = `ESP32-CAM：${url}`; }
-  else byId("liveHint").textContent = "尚未設定 ESP32-CAM 網址，可在系統設定中填入 cameraUrl。";
+async function getCurrentSystemInfo() {
+  const tenantId = getCurrentTenantId();
+  const systemId = getCurrentSystemId();
+
+  if (!tenantId || !systemId) return null;
+
+  const systems = await apiFetch(`/api/systems?tenant_id=${encodeURIComponent(tenantId)}`);
+
+  return (Array.isArray(systems) ? systems : []).find(x => x.system_id === systemId) || null;
 }
 
-function toggleDrawer(open){
-  byId("drawer")?.classList.toggle("open",!!open);
-  byId("overlay")?.classList.toggle("open",!!open);
-}
-function forceReload(event){ event?.preventDefault(); reloadMachineData(); }
-async function swHardReset(){
-  try{
-    if("serviceWorker" in navigator){ const regs = await navigator.serviceWorker.getRegistrations(); await Promise.all(regs.map(reg => reg.unregister())); }
-    if("caches" in window){ const keys = await caches.keys(); await Promise.all(keys.map(key => caches.delete(key))); }
-  }finally{ location.reload(true); }
-}
-function handleHardReset(event){ event?.preventDefault(); swHardReset(); }
+async function startCamera() {
+  const img = document.getElementById("camera");
+  const hint = document.getElementById("liveHint");
 
-async function demoEstop(){
-  const body = {tenant_id:getCurrentTenantId(),system_id:getCurrentSystemId(),command:"ESTOP",timestamp:new Date().toISOString()};
-  for(const path of ["/api/estop","/api/emergency-stop"]){
-    try{
-      await fetchJson(`${API_BASE}${path}`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-      alert(`已送出緊急停止：${getCurrentSystemId()}`); return;
-    }catch(error){ console.debug(`略過 ${path}`,error.message); }
+  if (!img) return;
+
+  try {
+    const systemInfo = await getCurrentSystemInfo();
+
+    if (!systemInfo) {
+      img.removeAttribute("src");
+      if (hint) hint.textContent = "找不到機台設定";
+      return;
+    }
+
+    if (!systemInfo.cam_ip) {
+      img.removeAttribute("src");
+      if (hint) hint.textContent = "此機台尚未連接 ESP32-CAM";
+      return;
+    }
+
+    const camUrl = `http://${systemInfo.cam_ip}:81/stream`;
+
+    img.onload = () => {
+      if (hint) hint.textContent = `CAM 即時畫面連線成功（${systemInfo.system_id}）`;
+    };
+
+    img.onerror = () => {
+      img.removeAttribute("src");
+      if (hint) hint.textContent = `CAM 連線失敗：${systemInfo.cam_ip}`;
+    };
+
+    img.src = camUrl;
+  } catch (e) {
+    console.error(e);
+    img.removeAttribute("src");
+    if (hint) hint.textContent = "CAM 啟動失敗";
   }
-  alert(`已觸發緊急停止顯示：${getCurrentSystemId()}。目前後端若尚未提供 /api/estop，請再補上控制端 API。`);
 }
+
+async function loadSystemOptionsByTenant(tenantId) {
+  const systemSelect = document.getElementById("systemSelect");
+  const systemSwitchWrap = document.getElementById("systemSwitchWrap");
+
+  if (systemSwitchWrap) {
+    systemSwitchWrap.style.display = canOpenAdmin ? "flex" : "none";
+  }
+
+  if (!systemSelect || !tenantId) return;
+
+  const result = await apiFetch(`/api/systems?tenant_id=${encodeURIComponent(tenantId)}`);
+  const systems = Array.isArray(result) ? result : [];
+
+  systemSelect.innerHTML = "";
+
+  const seenSystems = new Set();
+
+systems.forEach(sys => {
+  if (!sys.system_id) return;
+
+  // 避免同一台機台重複顯示
+  if (seenSystems.has(sys.system_id)) return;
+  seenSystems.add(sys.system_id);
+
+  const opt = document.createElement("option");
+  opt.value = sys.system_id;
+
+  opt.textContent = sys.system_name
+    ? `${sys.system_id}｜${sys.system_name}`
+    : sys.name
+      ? `${sys.system_id}｜${sys.name}`
+      : `機台 ${sys.system_id}`;
+
+  systemSelect.appendChild(opt);
+});
+  let systemId = getCurrentSystemId();
+
+  if (!systemId || !systems.some(x => x.system_id === systemId)) {
+    systemId = systems[0]?.system_id || "";
+    setCurrentSystemId(systemId);
+  }
+
+  systemSelect.value = systemId;
+}
+
+async function loadTenantOptions() {
+  if (!isSuperAdmin) return;
+
+  const tenantWrap = document.getElementById("tenantSwitchWrap");
+  const tenantSelect = document.getElementById("tenantSelect");
+  if (!tenantWrap || !tenantSelect) return;
+
+  tenantWrap.style.display = "flex";
+
+  const tenants = await apiFetch("/api/admin/tenants");
+  const list = Array.isArray(tenants) ? tenants : [];
+
+  tenantSelect.innerHTML = "";
+
+  const seenTenants = new Set();
+
+list.forEach(t => {
+  if (!t.tenant_id) return;
+
+  // 避免同一個 tenant_id 重複顯示
+  if (seenTenants.has(t.tenant_id)) return;
+  seenTenants.add(t.tenant_id);
+
+  const opt = document.createElement("option");
+  opt.value = t.tenant_id;
+
+  const companyName = t.company || t.tenant_name || "未命名客戶";
+
+  // 顯示公司名稱 + tenant_id 後幾碼，方便分辨不同客戶
+  opt.textContent = `${companyName}｜${t.tenant_id}`;
+
+  tenantSelect.appendChild(opt);
+});
+
+  let currentTenantId = getCurrentTenantId();
+
+  if (!currentTenantId && list.length > 0) {
+    currentTenantId = list[0].tenant_id;
+    setCurrentTenantId(currentTenantId);
+  }
+
+  tenantSelect.value = currentTenantId;
+
+  tenantSelect.addEventListener("change", async (e) => {
+  const newTenantId = e.target.value;
+  setCurrentTenantId(newTenantId);
+  setCurrentSystemId("");
+
+  await loadSystemOptionsByTenant(newTenantId);
+
+  loadSelectedProducts();
+  renderProductList();
+
+  await loadSiteConfig();
+  await startCamera();
+  await window.refreshDashboard();
+});
+}
+
+window.refreshDashboard = async function() {
+  try {
+    showError("");
+    await loadHealth();
+    await loadDashboardStats();
+    await loadDefects();
+    await loadLatestMqtt();
+    await loadSummary();
+  } catch (e) {
+    console.warn("刷新失敗（已忽略）", e);
+  }
+
+  forceCloseErrorOverlay();
+};
+
+window.demoEstop = async function() {
+  try {
+    const result = await apiFetch("/api/estop", {
+      method: "POST",
+      body: JSON.stringify({
+        tenant_id: getCurrentTenantId(),
+        system_id: getCurrentSystemId()
+      })
+    });
+
+    alert(result?.message || "已觸發緊急停止");
+  } catch (e) {
+    console.error(e);
+    showError("急停失敗");
+  }
+};
 
 document.addEventListener("DOMContentLoaded", async () => {
-  initUserChip();
-  initCamera();
-  byId("addProductBtn").addEventListener("click",() => addProductDynamic(byId("productInput").value));
-  byId("productInput").addEventListener("keydown",event => { if(event.key === "Enter") addProductDynamic(event.target.value); });
-  byId("tenantSelect").addEventListener("change", async event => {
-    storageSet("currentTenantId",event.target.value);
-    await refreshSystemsForTenant();
-    reloadMachineData();
-  });
-  byId("systemSelect").addEventListener("change", event => {
-    storageSet("currentSystemId",event.target.value);
-    reloadMachineData();
-  });
-  await initSelectors();
-  await reloadMachineData();
+  forceCloseErrorOverlay();
+
+  const titleSpan = document.getElementById("pageSubTitle");
+  const userChip = document.getElementById("userChip");
+  const systemSelect = document.getElementById("systemSelect");
+
+  const currentUserId = sessionStorage.getItem("loginUser") || "";
+  const displayName = sessionStorage.getItem("loginName") || getDisplayUserName(currentUserId);
+
+  if (userChip) {
+    userChip.textContent = `目前登入：${displayName}`;
+  }
+
+  const adminNavLink = document.getElementById("adminNavLink");
+  const adminNavLinkDrawer = document.getElementById("adminNavLinkDrawer");
+
+  if (adminNavLink) {
+    adminNavLink.style.display = canOpenAdmin ? "flex" : "none";
+  }
+  if (adminNavLinkDrawer) {
+    adminNavLinkDrawer.style.display = canOpenAdmin ? "flex" : "none";
+  }
+
+  const systemSwitchWrap = document.getElementById("systemSwitchWrap");
+  if (systemSwitchWrap) {
+    systemSwitchWrap.style.display = canOpenAdmin ? "flex" : "none";
+  }
+
+  if (isSuperAdmin) {
+    await loadTenantOptions();
+
+    const tenantId = getCurrentTenantId();
+    if (tenantId) {
+      await loadSystemOptionsByTenant(tenantId);
+    }
+  } else {
+    const tenantId = getCurrentTenantId() || sessionStorage.getItem("tenant_id") || "";
+    if (tenantId) {
+      await loadSystemOptionsByTenant(tenantId);
+    }
+  }
+loadSelectedProducts();
+renderProductList();
+
+  if (systemSelect) {
+    systemSelect.addEventListener("change", async (e) => {
+  const newSystemId = e.target.value;
+  setCurrentSystemId(newSystemId);
+
+  loadSelectedProducts();
+  renderProductList();
+
+  await loadSiteConfig();
+  await window.refreshDashboard();
+  await startCamera();
 });
+  }
 
-window.addEventListener("beforeunload",() => {
-  closeRealtimeUpdates();
-  closePollingUpdates();
+  if (titleSpan) {
+    titleSpan.textContent =
+      `使用者：${displayName}｜系統：${getDisplaySystemName(getCurrentSystemId())}`;
+  }
+
+  if (dashboardTimer) clearInterval(dashboardTimer);
+
+  dashboardTimer = setInterval(() => {
+    loadDashboardStats();
+    loadDefects();
+    loadSummary();
+    loadLatestMqtt();
+  }, 3000);
+
+  await loadSiteConfig();
+  await window.refreshDashboard();
+  await startCamera();
 });
-</script>
-
-<script>
-"use strict";
-
-/* =========================================================
- * 新增功能模組
- * - NG 瑕疵圖片留存
- * - 良率趨勢折線圖
- * - 良率過低 / 連續 NG 自動警報
- * 原本 Dashboard 的資料載入、SSE、輪詢與版面不刪除。
- * ========================================================= */
-
-const ENH_MAX_IMAGES = 30;
-const ENH_MAX_ALERTS = 40;
-const ENH = {
-  scope:"",
-  images:[],
-  alerts:[],
-  settings:{yieldThreshold:90,minSamples:5,consecutiveNg:3},
-  trendProduct:"",
-  trendRange:50
-};
-
-function enhScope(){ return `${getCurrentTenantId()}.${getCurrentSystemId()}`; }
-function enhKey(name){ return `dashboard.${name}.${enhScope()}`; }
-function enhReadArray(key){
-  try{ const value = JSON.parse(localStorage.getItem(key) || "[]"); return Array.isArray(value) ? value : []; }
-  catch{ return []; }
-}
-function enhReadObject(key){
-  try{ const value = JSON.parse(localStorage.getItem(key) || "{}"); return value && typeof value === "object" ? value : {}; }
-  catch{ return {}; }
-}
-function enhWrite(key,value){
-  try{ localStorage.setItem(key,JSON.stringify(value)); return true; }
-  catch(error){ console.warn("瀏覽器儲存空間不足：",key,error); return false; }
-}
-function enhRecordDefectType(record){
-  return asText(record?.defect_type ?? record?.defectType ?? record?.ng_type ?? record?.ngType ?? record?.reason ?? record?.defect_reason) || "未分類";
-}
-function enhRecordConfidence(record){
-  const value = record?.confidence ?? record?.score ?? record?.probability ?? record?.ai_confidence;
-  if(value === null || value === undefined || value === "") return "-";
-  const number = Number(value);
-  if(!Number.isFinite(number)) return asText(value);
-  return number <= 1 ? `${Math.round(number * 1000) / 10}%` : `${Math.round(number * 10) / 10}%`;
-}
-function enhRecordImage(record){
-  const candidates = [
-    record?.image_url,record?.imageUrl,record?.snapshot_url,record?.snapshotUrl,
-    record?.image_data,record?.imageData,record?.snapshot,record?.image
-  ];
-  for(const item of candidates){
-    const value = asText(item);
-    if(value && (value.startsWith("data:image/") || value.startsWith("blob:") || /^https?:\/\//i.test(value) || value.startsWith("/"))) return value;
-  }
-  return "";
-}
-function enhImageKey(record){ return recordKey(record); }
-function enhLoadScope(){
-  ENH.scope = enhScope();
-  ENH.images = enhReadArray(enhKey("ngImages"));
-  ENH.alerts = enhReadArray(enhKey("qualityAlerts"));
-  const saved = enhReadObject(enhKey("qualityAlarmSettings"));
-  ENH.settings = {
-    yieldThreshold:Math.min(100,Math.max(0,Number(saved.yieldThreshold ?? 90))),
-    minSamples:Math.max(1,Math.round(Number(saved.minSamples ?? 5))),
-    consecutiveNg:Math.max(1,Math.round(Number(saved.consecutiveNg ?? 3)))
-  };
-  enhSyncSettingInputs();
-  enhRenderImages();
-  enhRenderAlertList();
-  enhRenderBanner();
-}
-function enhEnsureScope(){ if(ENH.scope !== enhScope()) enhLoadScope(); }
-
-/* ------------------ NG 圖片留存 ------------------ */
-function enhFindImage(recordOrKey){
-  const key = typeof recordOrKey === "string" ? recordOrKey : enhImageKey(recordOrKey);
-  return ENH.images.find(item => item.key === key) || null;
-}
-function enhSaveImages(){
-  ENH.images = ENH.images
-    .sort((a,b) => new Date(b.time || b.savedAt || 0) - new Date(a.time || a.savedAt || 0))
-    .slice(0,ENH_MAX_IMAGES);
-  if(enhWrite(enhKey("ngImages"),ENH.images)) return;
-  /* base64 圖片太大時保留最近事件資料，避免整個 Dashboard 寫入失敗 */
-  ENH.images = ENH.images.slice(0,10).map(item => {
-    if(asText(item.source).startsWith("data:image/")) return {...item,source:"",note:"圖片過大，已保留事件資料"};
-    return item;
-  });
-  enhWrite(enhKey("ngImages"),ENH.images);
-}
-function enhCaptureCamera(){
-  try{
-    const image = byId("camera");
-    if(!image || !image.complete || !image.naturalWidth || !image.naturalHeight) return "";
-    const maxWidth = 640;
-    const scale = Math.min(1,maxWidth / image.naturalWidth);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1,Math.round(image.naturalWidth * scale));
-    canvas.height = Math.max(1,Math.round(image.naturalHeight * scale));
-    const context = canvas.getContext("2d");
-    context.drawImage(image,0,0,canvas.width,canvas.height);
-    return canvas.toDataURL("image/jpeg",0.72);
-  }catch(error){
-    console.debug("ESP32-CAM 可能未允許跨網域擷取，請改由 MQTT 傳入 image_url。",error.message);
-    return "";
-  }
-}
-function enhRememberNg(record,tryCapture=false){
-  if(!record || recordStatus(record) !== "NG" || !belongsToCurrentScope(record)) return;
-  enhEnsureScope();
-  const key = enhImageKey(record);
-  const existingIndex = ENH.images.findIndex(item => item.key === key);
-  const payloadImage = enhRecordImage(record);
-  const source = payloadImage || (tryCapture ? enhCaptureCamera() : "") || (existingIndex >= 0 ? ENH.images[existingIndex].source : "");
-  const next = {
-    key,
-    eventId:recordId(record) || "-",
-    product:recordProduct(record),
-    defectType:enhRecordDefectType(record),
-    confidence:enhRecordConfidence(record),
-    time:asText(recordTime(record) || new Date().toISOString()),
-    source,
-    systemId:recordSystemId(record) || getCurrentSystemId(),
-    savedAt:new Date().toISOString()
-  };
-  if(existingIndex >= 0) ENH.images[existingIndex] = {...ENH.images[existingIndex],...next};
-  else ENH.images.unshift(next);
-  enhSaveImages();
-  enhRenderImages();
-}
-function enhSyncImagesFromRecords(){
-  safeArray(state.defects).forEach(record => {
-    if(recordStatus(record) === "NG" && enhRecordImage(record) && !enhFindImage(record)) enhRememberNg(record,false);
-  });
-}
-function enhRenderImages(){
-  const grid = byId("ngImageGrid");
-  if(!grid) return;
-  const items = ENH.images.slice(0,12);
-  if(!items.length){
-    grid.innerHTML = '<div class="alertEmpty">尚未留存 NG 瑕疵圖片。發送 NG 時可加入 image_url、image_data 或 snapshot_url。</div>';
-    return;
-  }
-  grid.innerHTML = items.map(item => {
-    const source = asText(item.source);
-    const preview = source
-      ? `<img src="${escapeHtml(source)}" alt="${escapeHtml(item.product)} NG 圖片" loading="lazy">`
-      : '<div class="ngImagePlaceholder">已留存 NG 事件<br>尚無圖片<br><small>MQTT 可加入 image_url</small></div>';
-    return `<div class="ngImageCard">
-      <div class="ngImagePreview">${preview}</div>
-      <div class="ngImageBody">
-        <div class="ngImageProduct">${escapeHtml(item.product)}｜${escapeHtml(item.defectType || "未分類")}</div>
-        <div class="ngImageMeta">${escapeHtml(formatTime(item.time))}<br>信心度：${escapeHtml(item.confidence || "-")}｜事件：${escapeHtml(item.eventId || "-")}</div>
-        <div class="ngImageActions">
-          <button type="button" class="tinyBtn" data-open-ng="${escapeHtml(item.key)}" ${source ? "" : "disabled"}>查看大圖</button>
-          <button type="button" class="tinyBtn dangerBtn" data-delete-ng="${escapeHtml(item.key)}">刪除</button>
-        </div>
-      </div>
-    </div>`;
-  }).join("");
-  grid.querySelectorAll("[data-open-ng]").forEach(button => button.addEventListener("click",() => enhOpenImage(button.dataset.openNg)));
-  grid.querySelectorAll("[data-delete-ng]").forEach(button => button.addEventListener("click",() => enhDeleteImage(button.dataset.deleteNg)));
-}
-function enhOpenImage(key){
-  const item = ENH.images.find(entry => entry.key === key);
-  if(!item || !item.source) return;
-  byId("ngImageModalTitle").textContent = `${item.product}｜${item.defectType || "未分類"}`;
-  byId("ngImageModalContent").innerHTML = `<img src="${escapeHtml(item.source)}" alt="${escapeHtml(item.product)} NG 圖片">
-    <div class="imageModalMeta">事件：${escapeHtml(item.eventId || "-")}<br>時間：${escapeHtml(formatTime(item.time))}<br>信心度：${escapeHtml(item.confidence || "-")}<br>機台：${escapeHtml(item.systemId || "-")}</div>`;
-  byId("ngImageModal").classList.add("show");
-}
-function enhCloseImage(){ byId("ngImageModal")?.classList.remove("show"); }
-function enhDeleteImage(key){
-  ENH.images = ENH.images.filter(item => item.key !== key);
-  enhSaveImages(); enhRenderImages(); enhCloseImage();
-}
-function enhClearImages(){
-  if(!confirm("確定清除目前機台留存的 NG 圖片嗎？事件紀錄不會被刪除。")) return;
-  ENH.images = []; enhSaveImages(); enhRenderImages(); enhCloseImage();
-}
-
-/* ------------------ 良率趨勢圖 ------------------ */
-function enhRenderTrendProducts(){
-  const select = byId("trendProductSelect");
-  if(!select) return;
-  const products = Object.keys(state.productStats || {});
-  const wanted = ENH.trendProduct;
-  select.innerHTML = ['<option value="">全部產品</option>',...products.map(product => `<option value="${escapeHtml(product)}">${escapeHtml(product)}</option>`)].join("");
-  if(products.includes(wanted)) select.value = wanted;
-  else{ ENH.trendProduct = ""; select.value = ""; }
-}
-function enhTrendRecords(){
-  return [...safeArray(state.defects)]
-    .filter(record => ["OK","NG"].includes(recordStatus(record)))
-    .filter(record => !ENH.trendProduct || recordProduct(record) === ENH.trendProduct)
-    .sort((a,b) => new Date(recordTime(a) || 0) - new Date(recordTime(b) || 0))
-    .slice(-ENH.trendRange);
-}
-function enhTrendPoints(records){
-  return records.map((record,index) => {
-    const start = Math.max(0,index - 9);
-    const windowRecords = records.slice(start,index + 1);
-    const ok = windowRecords.filter(item => recordStatus(item) === "OK").length;
-    return {record,rate:percent(ok,windowRecords.length)};
-  });
-}
-function enhDrawTrend(){
-  const canvas = byId("yieldTrendCanvas");
-  if(!canvas) return;
-  enhRenderTrendProducts();
-  const wrap = canvas.parentElement;
-  const width = Math.max(280,Math.round(wrap.clientWidth || 600));
-  const height = Math.max(190,Math.round(wrap.clientHeight || 270));
-  const ratio = window.devicePixelRatio || 1;
-  canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio);
-  canvas.style.width = `${width}px`; canvas.style.height = `${height}px`;
-  const ctx = canvas.getContext("2d");
-  ctx.setTransform(ratio,0,0,ratio,0,0);
-  ctx.clearRect(0,0,width,height);
-  const pad = {left:42,right:14,top:16,bottom:28};
-  const chartW = width - pad.left - pad.right;
-  const chartH = height - pad.top - pad.bottom;
-  ctx.font = '11px Arial, "Microsoft JhengHei"';
-  ctx.textBaseline = "middle"; ctx.textAlign = "right";
-  [0,25,50,75,100].forEach(value => {
-    const y = pad.top + chartH - chartH * value / 100;
-    ctx.strokeStyle = "rgba(255,255,255,.10)"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(pad.left,y); ctx.lineTo(pad.left + chartW,y); ctx.stroke();
-    ctx.fillStyle = "rgba(155,176,207,.9)"; ctx.fillText(`${value}%`,pad.left - 7,y);
-  });
-  const threshold = ENH.settings.yieldThreshold;
-  const alarmY = pad.top + chartH - chartH * threshold / 100;
-  ctx.strokeStyle = "rgba(248,113,113,.95)"; ctx.lineWidth = 1.5; ctx.setLineDash([5,5]);
-  ctx.beginPath(); ctx.moveTo(pad.left,alarmY); ctx.lineTo(pad.left + chartW,alarmY); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = "rgba(248,113,113,.95)"; ctx.textAlign = "left"; ctx.fillText(`警戒 ${percentText(threshold)}`,pad.left + 5,Math.max(9,alarmY - 9));
-
-  const points = enhTrendPoints(enhTrendRecords());
-  if(!points.length){
-    ctx.fillStyle = "rgba(155,176,207,.9)"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText("目前尚未有可繪製的 OK／NG 資料",pad.left + chartW/2,pad.top + chartH/2);
-    byId("trendSummaryText").textContent = "等待資料...";
-    return;
-  }
-  const xFor = index => pad.left + (points.length === 1 ? chartW/2 : chartW * index / (points.length - 1));
-  const yFor = rate => pad.top + chartH - chartH * rate / 100;
-  ctx.strokeStyle = "rgba(96,165,250,.98)"; ctx.lineWidth = 2.6; ctx.beginPath();
-  points.forEach((point,index) => { const x=xFor(index), y=yFor(point.rate); if(index===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }); ctx.stroke();
-  points.forEach((point,index) => { const x=xFor(index), y=yFor(point.rate); ctx.fillStyle = point.rate < threshold ? "rgba(248,113,113,.98)" : "rgba(96,165,250,.98)"; ctx.beginPath(); ctx.arc(x,y,3.2,0,Math.PI*2); ctx.fill(); });
-  ctx.fillStyle = "rgba(155,176,207,.9)"; ctx.textAlign = "center"; ctx.textBaseline = "top";
-  [...new Set([0,Math.floor((points.length-1)/2),points.length-1])].forEach(index => {
-    const date = new Date(recordTime(points[index].record) || 0);
-    ctx.fillText(Number.isNaN(date.getTime()) ? String(index+1) : date.toLocaleTimeString("zh-TW",{hour12:false,hour:"2-digit",minute:"2-digit",second:"2-digit"}),xFor(index),pad.top + chartH + 8);
-  });
-  byId("trendSummaryText").textContent = `最新移動良率：${percentText(points.at(-1).rate)}｜顯示 ${points.length} 筆`;
-}
-
-/* ------------------ 自動警報 ------------------ */
-function enhSyncSettingInputs(){
-  if(byId("yieldAlarmThreshold")) byId("yieldAlarmThreshold").value = String(ENH.settings.yieldThreshold);
-  if(byId("yieldAlarmMinSamples")) byId("yieldAlarmMinSamples").value = String(ENH.settings.minSamples);
-  if(byId("consecutiveNgThreshold")) byId("consecutiveNgThreshold").value = String(ENH.settings.consecutiveNg);
-}
-function enhSaveSettings(){
-  ENH.settings = {
-    yieldThreshold:Math.min(100,Math.max(0,Number(byId("yieldAlarmThreshold").value || 90))),
-    minSamples:Math.max(1,Math.round(Number(byId("yieldAlarmMinSamples").value || 5))),
-    consecutiveNg:Math.max(1,Math.round(Number(byId("consecutiveNgThreshold").value || 3)))
-  };
-  enhWrite(enhKey("qualityAlarmSettings"),ENH.settings);
-  enhSyncSettingInputs(); enhEvaluateAlerts(); enhDrawTrend();
-  alert("警報設定已儲存。");
-}
-function enhConsecutiveNg(product){
-  const records = [...safeArray(state.defects)]
-    .filter(record => recordProduct(record) === product && ["OK","NG"].includes(recordStatus(record)))
-    .sort((a,b) => new Date(recordTime(b) || 0) - new Date(recordTime(a) || 0));
-  let count=0; for(const record of records){ if(recordStatus(record)==="NG") count++; else break; } return count;
-}
-function enhNotify(message){
-  if("Notification" in window && Notification.permission === "granted"){
-    try{ new Notification("瑕疵辨識系統警報",{body:message}); }catch{}
-  }
-}
-function enhPushAlarm(condition){
-  const now = new Date().toISOString();
-  const active = ENH.alerts.find(item => item.key === condition.key && !item.resolved);
-  if(active){ active.message=condition.message; active.lastSeenAt=now; return; }
-  ENH.alerts.unshift({key:condition.key,message:condition.message,createdAt:now,lastSeenAt:now,resolved:false});
-  enhNotify(condition.message);
-}
-function enhEvaluateAlerts(){
-  const conditions=[];
-  const sum = totals();
-  const total = sum.ok + sum.ng;
-  const overallRate = percent(sum.ok,total);
-  if(total >= ENH.settings.minSamples && overallRate < ENH.settings.yieldThreshold){
-    conditions.push({key:"yield:overall",message:`目前機台整體良率 ${percentText(overallRate)}，低於警戒值 ${percentText(ENH.settings.yieldThreshold)}。`});
-  }
-  Object.entries(state.productStats || {}).forEach(([product,item]) => {
-    const productTotal = item.ok + item.ng;
-    const rate = percent(item.ok,productTotal);
-    if(productTotal >= ENH.settings.minSamples && rate < ENH.settings.yieldThreshold) conditions.push({key:`yield:${product}`,message:`${product} 良率 ${percentText(rate)}，低於警戒值 ${percentText(ENH.settings.yieldThreshold)}。`});
-    const consecutive = enhConsecutiveNg(product);
-    if(consecutive >= ENH.settings.consecutiveNg) conditions.push({key:`ng:${product}`,message:`${product} 已連續出現 ${consecutive} 件 NG，達到警戒值 ${ENH.settings.consecutiveNg} 件。`});
-  });
-  const activeKeys = new Set(conditions.map(item => item.key));
-  ENH.alerts.forEach(item => {
-    if(!item.resolved && !activeKeys.has(item.key)){ item.resolved=true; item.resolvedAt=new Date().toISOString(); }
-  });
-  conditions.forEach(enhPushAlarm);
-  ENH.alerts = ENH.alerts.slice(0,ENH_MAX_ALERTS);
-  enhWrite(enhKey("qualityAlerts"),ENH.alerts);
-  enhRenderBanner(); enhRenderAlertList();
-}
-function enhRenderBanner(){
-  const banner=byId("qualityAlarmBanner"); if(!banner) return;
-  const active=ENH.alerts.filter(item => !item.resolved);
-  banner.classList.toggle("show",active.length>0);
-  byId("qualityAlarmText").textContent = active.length ? active.slice(0,3).map(item=>item.message).join("｜") : "目前沒有警報。";
-  byId("qualityAlarmBadge").textContent = active.length ? `${active.length} 項警報` : "即時監控";
-}
-function enhRenderAlertList(){
-  const list=byId("qualityAlertList"); if(!list) return;
-  if(!ENH.alerts.length){ list.innerHTML='<div class="alertEmpty">目前沒有警報紀錄。</div>'; return; }
-  list.innerHTML=ENH.alerts.slice(0,12).map(item=>`<div class="alertItem ${item.resolved?"resolved":""}">
-    <div class="alertItemTop"><span>${item.resolved?"✅ 已解除":"⚠️ 警報中"}</span><span>${escapeHtml(formatTime(item.createdAt))}</span></div>
-    <div class="alertItemText">${escapeHtml(item.message)}</div>
-  </div>`).join("");
-}
-function enhClearAlerts(){
-  if(!confirm("確定清除目前機台的警報紀錄嗎？")) return;
-  ENH.alerts=[]; enhWrite(enhKey("qualityAlerts"),ENH.alerts); enhRenderBanner(); enhRenderAlertList();
-}
-async function enhEnableNotifications(){
-  if(!("Notification" in window)){ alert("此瀏覽器不支援通知功能。"); return; }
-  const result=await Notification.requestPermission();
-  alert(result==="granted" ? "已允許瀏覽器警報通知。" : "目前尚未允許瀏覽器通知。");
-}
-function enhRenderAll(){
-  enhEnsureScope();
-  enhSyncImagesFromRecords();
-  enhDrawTrend();
-  enhEvaluateAlerts();
-}
-
-/* ------------------ 接到原本 Dashboard，不刪除原功能 ------------------ */
-const enhOriginalRenderSummary = renderSummary;
-renderSummary = function(){ enhOriginalRenderSummary.apply(this,arguments); enhRenderAll(); };
-
-const enhOriginalRealtimeRecord = addRealtimeRecord;
-addRealtimeRecord = function(record){
-  const result = enhOriginalRealtimeRecord.apply(this,arguments);
-  if(recordStatus(record)==="NG") enhRememberNg(record,true);
-  return result;
-};
-
-const enhOriginalReloadMachineData = reloadMachineData;
-reloadMachineData = async function(){
-  enhLoadScope();
-  return enhOriginalReloadMachineData.apply(this,arguments);
-};
-
-document.addEventListener("DOMContentLoaded",() => {
-  byId("saveAlarmSettingsBtn")?.addEventListener("click",enhSaveSettings);
-  byId("enableNotificationBtn")?.addEventListener("click",enhEnableNotifications);
-  byId("clearAlertHistoryBtn")?.addEventListener("click",enhClearAlerts);
-  byId("clearNgImagesBtn")?.addEventListener("click",enhClearImages);
-  byId("closeNgImageModalBtn")?.addEventListener("click",enhCloseImage);
-  byId("ngImageModal")?.addEventListener("click",event => { if(event.target===byId("ngImageModal")) enhCloseImage(); });
-  byId("trendProductSelect")?.addEventListener("change",event => { ENH.trendProduct=event.target.value || ""; enhDrawTrend(); });
-  byId("trendRangeSelect")?.addEventListener("change",event => { ENH.trendRange=Number(event.target.value || 50); enhDrawTrend(); });
-  window.addEventListener("resize",() => { clearTimeout(window.__enhTrendTimer); window.__enhTrendTimer=setTimeout(enhDrawTrend,120); });
-});
-</script>
-
-
-<script>
-"use strict";
-
-/* =========================================================
- * 新增功能模組
- * - 生產批次與工單管理
- * - 各機台比較排行
- * 原本 Dashboard、NG 圖片、趨勢圖、警報功能全部保留。
- * ========================================================= */
-
-const OPS_RANK_POLL_MS = 5000;
-const OPS_MAX_ORDERS = 80;
-const OPS = {
-  scope:"",
-  tenant:"",
-  orders:[],
-  assignments:{},
-  rankingRecords:[],
-  rankingTimer:null,
-  rankingBusy:false
-};
-
-function opsScope(){ return `${getCurrentTenantId()}.${getCurrentSystemId()}`; }
-function opsTenant(){ return getCurrentTenantId(); }
-function opsKey(name,tenantWide=false){ return tenantWide ? `dashboard.${name}.${opsTenant()}` : `dashboard.${name}.${opsScope()}`; }
-function opsReadArray(key){ try{ const value=JSON.parse(localStorage.getItem(key)||"[]"); return Array.isArray(value)?value:[]; }catch{return [];} }
-function opsReadObject(key){ try{ const value=JSON.parse(localStorage.getItem(key)||"{}"); return value&&typeof value==="object"&&!Array.isArray(value)?value:{}; }catch{return {};} }
-function opsWrite(key,value){ try{ localStorage.setItem(key,JSON.stringify(value)); return true; }catch(error){ console.warn("工單資料儲存失敗",error); return false; } }
-function opsNow(){ return new Date().toISOString(); }
-function opsMakeId(prefix){ return `${prefix}-${new Date().toISOString().replace(/[-:TZ.]/g,"").slice(0,14)}`; }
-function opsRecordWorkOrderId(record){ return asText(record?.work_order_id ?? record?.workOrderId ?? record?.order_id ?? record?.orderId ?? record?.wo_id ?? record?.woId); }
-function opsRecordBatchId(record){ return asText(record?.batch_id ?? record?.batchId ?? record?.lot_id ?? record?.lotId ?? record?.batch); }
-function opsOrderStatusText(status){ return ({running:"生產中",paused:"已暫停",completed:"已完成",planned:"待啟用"})[status] || "待啟用"; }
-function opsOrderStatusClass(status){ return `order-${["running","paused","completed","planned"].includes(status)?status:"planned"}`; }
-function opsActiveOrderId(){ return asText(localStorage.getItem(opsKey("activeWorkOrder"))); }
-function opsActiveOrder(){ const id=opsActiveOrderId(); return OPS.orders.find(order=>order.id===id)||null; }
-function opsSaveOrders(){ OPS.orders=OPS.orders.slice(0,OPS_MAX_ORDERS); opsWrite(opsKey("workOrders",true),OPS.orders); }
-function opsSaveAssignments(){ opsWrite(opsKey("workOrderAssignments"),OPS.assignments); }
-function opsSetActiveOrder(id){
-  const order=OPS.orders.find(item=>item.id===id);
-  if(!order){ localStorage.removeItem(opsKey("activeWorkOrder")); return; }
-  OPS.orders.forEach(item=>{ if(item.systemId===getCurrentSystemId() && item.status==="running" && item.id!==id) item.status="paused"; });
-  order.systemId=getCurrentSystemId(); order.status="running"; order.activatedAt=opsNow(); order.updatedAt=opsNow();
-  localStorage.setItem(opsKey("activeWorkOrder"),id); opsSaveOrders(); opsAutoAssignCurrentRecords(); opsRenderAllLocal();
-}
-function opsStopActiveOrder(nextStatus="paused"){
-  const order=opsActiveOrder(); if(!order) return;
-  order.status=nextStatus; order.updatedAt=opsNow();
-  localStorage.removeItem(opsKey("activeWorkOrder")); opsSaveOrders(); opsRenderAllLocal();
-}
-function opsLoadScope(){
-  const tenant=opsTenant(); const scope=opsScope();
-  if(OPS.tenant!==tenant){ OPS.tenant=tenant; OPS.orders=opsReadArray(opsKey("workOrders",true)); }
-  if(OPS.scope!==scope){ OPS.scope=scope; OPS.assignments=opsReadObject(opsKey("workOrderAssignments")); }
-  opsNormalizeOrders(); opsRenderAllLocal();
-}
-function opsEnsureScope(){ if(OPS.scope!==opsScope()||OPS.tenant!==opsTenant()) opsLoadScope(); }
-function opsNormalizeOrders(){
-  OPS.orders=safeArray(OPS.orders).filter(item=>item&&typeof item==="object").map(item=>({
-    id:asText(item.id)||opsMakeId("WO"), batchId:asText(item.batchId)||"未設定", product:normalizeProductName(item.product),
-    targetQty:Math.max(1,Math.round(Number(item.targetQty)||1)), tenantId:asText(item.tenantId)||opsTenant(), systemId:asText(item.systemId),
-    status:["running","paused","completed","planned"].includes(item.status)?item.status:"planned", createdAt:item.createdAt||opsNow(), activatedAt:item.activatedAt||"", updatedAt:item.updatedAt||""
-  })).filter(item=>item.tenantId===opsTenant());
-}
-function opsRecordTimeMs(record){ const value=new Date(recordTime(record)||record?._dashboardReceivedAt||0).getTime(); return Number.isFinite(value)?value:0; }
-function opsOrderStartedMs(order){ const value=new Date(order.activatedAt||order.createdAt||0).getTime(); return Number.isFinite(value)?value:0; }
-function opsOrderForRecord(record){
-  const explicitId=opsRecordWorkOrderId(record); const explicitBatch=opsRecordBatchId(record);
-  if(explicitId){ const found=OPS.orders.find(order=>order.id===explicitId); if(found) return found; }
-  if(explicitBatch){ const found=OPS.orders.find(order=>order.batchId===explicitBatch && order.product===recordProduct(record)); if(found) return found; }
-  const assigned=asText(OPS.assignments[recordKey(record)]); if(assigned) return OPS.orders.find(order=>order.id===assigned)||null;
-  return null;
-}
-function opsAutoAssignCurrentRecords(){
-  const active=opsActiveOrder(); if(!active||active.status!=="running") return;
-  let changed=false;
-  safeArray(state.defects).forEach(record=>{
-    if(opsRecordWorkOrderId(record)||opsRecordBatchId(record)||OPS.assignments[recordKey(record)]) return;
-    if(recordProduct(record)!==active.product) return;
-    if(opsRecordTimeMs(record)<opsOrderStartedMs(active)) return;
-    OPS.assignments[recordKey(record)]=active.id; changed=true;
-  });
-  if(changed) opsSaveAssignments();
-}
-function opsOrderRecords(order){
-  return safeArray(state.defects).filter(record=>{
-    const explicitId=opsRecordWorkOrderId(record); const explicitBatch=opsRecordBatchId(record);
-    if(explicitId) return explicitId===order.id;
-    if(explicitBatch) return explicitBatch===order.batchId && recordProduct(record)===order.product;
-    return asText(OPS.assignments[recordKey(record)])===order.id;
-  });
-}
-function opsOrderStats(order){
-  const records=opsOrderRecords(order); let ok=0,ng=0;
-  records.forEach(record=>{ const status=recordStatus(record); if(status==="OK")ok++; else if(status==="NG")ng++; });
-  const total=ok+ng; return {ok,ng,total,rate:percent(ok,total),progress:Math.min(100,percent(total,order.targetQty))};
-}
-function opsPopulateProductSelect(){
-  const select=byId("workOrderProductSelect"); if(!select) return;
-  const current=select.value; const products=unique([...state.selectedProducts,Object.keys(state.productStats||{})]);
-  select.innerHTML='<option value="">請選擇產品</option>'+products.map(product=>`<option value="${escapeHtml(product)}">${escapeHtml(product)}</option>`).join("");
-  if(products.includes(current)) select.value=current;
-}
-function opsRenderActiveOrder(){
-  const card=byId("activeWorkOrderCard"); if(!card) return;
-  const order=opsActiveOrder();
-  if(!order){ card.innerHTML='<div class="ranking-empty">目前機台尚未啟用工單。</div>'; return; }
-  const stats=opsOrderStats(order);
-  card.innerHTML=`<div class="activeOrderTop"><div><div class="activeOrderName">${escapeHtml(order.id)}｜${escapeHtml(order.product)}</div><div class="activeOrderMeta">批次：${escapeHtml(order.batchId)}<br>目前機台：${escapeHtml(getCurrentSystemId())}<br>啟用時間：${escapeHtml(formatTime(order.activatedAt||order.createdAt))}</div></div><span class="orderStatusBadge ${opsOrderStatusClass(order.status)}">${opsOrderStatusText(order.status)}</span></div>
-    <div class="orderStats"><div class="orderStat"><b>${stats.total}</b><span>已檢測</span></div><div class="orderStat"><b>${order.targetQty}</b><span>目標數量</span></div><div class="orderStat"><b class="rankGood">${stats.ok}</b><span>OK</span></div><div class="orderStat"><b class="rankBad">${stats.ng}</b><span>NG</span></div><div class="orderStat"><b>${percentText(stats.rate)}</b><span>工單良率</span></div></div>
-    <div class="orderProgress"><div style="width:${stats.progress}%"></div></div><div class="orderProgressText">完成進度：${percentText(stats.progress)}（${stats.total} / ${order.targetQty}）</div>
-    <div class="orderActions"><button type="button" class="opsTinyBtn warn" data-order-action="pause" data-order-id="${escapeHtml(order.id)}">暫停工單</button><button type="button" class="opsTinyBtn" data-order-action="complete" data-order-id="${escapeHtml(order.id)}">完成工單</button></div>`;
-  opsBindOrderButtons(card);
-}
-function opsRenderOrderRows(){
-  const rows=byId("workOrderRows"); if(!rows) return;
-  if(!OPS.orders.length){ rows.innerHTML='<div class="ranking-empty">尚未建立生產工單。</div>'; return; }
-  const activeId=opsActiveOrderId();
-  rows.innerHTML=[...OPS.orders].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0)).map(order=>{
-    const stats=opsOrderStats(order); const active=order.id===activeId;
-    return `<div class="orderRow ${active?"active":""}"><div><b>${escapeHtml(order.id)}</b><br><span class="orderCellMuted">${escapeHtml(opsOrderStatusText(order.status))}</span></div><div>${escapeHtml(order.batchId)}</div><div>${escapeHtml(order.product)}</div><div>${escapeHtml(order.systemId||"尚未指派")}</div><div>${order.targetQty}</div><div>${stats.total}</div><div>${percentText(stats.rate)}</div><div class="orderActions">${active?'<button type="button" class="opsTinyBtn warn" data-order-action="pause" data-order-id="'+escapeHtml(order.id)+'">暫停</button>':'<button type="button" class="opsTinyBtn" data-order-action="activate" data-order-id="'+escapeHtml(order.id)+'">啟用</button>'}<button type="button" class="opsTinyBtn" data-order-action="complete" data-order-id="${escapeHtml(order.id)}">完成</button><button type="button" class="opsTinyBtn danger" data-order-action="delete" data-order-id="${escapeHtml(order.id)}">刪除</button></div></div>`;
-  }).join("");
-  opsBindOrderButtons(rows);
-}
-function opsBindOrderButtons(root){
-  root.querySelectorAll("[data-order-action]").forEach(button=>button.addEventListener("click",()=>{
-    const id=button.dataset.orderId; const action=button.dataset.orderAction; const order=OPS.orders.find(item=>item.id===id); if(!order)return;
-    if(action==="activate") opsSetActiveOrder(id);
-    if(action==="pause"){ if(opsActiveOrderId()===id) opsStopActiveOrder("paused"); else {order.status="paused";opsSaveOrders();opsRenderAllLocal();} }
-    if(action==="complete"){ if(!confirm(`確定將工單 ${id} 設為已完成嗎？`))return; order.status="completed";order.updatedAt=opsNow();if(opsActiveOrderId()===id)localStorage.removeItem(opsKey("activeWorkOrder"));opsSaveOrders();opsRenderAllLocal(); }
-    if(action==="delete"){ if(!confirm(`確定刪除工單 ${id} 嗎？`))return; OPS.orders=OPS.orders.filter(item=>item.id!==id);if(opsActiveOrderId()===id)localStorage.removeItem(opsKey("activeWorkOrder"));Object.keys(OPS.assignments).forEach(key=>{if(OPS.assignments[key]===id)delete OPS.assignments[key];});opsSaveAssignments();opsSaveOrders();opsRenderAllLocal(); }
-  }));
-}
-function opsCreateWorkOrder(){
-  opsEnsureScope();
-  const id=asText(byId("workOrderIdInput")?.value)||opsMakeId("WO");
-  const batchId=asText(byId("batchIdInput")?.value)||opsMakeId("BATCH");
-  const product=normalizeProductName(byId("workOrderProductSelect")?.value);
-  const targetQty=Math.max(1,Math.round(Number(byId("workOrderTargetInput")?.value)||100));
-  if(!asText(byId("workOrderProductSelect")?.value)){ alert("請先選擇產品。若清單中沒有產品，請先在上方多產品檢測加入產品。"); return; }
-  if(OPS.orders.some(order=>order.id===id)){ alert("此工單編號已存在，請更換工單編號。"); return; }
-  OPS.orders.unshift({id,batchId,product,targetQty,tenantId:opsTenant(),systemId:getCurrentSystemId(),status:"planned",createdAt:opsNow(),activatedAt:"",updatedAt:opsNow()});
-  opsSaveOrders(); opsSetActiveOrder(id);
-  byId("workOrderIdInput").value=""; byId("batchIdInput").value="";
-}
-function opsRenderAllLocal(){ opsEnsureScope(); opsPopulateProductSelect(); opsAutoAssignCurrentRecords(); opsRenderActiveOrder(); opsRenderOrderRows(); }
-
-/* ------------------ 各機台排行 ------------------ */
-async function opsFetchTenantRankingRecords(){
-  const tenantId=opsTenant(); const query=makeQuery({tenant_id:tenantId});
-  const candidates=[`/api/defects${query?`?${query}`:""}`,`/api/logs${query?`?${query}`:""}`,"/api/defects","/api/logs"];
-  let best=[]; let lastError=null;
-  for(const path of unique(candidates)){
-    try{
-      const payload=await fetchJson(`${API_BASE}${path}`); const list=extractArray(payload).filter(record=>!recordTenantId(record)||recordTenantId(record)===tenantId);
-      const systems=new Set(list.map(recordSystemId).filter(Boolean)); const bestSystems=new Set(best.map(recordSystemId).filter(Boolean));
-      if(systems.size>bestSystems.size || (systems.size===bestSystems.size && list.length>best.length)) best=list;
-    }catch(error){ lastError=error; console.debug(`排行資料端點略過：${path}`,error.message); }
-  }
-  if(best.length||!lastError) return best;
-  throw lastError;
-}
-function opsBuildRanking(records){
-  const map=new Map();
-  safeArray(records).forEach(record=>{
-    const systemId=recordSystemId(record)||"未標記機台"; const status=recordStatus(record);
-    if(!map.has(systemId)) map.set(systemId,{systemId,ok:0,ng:0,total:0,rate:0});
-    const item=map.get(systemId); if(status==="OK")item.ok++; else if(status==="NG")item.ng++; item.total=item.ok+item.ng; item.rate=percent(item.ok,item.total);
-  });
-  state.systemOptions.forEach(option=>{ if(option?.id&&!map.has(option.id))map.set(option.id,{systemId:option.id,ok:0,ng:0,total:0,rate:0}); });
-  return [...map.values()].sort((a,b)=>b.rate-a.rate || b.total-a.total || a.systemId.localeCompare(b.systemId));
-}
-function opsRankClass(rate,total){ if(!total)return "rankWarn"; if(rate>=90)return "rankGood"; if(rate>=70)return "rankWarn"; return "rankBad"; }
-function opsRankStatus(rate,total){ if(!total)return {label:"無資料",cls:"ranking-warn"}; if(rate>=90)return {label:"正常",cls:"ranking-good"}; if(rate>=70)return {label:"注意",cls:"ranking-warn"}; return {label:"異常",cls:"ranking-bad"}; }
-function opsRenderRanking(){
-  const rows=byId("machineRankingRows"); if(!rows)return; const ranking=opsBuildRanking(OPS.rankingRecords);
-  if(!ranking.length){ rows.innerHTML='<div class="ranking-empty">目前客戶尚未有可比較的機台資料。</div>'; return; }
-  rows.innerHTML=ranking.map((item,index)=>{ const status=opsRankStatus(item.rate,item.total); const current=item.systemId===getCurrentSystemId(); return `<div class="rankingRow ${current?"current":""}"><div class="rankNo">${index+1}</div><div><b>${escapeHtml(item.systemId)}</b>${current?'<br><span class="orderCellMuted">目前檢視機台</span>':''}</div><div>${item.total}</div><div class="rankGood">${item.ok}</div><div class="rankBad">${item.ng}</div><div class="rankYield ${opsRankClass(item.rate,item.total)}">${percentText(item.rate)}</div><div><span class="rankingBadge ${status.cls}">${status.label}</span></div></div>`; }).join("");
-}
-async function opsRefreshRanking(){
-  if(OPS.rankingBusy)return; OPS.rankingBusy=true;
-  try{ OPS.rankingRecords=await opsFetchTenantRankingRecords(); opsRenderRanking(); if(byId("rankingUpdatedText"))byId("rankingUpdatedText").textContent=`最後更新：${formatTime(opsNow())}｜已讀取 ${OPS.rankingRecords.length} 筆資料。排行依目前客戶 ${opsTenant()} 分開計算。`; }
-  catch(error){ console.warn("機台排行載入失敗",error); if(byId("rankingUpdatedText"))byId("rankingUpdatedText").textContent=`排行讀取失敗：${error.message}`; }
-  finally{ OPS.rankingBusy=false; }
-}
-function opsStartRankingPolling(){ if(OPS.rankingTimer)clearInterval(OPS.rankingTimer); OPS.rankingTimer=setInterval(opsRefreshRanking,OPS_RANK_POLL_MS); }
-function opsStopRankingPolling(){ if(OPS.rankingTimer){clearInterval(OPS.rankingTimer);OPS.rankingTimer=null;} }
-
-/* CSV 增加工單與批次欄位，不刪除原本下載功能 */
-downloadCSV=function(){
-  opsEnsureScope();
-  const header=["tenant_id","system_id","工單編號","生產批次","時間","產品","狀態","事件ID"];
-  const rows=[...state.defects].sort((a,b)=>new Date(recordTime(b)||0)-new Date(recordTime(a)||0)).map(record=>{ const order=opsOrderForRecord(record); return [getCurrentTenantId(),getCurrentSystemId(),opsRecordWorkOrderId(record)||order?.id||"",opsRecordBatchId(record)||order?.batchId||"",formatTime(recordTime(record)),recordProduct(record),recordStatus(record),recordId(record)]; });
-  const csv=[header,...rows].map(row=>row.map(cell=>`"${asText(cell).replace(/"/g,'""')}"`).join(",")).join("\r\n");
-  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}); const url=URL.createObjectURL(blob); const anchor=document.createElement("a");anchor.href=url;anchor.download=`瑕疵報表_${getCurrentSystemId()}_${new Date().toISOString().slice(0,10)}.csv`;document.body.appendChild(anchor);anchor.click();anchor.remove();URL.revokeObjectURL(url);
-};
-
-/* 接到原本 Dashboard，不刪除原功能 */
-const opsOriginalRenderSummary=renderSummary;
-renderSummary=function(){ const result=opsOriginalRenderSummary.apply(this,arguments); opsRenderAllLocal(); return result; };
-const opsOriginalRealtimeRecord=addRealtimeRecord;
-addRealtimeRecord=function(record){ const result=opsOriginalRealtimeRecord.apply(this,arguments); opsEnsureScope(); opsAutoAssignCurrentRecords(); opsRenderAllLocal(); setTimeout(opsRefreshRanking,250); return result; };
-const opsOriginalReloadMachineData=reloadMachineData;
-reloadMachineData=async function(){ opsLoadScope(); const result=await opsOriginalReloadMachineData.apply(this,arguments); opsLoadScope(); opsRefreshRanking(); return result; };
-
-document.addEventListener("DOMContentLoaded",()=>{
-  byId("createWorkOrderBtn")?.addEventListener("click",opsCreateWorkOrder);
-  byId("refreshRankingBtn")?.addEventListener("click",opsRefreshRanking);
-  opsLoadScope(); opsRefreshRanking(); opsStartRankingPolling();
-});
-window.addEventListener("beforeunload",opsStopRankingPolling);
 </script>
 
 </body>
