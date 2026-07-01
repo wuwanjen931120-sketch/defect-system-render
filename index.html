@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>瑕疵辨識與分流系統</title>
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <style>
+    .centerWrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .panel {
+      width: min(780px, 100%);
+      background: rgba(18, 35, 59, .78);
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+
+    .hero {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .heroIcon {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, .9), rgba(34, 197, 94, .6));
+      box-shadow: var(--shadow);
+      flex: 0 0 auto;
+    }
+
+    .heroTitle {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: .8px;
+    }
+
+    .heroSub {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 13px;
+    }
+
+    .liveFrame {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      max-height: 360px;
+      border-radius: 16px;
+      border: 2px solid rgba(121, 89, 255, .85);
+      background: rgba(0, 0, 0, .25);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .liveFrame video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .liveHint {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      font-size: 12px;
+      color: rgba(231, 238, 252, .86);
+      background: rgba(0, 0, 0, .42);
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 12px;
+      padding: 8px 10px;
+      backdrop-filter: blur(6px);
+    }
+
+    .btnRow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .note {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+  </style>
+
+  <script defer src="core.js"></script>
+</head>
+<body>
+  <div class="centerWrap">
+    <main class="panel">
+      <section class="hero">
+        <div class="heroIcon"></div>
+        <div>
+          <h1 class="heroTitle">瑕疵辨識與分流系統</h1>
+          <p class="heroSub">WebCam 即時預覽、MQTT 訊息接收、MongoDB 紀錄與後台管理。</p>
+        </div>
+      </section>
+
+      <section class="liveFrame">
+        <video id="camera" autoplay playsinline muted></video>
+        <div class="liveHint">WebCam 即時預覽｜請允許瀏覽器使用鏡頭</div>
+      </section>
+
+      <div class="btnRow">
+        <button class="btn btnPrimary" id="btnGo">進入系統</button>
+        <button class="btn" onclick="location.href='login.html'">前往登入</button>
+        <button class="btn" onclick="location.href='dashboard.html'">前往首頁</button>
+        <button class="btn btnDanger" id="btnEstop">緊急停止</button>
+        <button class="btn" id="btnFix">修復灰底／警告（清快取）</button>
+      </div>
+
+      <div class="note">
+        <div>✅ 未登入時，會自動導向登入頁。</div>
+        <div>✅ 若畫面仍顯示舊版，請按 Ctrl + F5 強制重新整理。</div>
+      </div>
+    </main>
+  </div>
+
+  <div id="errorBar"></div>
+
+  <script>
+    window.addEventListener("load", () => {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js").catch(console.error);
+      }
+    });
+
+    document.getElementById("btnGo").addEventListener("click", () => {
+      try {
+        const ok = localStorage.getItem("isLogin") === "true";
+        location.href = ok ? "dashboard.html" : "login.html";
+      } catch (_) {
+        location.href = "login.html";
+      }
+    });
+
+    document.getElementById("btnFix").addEventListener("click", async () => {
+      try {
+        if (typeof window.swHardReset === "function") {
+          await window.swHardReset();
+        }
+        if (typeof window.toast === "function") {
+          window.toast("已清快取，請按 Ctrl + F5", "OK");
+        } else {
+          alert("已清快取，請按 Ctrl + F5");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("清除快取失敗，請手動按 Ctrl + F5");
+      }
+    });
+
+    document.getElementById("btnEstop").addEventListener("click", async () => {
+      try {
+        const response = await fetch("/api/estop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "emergency_stop" })
+        });
+        const data = await response.json();
+        alert(data.message || "緊急停止已觸發");
+      } catch (error) {
+        console.error(error);
+        alert("緊急停止傳送失敗，請檢查網路或後端");
+      }
+    });
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+        document.getElementById("camera").srcObject = stream;
+      } catch (error) {
+        console.error("無法開啟鏡頭：", error);
+        const hint = document.querySelector(".liveHint");
+        if (hint) hint.textContent = "無法開啟鏡頭：請檢查瀏覽器權限";
+      }
+    }
+
+    startCamera();
+  </script>
+</body>
+</html>
