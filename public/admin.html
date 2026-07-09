@@ -1,10 +1,22 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>管理後台</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <script>
+    const token = sessionStorage.getItem("token");
+    if (!token) {
+      alert("請先登入");
+      window.location.replace("login.html");
+    }
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>管理後台 - 瑕疵辨識與分流系統</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script defer src="core.js"></script>
 
   <style>
     body{
@@ -12,24 +24,33 @@
       background:linear-gradient(135deg,#08111f,#10233b);
       color:#eaf2ff;
       font-family:"Microsoft JhengHei", Arial, sans-serif;
+      font-size:18px;
     }
 
     .adminPage{
-      padding:28px;
+      padding:0;
     }
 
     .topbar{
       display:flex;
       justify-content:space-between;
-      align-items:center;
+      align-items:flex-start;
       margin-bottom:24px;
       gap:16px;
       flex-wrap:wrap;
     }
 
+    .leftTop{
+      display:flex;
+      align-items:flex-start;
+      gap:14px;
+      min-width:0;
+      flex:1;
+    }
+
     .titleBox h1{
       margin:0;
-      font-size:28px;
+      font-size:34px;
       font-weight:900;
       letter-spacing:1px;
     }
@@ -37,19 +58,22 @@
     .titleBox p{
       margin:8px 0 0;
       color:#9bb0cf;
-      font-size:14px;
+      font-size:17px;
+      line-height:1.55;
     }
 
     .actions{
       display:flex;
       gap:12px;
       flex-wrap:wrap;
+      justify-content:flex-end;
     }
 
     .btn{
       border:none;
       border-radius:14px;
       padding:12px 18px;
+      font-size:17px;
       font-weight:800;
       cursor:pointer;
       color:white;
@@ -58,18 +82,9 @@
       text-decoration:none;
     }
 
-    .btn:hover{
-      background:#31639e;
-    }
-
-    .btnPrimary{
-      background:#2563eb;
-    }
-
-    .btn:disabled{
-  opacity:.55;
-  cursor:not-allowed;
-}
+    .btn:hover{ background:#31639e; }
+    .btnPrimary{ background:#2563eb; }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
 
     .infoCards{
       display:grid;
@@ -88,12 +103,12 @@
 
     .card .label{
       color:#9bb0cf;
-      font-size:13px;
+      font-size:16px;
       margin-bottom:8px;
     }
 
     .card .value{
-      font-size:24px;
+      font-size:30px;
       font-weight:900;
     }
 
@@ -116,41 +131,49 @@
 
     .tableHeader h2{
       margin:0;
-      font-size:20px;
+      font-size:26px;
+    }
+
+    .tableScroll{
+      max-height:520px;
+      overflow-y:auto;
+      overflow-x:auto;
     }
 
     table{
       width:100%;
       border-collapse:collapse;
+      min-width:760px;
     }
 
     th{
-      background:rgba(255,255,255,.06);
+      position:sticky;
+      top:0;
+      z-index:2;
+      background:#132844;
       color:#b9d6ff;
       text-align:left;
-      padding:14px;
-      font-size:14px;
+      padding:18px;
+      font-size:17px;
     }
 
     td{
-      padding:14px;
+      padding:18px;
       border-top:1px solid rgba(255,255,255,.08);
-      font-size:14px;
+      font-size:17px;
     }
 
-    tr:hover{
-      background:rgba(255,255,255,.05);
-    }
+    tr:hover{ background:rgba(255,255,255,.05); }
 
     .badge{
       display:inline-block;
-      padding:6px 12px;
+      padding:7px 14px;
       border-radius:999px;
       background:rgba(59,130,246,.18);
       border:1px solid rgba(96,165,250,.35);
       color:#dbeafe;
+      font-size:15px;
       font-weight:800;
-      font-size:13px;
     }
 
     .empty{
@@ -160,144 +183,120 @@
     }
 
     @media(max-width:768px){
-      .adminPage{
-        padding:16px;
-      }
-
-      .infoCards{
-        grid-template-columns:1fr;
-      }
-
-      table{
-        font-size:12px;
-      }
-
-      th,td{
-        padding:10px;
-      }
+      .infoCards{ grid-template-columns:1fr; }
+      .actions{ justify-content:flex-start; }
+      .titleBox h1{ font-size:28px; }
+      table{ font-size:12px; }
+      th,td{ padding:10px; }
     }
-
-    body{
-  font-size:18px;
-}
-
-.titleBox h1{
-  font-size:34px;
-}
-
-.titleBox p{
-  font-size:17px;
-}
-
-.card .label{
-  font-size:16px;
-}
-
-.card .value{
-  font-size:30px;
-}
-
-.tableHeader h2{
-  font-size:26px;
-}
-
-th{
-  font-size:17px;
-  padding:18px;
-}
-
-td{
-  font-size:17px;
-  padding:18px;
-}
-
-.badge{
-  font-size:15px;
-  padding:7px 14px;
-}
-
-.tableScroll{
-  max-height:520px;
-  overflow-y:auto;
-  overflow-x:auto;
-}
   </style>
 </head>
 
 <body>
-  <div class="adminPage">
+  <div id="overlay" class="drawerOverlay" onclick="toggleDrawer(false)"></div>
 
-    <div class="topbar">
-      <div class="titleBox">
-        <h1>客戶管理後台</h1>
-        <p>管理 SaaS 多客戶帳號、公司與 tenant 資料</p>
+  <aside id="drawer" class="drawer">
+    <div class="sidebar" style="display:block; position:static; height:100vh;">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>瑕疵辨識與分流系統</h1>
+          <p>Defect System</p>
+        </div>
       </div>
-
-      <div class="actions">
-       
-  <button class="btn" onclick="location.href='dashboard.html'">← 返回首頁</button>
-  <button class="btn btnPrimary" type="button" id="refreshBtn">重新整理</button>
-  <button class="btn btnPrimary" type="button" id="mongoBtn">MongoDB 管理頁</button>
-</div>
-
-      
-    </div>
-
-    <div class="infoCards">
-      <div class="card">
-        <div class="label">目前登入角色</div>
-        <div class="value" id="roleText">-</div>
-      </div>
-
-      <div class="card">
-        <div class="label">帳號總數</div>
-        <div class="value" id="userCount">0</div>
-      </div>
-
-      <div class="card">
-        <div class="label">系統狀態</div>
-        <div class="value" style="color:#22c55e;">正常</div>
+      <div class="nav"></div>
+      <div class="side-footer">
+        <button class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button>
+        <button class="btn" onclick="logout()" style="margin-top:10px;">登出</button>
       </div>
     </div>
+  </aside>
 
-    <div class="tableCard">
-      <div class="tableHeader">
-        <h2>客戶帳號清單</h2>
-        <span class="badge">Admin View</span>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>瑕疵辨識與分流系統</h1>
+          <p>Defect System</p>
+        </div>
       </div>
+      <div class="nav"></div>
+      <div class="side-footer">
+        <button class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button>
+        <button class="btn" onclick="logout()" style="margin-top:10px;">登出</button>
+      </div>
+    </aside>
 
-      <div class="tableScroll">
-<table>
-        <thead>
-          <tr>
-            <th>公司</th>
-            <th>帳號</th>
-            <th>角色</th>
-            <th>tenant_id</th>
-          </tr>
-        </thead>
-        <tbody id="userTable">
-          <tr>
-            <td colspan="4" class="empty">資料載入中...</td>
-          </tr>
-        </tbody>
-     </table>
-</div>
+    <main class="main">
+      <div class="adminPage">
+        <div class="topbar">
+          <div class="leftTop">
+            <button class="hamburger" onclick="toggleDrawer(true)">☰</button>
+            <div class="titleBox">
+              <h1>客戶管理後台</h1>
+              <p>管理 SaaS 多客戶帳號、公司與 tenant 資料</p>
+            </div>
+          </div>
 
+          <div class="actions">
+            <button class="btn" onclick="location.href='dashboard.html'">← 返回首頁</button>
+            <button class="btn btnPrimary" type="button" id="refreshBtn">重新整理</button>
+            <button class="btn btnPrimary" type="button" id="mongoBtn">MongoDB 管理頁</button>
+          </div>
+        </div>
+
+        <div class="infoCards">
+          <div class="card">
+            <div class="label">目前登入角色</div>
+            <div class="value" id="roleText">-</div>
+          </div>
+
+          <div class="card">
+            <div class="label">帳號總數</div>
+            <div class="value" id="userCount">0</div>
+          </div>
+
+          <div class="card">
+            <div class="label">系統狀態</div>
+            <div class="value" style="color:#22c55e;">正常</div>
+          </div>
+        </div>
+
+        <div class="tableCard">
+          <div class="tableHeader">
+            <h2>客戶帳號清單</h2>
+            <span class="badge">Admin View</span>
+          </div>
+
+          <div class="tableScroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>公司</th>
+                  <th>帳號</th>
+                  <th>角色</th>
+                  <th>tenant_id</th>
+                </tr>
+              </thead>
+              <tbody id="userTable">
+                <tr>
+                  <td colspan="4" class="empty">資料載入中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
   </div>
 
+  <div id="errorBar" style="display:none;"></div>
+
+  <script src="sidebar-common.js"></script>
   <script>
     const API_BASE = window.location.origin;
-
-    const token = sessionStorage.getItem("token");
-    const role = sessionStorage.getItem("role");
-   
-
-
-
-    if (!token) {
-      window.location.replace("login.html");
-    }
+    const role = sessionStorage.getItem("role") || "user";
 
     const canOpenAdmin =
       role === "super_admin" ||
@@ -310,33 +309,32 @@ td{
     }
 
     document.getElementById("roleText").textContent = role || "-";
-    const mongoBtn = document.getElementById("mongoBtn");
 
-if (role !== "super_admin") {
-  mongoBtn.style.display = "none";
-} else {
-  mongoBtn.onclick = () => {
-    location.href = "mongo-admin.html";
-  };
-}
-    
+    const mongoBtn = document.getElementById("mongoBtn");
+    if (role !== "super_admin") {
+      mongoBtn.style.display = "none";
+    } else {
+      mongoBtn.onclick = () => {
+        location.href = "mongo-admin.html";
+      };
+    }
 
     const refreshBtn = document.getElementById("refreshBtn");
+    refreshBtn.addEventListener("click", async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = "重新整理中...";
+      await loadUsers();
+      refreshBtn.textContent = "重新整理";
+      refreshBtn.disabled = false;
+    });
 
-refreshBtn.addEventListener("click", async () => {
-  refreshBtn.disabled = true;
-  refreshBtn.textContent = "重新整理中...";
-
-  await loadUsers();
-
-  refreshBtn.textContent = "重新整理";
-  refreshBtn.disabled = false;
-});
     async function loadUsers() {
       try {
+        const currentToken = sessionStorage.getItem("token");
         const res = await fetch(`${API_BASE}/api/admin/users`, {
           headers: {
-            "Authorization": `Bearer ${token}`
+            "Authorization": `Bearer ${currentToken}`,
+            "ngrok-skip-browser-warning": "true"
           }
         });
 
@@ -354,7 +352,6 @@ refreshBtn.addEventListener("click", async () => {
         }
 
         const data = await res.json();
-
         const table = document.getElementById("userTable");
         const userCount = document.getElementById("userCount");
 
