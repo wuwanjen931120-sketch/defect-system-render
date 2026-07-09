@@ -927,6 +927,467 @@ if (!token) {
   margin-top:0;
   width:100%;
 }
+
+/* ===== 良率過低自動警報：恢復區塊 ===== */
+.yieldAlertCard{
+  grid-column: span 1;
+  background: rgba(18,35,59,.75);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;
+  box-shadow: var(--shadow);
+  padding:14px;
+  margin-top:12px;
+}
+
+.yieldAlertTitle{
+  margin-top:0;
+  padding-top:0;
+  border-top:none;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.yieldAlertHint{
+  margin-top:4px;
+  color:rgba(155,176,207,.95);
+  font-size:13px;
+  font-weight:700;
+}
+
+.yieldAlertSettings{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  gap:12px;
+  margin-top:14px;
+}
+
+.yieldAlertField{
+  background: rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:14px;
+  padding:12px;
+}
+
+.yieldAlertField label{
+  display:block;
+  color:rgba(231,238,252,.82);
+  font-size:13px;
+  font-weight:900;
+  margin-bottom:8px;
+}
+
+.yieldAlertField input{
+  width:100%;
+  height:44px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.16);
+  background:#0b1220;
+  color:#fff;
+  padding:0 12px;
+  font-size:20px;
+  font-weight:900;
+  outline:none;
+  box-sizing:border-box;
+}
+
+.yieldAlertField input:focus{
+  border-color: rgba(96,165,250,.75);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+}
+
+.yieldAlertActions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:14px;
+}
+
+.yieldAlertBanner{
+  margin-top:14px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:rgba(127,29,29,.42);
+  border:1px solid rgba(248,113,113,.38);
+  color:#ffe4e6;
+  font-weight:900;
+  line-height:1.6;
+}
+
+.yieldAlertLogList{
+  margin-top:14px;
+  max-height:300px;
+  overflow-y:auto;
+  padding-right:6px;
+}
+
+.yieldAlertLogItem{
+  display:grid;
+  grid-template-columns: 1fr 190px;
+  gap:12px;
+  align-items:start;
+  padding:12px 14px;
+  margin-bottom:10px;
+  border-radius:14px;
+  background:rgba(88,28,135,.22);
+  border:1px solid rgba(248,113,113,.25);
+  color:rgba(231,238,252,.94);
+  font-weight:800;
+}
+
+.yieldAlertLogMain{
+  line-height:1.55;
+}
+
+.yieldAlertLogMain b{
+  color:#ffd6a5;
+}
+
+.yieldAlertTime{
+  color:rgba(231,238,252,.82);
+  font-size:13px;
+  text-align:right;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+.yieldAlertEmpty{
+  padding:12px 14px;
+  border-radius:14px;
+  color:rgba(155,176,207,.95);
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  font-weight:700;
+}
+
+@media(max-width:900px){
+  .yieldAlertSettings{
+    grid-template-columns:1fr;
+  }
+
+  .yieldAlertLogItem{
+    grid-template-columns:1fr;
+  }
+
+  .yieldAlertTime{
+    text-align:left;
+  }
+}
+
+
+/* ===== 良率趨勢折線圖：恢復區塊 ===== */
+.yieldTrendCard{
+  grid-column: span 1;
+  background: rgba(18,35,59,.75);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;
+  box-shadow: var(--shadow);
+  padding:14px;
+  margin-top:12px;
+  min-height:420px;
+}
+
+.trendHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.trendTitle{
+  font-size:18px;
+  font-weight:900;
+  color:rgba(255,255,255,.96);
+  letter-spacing:.5px;
+}
+
+.trendHint{
+  margin-top:4px;
+  color:rgba(155,176,207,.95);
+  font-size:12px;
+  font-weight:700;
+  line-height:1.5;
+}
+
+.trendControls{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.trendControls label{
+  color:rgba(231,238,252,.78);
+  font-size:13px;
+  font-weight:900;
+}
+
+.trendSelect{
+  min-width:120px;
+  height:40px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.16);
+  background:#0b1220;
+  color:#fff;
+  padding:0 12px;
+  font-size:14px;
+  font-weight:800;
+  outline:none;
+  cursor:pointer;
+}
+
+.trendCanvasWrap{
+  margin-top:14px;
+  height:300px;
+  border-radius:16px;
+  background:rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.10);
+  overflow:hidden;
+  position:relative;
+}
+
+#yieldTrendCanvas{
+  width:100%;
+  height:100%;
+  display:block;
+}
+
+.trendLegend{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-wrap:wrap;
+  color:rgba(155,176,207,.95);
+  font-size:12px;
+  font-weight:900;
+}
+
+.legendDot{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  display:inline-block;
+  margin-right:6px;
+  vertical-align:middle;
+}
+
+.legendBlue{ background:#60a5fa; }
+.legendRed{ background:#f87171; }
+
+/* ===== NG 瑕疵圖片留存：恢復區塊 ===== */
+.ngImageCard{
+  grid-column:1 / -1;
+  background: rgba(18,35,59,.75);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;
+  box-shadow: var(--shadow);
+  padding:14px;
+  margin-top:12px;
+}
+
+.ngImageHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.ngImageTitle{
+  font-size:18px;
+  font-weight:900;
+  color:rgba(255,255,255,.96);
+}
+
+.ngImageHint{
+  margin-top:4px;
+  color:rgba(155,176,207,.95);
+  font-size:12px;
+  font-weight:700;
+  line-height:1.5;
+}
+
+.ngImageGrid{
+  margin-top:12px;
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap:12px;
+}
+
+.ngImageItem{
+  background:rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  overflow:hidden;
+}
+
+.ngImageThumb{
+  width:100%;
+  aspect-ratio: 4 / 3;
+  background:rgba(0,0,0,.28);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:rgba(155,176,207,.9);
+  font-size:13px;
+  font-weight:900;
+}
+
+.ngImageThumb img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
+.ngImageMeta{
+  padding:10px 12px;
+  color:rgba(231,238,252,.9);
+  font-size:12px;
+  font-weight:800;
+  line-height:1.7;
+}
+
+.ngImageEmpty{
+  padding:12px 14px;
+  border-radius:14px;
+  color:rgba(155,176,207,.95);
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.08);
+  font-weight:700;
+}
+
+/* ===== 各機台比較排行：恢復區塊 ===== */
+.machineRankCard{
+  grid-column:1 / -1;
+  background: rgba(18,35,59,.75);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:18px;
+  box-shadow: var(--shadow);
+  padding:14px;
+  margin-top:12px;
+}
+
+.rankHeader{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.rankTitle{
+  font-size:22px;
+  font-weight:900;
+  color:rgba(255,255,255,.96);
+  letter-spacing:.6px;
+}
+
+.rankHint{
+  margin-top:4px;
+  color:rgba(155,176,207,.95);
+  font-size:13px;
+  font-weight:700;
+  line-height:1.5;
+}
+
+.rankTableWrap{
+  margin-top:14px;
+  overflow:auto;
+  border-radius:16px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(0,0,0,.14);
+}
+
+.machineRankTable{
+  min-width:760px;
+  width:100%;
+}
+
+.rank-row{
+  display:grid;
+  grid-template-columns: 80px 1.5fr 1fr 1fr 1fr 1fr 1fr;
+  gap:10px;
+  align-items:center;
+  padding:14px 16px;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  color:rgba(231,238,252,.92);
+  font-weight:900;
+}
+
+.rank-row:last-child{ border-bottom:none; }
+
+.rank-head{
+  background:rgba(255,255,255,.05);
+  color:rgba(231,238,252,.86);
+}
+
+.rank-body-row{
+  background:rgba(37,99,235,.16);
+}
+
+.rank-system-main{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+}
+
+.rank-system-id{
+  font-size:16px;
+  color:#eaf2ff;
+}
+
+.rank-system-name{
+  font-size:12px;
+  color:rgba(155,176,207,.95);
+  font-weight:800;
+}
+
+.rank-ok{ color:#3ddc84; }
+.rank-ng{ color:#ff6b6b; }
+.rank-yield-good{ color:#3ddc84; }
+.rank-yield-bad{ color:#ff6b6b; }
+
+.rank-status-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:64px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.10);
+  background:rgba(255,255,255,.06);
+}
+
+.rank-status-normal{
+  color:#3ddc84;
+  background:rgba(34,197,94,.12);
+  border-color:rgba(34,197,94,.25);
+}
+
+.rank-status-abnormal{
+  color:#ffb4b4;
+  background:rgba(239,68,68,.16);
+  border-color:rgba(248,113,113,.28);
+}
+
+.rankFooter{
+  margin-top:12px;
+  color:rgba(155,176,207,.95);
+  font-size:12px;
+  font-weight:800;
+}
+
+@media(max-width:900px){
+  .yieldTrendCard,
+  .yieldAlertCard{
+    grid-column:1 / -1;
+  }
+}
+
+
   </style>
 
   <link rel="manifest" href="manifest.webmanifest">
@@ -1110,73 +1571,131 @@ if (!token) {
           <section class="statusCard">
             <div class="productTitleLine">產品分類與良率</div>
 
-           <div class="statusTopRow">
-  <div class="gaugeCard">
+            <div class="statusTopRow">
+              <div class="gaugeCard">
+                <div class="gaugeTitle">後端資料總數</div>
 
-    <div class="gaugeTitle">後端資料總數</div>
+                <div class="gauge" id="gauge">
+                  <div class="gaugeValue" id="gaugeValue">0</div>
+                </div>
 
-    <div class="gauge" id="gauge">
-      <div class="gaugeValue" id="gaugeValue">0</div>
-    </div>
+                <div class="gaugeSubTitle">總筆數</div>
 
-    <div class="gaugeSubTitle">總筆數</div>
+                <div class="totalSummary">
+                  OK: <span id="totalOk">0</span> |
+                  NG: <span id="totalNg">0</span>
+                </div>
 
-    <div class="totalSummary">
-      OK: <span id="totalOk">0</span> |
-      NG: <span id="totalNg">0</span>
-    </div>
+                <div class="gaugeBar smallGaugeBar">
+                  <div id="gaugeBarFill" style="width:0%"></div>
+                </div>
+              </div>
 
-    <div class="gaugeBar smallGaugeBar">
-      <div id="gaugeBarFill" style="width:0%"></div>
-    </div>
+              <div class="defectMiniCard">
+                <div class="areaTop">
+                  <div>
+                    <div class="areaName">
+                      <span class="warnIcon">!</span>
+                      瑕疵品數
+                    </div>
+                    <div class="areaSub">目前篩選資料中的 NG 數量</div>
+                  </div>
+                </div>
 
-  </div>
+                <div class="defectInfoBody">
+                  <div class="defectInfoValue" id="defectCount">0</div>
+                  <div class="defectInfoLabel">NG 件</div>
+                </div>
+              </div>
 
-  <div class="defectMiniCard">
-  <div class="areaTop">
-    <div>
-      <div class="areaName">
-        <span class="warnIcon">!</span>
-        瑕疵品數
-      </div>
-      <div class="areaSub">目前篩選資料中的 NG 數量</div>
-    </div>
-  </div>
+              <div class="areaCard summaryMiniCard">
+                <div class="areaTop">
+                  <div>
+                    <div class="areaName">真實統計分析</div>
+                    <div class="areaSub">依 MongoDB 即時資料計算</div>
+                  </div>
+                </div>
 
-  <div class="defectInfoBody">
-    <div class="defectInfoValue" id="defectCount">0</div>
-    <div class="defectInfoLabel">NG 件</div>
-  </div>
-</div>
-
-  <div class="areaCard summaryMiniCard">
-    <div class="areaTop">
-      <div>
-        <div class="areaName">真實統計分析</div>
-        <div class="areaSub">依 MongoDB 即時資料計算</div>
-      </div>
-    </div>
-
-    <div class="summaryText">
-      <div id="summaryTotal">總數：0</div>
-      <div id="summaryOk">OK：0</div>
-      <div id="summaryNg">NG：0</div>
-      <div id="summaryYield">良率：0%</div>
-      <div id="summaryDefect">瑕疵率：0%</div>
-      <div id="summaryLast20">最近20筆異常：0</div>
-    </div>
-  </div>
-</div>
-
-  <div id="dynamicProductGaugeArea"></div>
-</div>
-              
-               
+                <div class="summaryText">
+                  <div id="summaryTotal">總數：0</div>
+                  <div id="summaryOk">OK：0</div>
+                  <div id="summaryNg">NG：0</div>
+                  <div id="summaryYield">良率：0%</div>
+                  <div id="summaryDefect">瑕疵率：0%</div>
+                  <div id="summaryLast20">最近20筆異常：0</div>
+                </div>
               </div>
             </div>
 
-            
-                   </section>
+            <div id="dynamicProductGaugeArea"></div>
+          </section>
+
+
+          <section class="yieldTrendCard">
+            <div class="trendHeader">
+              <div>
+                <div class="trendTitle">📈 良率趨勢折線圖</div>
+                <div class="trendHint">依目前客戶與機台的事件紀錄即時計算。折線為最近資料的移動良率，紅色虛線為警戒值。</div>
+              </div>
+              <div class="trendControls">
+                <label for="trendProductSelect">產品</label>
+                <select id="trendProductSelect" class="trendSelect" onchange="renderYieldTrend()">
+                  <option value="__all__">全部產品</option>
+                </select>
+
+                <label for="trendLimitSelect">筆數</label>
+                <select id="trendLimitSelect" class="trendSelect" onchange="renderYieldTrend()">
+                  <option value="10">最近 10 筆</option>
+                  <option value="20">最近 20 筆</option>
+                  <option value="50" selected>最近 50 筆</option>
+                  <option value="100">最近 100 筆</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="trendCanvasWrap">
+              <canvas id="yieldTrendCanvas"></canvas>
+            </div>
+
+            <div class="trendLegend">
+              <span><i class="legendDot legendBlue"></i>移動良率</span>
+              <span><i class="legendDot legendRed"></i>警戒值</span>
+              <span id="trendLatestText">最新移動良率：0%</span>
+              <span id="trendCountText">顯示 0 筆</span>
+            </div>
+          </section>
+          <section class="yieldAlertCard">
+            <div class="productTitleLine yieldAlertTitle">🚨 良率過低自動警報</div>
+            <div class="yieldAlertHint">
+              符合警戒條件後，首頁會自動顯示紅色警報。設定依不同客戶與機台分開保存。
+            </div>
+
+            <div class="yieldAlertSettings">
+              <div class="yieldAlertField">
+                <label for="alertYieldThreshold">良率警戒值（%）</label>
+                <input id="alertYieldThreshold" type="number" min="0" max="100" step="1" value="90">
+              </div>
+
+              <div class="yieldAlertField">
+                <label for="alertMinSamples">最少檢測筆數</label>
+                <input id="alertMinSamples" type="number" min="1" step="1" value="5">
+              </div>
+
+              <div class="yieldAlertField">
+                <label for="alertConsecutiveNg">連續 NG 警戒值</label>
+                <input id="alertConsecutiveNg" type="number" min="1" step="1" value="3">
+              </div>
+            </div>
+
+            <div class="yieldAlertActions">
+              <button class="btn btnPrimary" type="button" onclick="saveYieldAlertSettingsFromUI()">儲存警報設定</button>
+              <button class="btn" type="button" onclick="requestBrowserNotification()">允許瀏覽器通知</button>
+              <button class="btn" type="button" onclick="clearYieldAlertLogs()">清除警報紀錄</button>
+            </div>
+
+            <div id="yieldAlertBanner" class="yieldAlertBanner" style="display:none;"></div>
+            <div id="yieldAlertLogList" class="yieldAlertLogList"></div>
+          </section>
 
           <section class="productStatsCard">
             <div class="productTableCard">
@@ -1203,6 +1722,44 @@ if (!token) {
             </div>
           </section>
 
+
+          <section class="ngImageCard">
+            <div class="ngImageHeader">
+              <div>
+                <div class="ngImageTitle">🖼️ NG 瑕疵圖片留存</div>
+                <div class="ngImageHint">NG 影像若後端有 image_url、snapshot_url、imageUrl 等欄位，會自動顯示在這裡。真正永久保存仍需要後端儲存圖片檔與資料庫欄位。</div>
+              </div>
+              <button class="btn" type="button" onclick="renderNgImageArchive()">重新整理圖片</button>
+            </div>
+            <div id="ngImageList" class="ngImageGrid"></div>
+          </section>
+
+          <section class="machineRankCard">
+            <div class="rankHeader">
+              <div>
+                <div class="rankTitle">🏆 各機台比較排行</div>
+                <div class="rankHint">依目前客戶的 MongoDB 資料，即時計算每台機台的 OK、NG 與良率排行。</div>
+              </div>
+              <button class="btn" type="button" onclick="loadMachineRanking(true)">重新讀取排行</button>
+            </div>
+
+            <div class="rankTableWrap">
+              <div class="machineRankTable">
+                <div class="rank-row rank-head">
+                  <div>排名</div>
+                  <div>機台</div>
+                  <div>總數</div>
+                  <div>OK</div>
+                  <div>NG</div>
+                  <div>良率</div>
+                  <div>狀態</div>
+                </div>
+                <div id="machineRankingRows"></div>
+              </div>
+            </div>
+            <div id="machineRankingFooter" class="rankFooter">尚未讀取排行。</div>
+          </section>
+
       
   
         </div>
@@ -1222,6 +1779,627 @@ console.log("JS 已啟動");
 const API_BASE = window.location.origin;
 let dashboardTimer = null;
 let selectedProducts = [];
+let latestDashboardList = [];
+let latestTrendProducts = [];
+let lastMachineRankingLoadTime = 0;
+
+const YIELD_ALERT_DEFAULTS = {
+  yieldThreshold: 90,
+  minSamples: 5,
+  consecutiveNg: 3
+};
+
+let lastYieldAlertSignature = "";
+let lastYieldAlertTime = 0;
+
+function getYieldAlertStoragePrefix(){
+  const tenantId = getCurrentTenantId?.() || sessionStorage.getItem("tenant_id") || "defaultTenant";
+  const systemId = getCurrentSystemId?.() || sessionStorage.getItem("system_id") || "defaultSystem";
+  return `yieldAlert_${tenantId}_${systemId}`;
+}
+
+function getYieldAlertSettingsKey(){
+  return `${getYieldAlertStoragePrefix()}_settings`;
+}
+
+function getYieldAlertLogsKey(){
+  return `${getYieldAlertStoragePrefix()}_logs`;
+}
+
+function clampNumber(value, min, max, fallback){
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  if (typeof max === "number") return Math.min(Math.max(n, min), max);
+  return Math.max(n, min);
+}
+
+function loadYieldAlertSettings(){
+  try {
+    const raw = localStorage.getItem(getYieldAlertSettingsKey());
+    const saved = raw ? JSON.parse(raw) : {};
+
+    return {
+      yieldThreshold: clampNumber(saved.yieldThreshold, 0, 100, YIELD_ALERT_DEFAULTS.yieldThreshold),
+      minSamples: Math.round(clampNumber(saved.minSamples, 1, null, YIELD_ALERT_DEFAULTS.minSamples)),
+      consecutiveNg: Math.round(clampNumber(saved.consecutiveNg, 1, null, YIELD_ALERT_DEFAULTS.consecutiveNg))
+    };
+  } catch (e) {
+    return { ...YIELD_ALERT_DEFAULTS };
+  }
+}
+
+function renderYieldAlertSettings(){
+  const settings = loadYieldAlertSettings();
+
+  const thresholdInput = document.getElementById("alertYieldThreshold");
+  const minSamplesInput = document.getElementById("alertMinSamples");
+  const consecutiveInput = document.getElementById("alertConsecutiveNg");
+
+  if (thresholdInput) thresholdInput.value = settings.yieldThreshold;
+  if (minSamplesInput) minSamplesInput.value = settings.minSamples;
+  if (consecutiveInput) consecutiveInput.value = settings.consecutiveNg;
+
+  renderYieldAlertLogs();
+}
+
+function saveYieldAlertSettingsFromUI(){
+  const settings = {
+    yieldThreshold: clampNumber(document.getElementById("alertYieldThreshold")?.value, 0, 100, YIELD_ALERT_DEFAULTS.yieldThreshold),
+    minSamples: Math.round(clampNumber(document.getElementById("alertMinSamples")?.value, 1, null, YIELD_ALERT_DEFAULTS.minSamples)),
+    consecutiveNg: Math.round(clampNumber(document.getElementById("alertConsecutiveNg")?.value, 1, null, YIELD_ALERT_DEFAULTS.consecutiveNg))
+  };
+
+  localStorage.setItem(getYieldAlertSettingsKey(), JSON.stringify(settings));
+  renderYieldAlertSettings();
+
+  alert(`已儲存警報設定：良率低於 ${settings.yieldThreshold}%、至少 ${settings.minSamples} 筆、連續 NG ${settings.consecutiveNg} 件。`);
+  window.refreshDashboard?.();
+}
+
+async function requestBrowserNotification(){
+  if (!("Notification" in window)) {
+    alert("這個瀏覽器不支援通知功能");
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+  if (permission === "granted") {
+    alert("已允許瀏覽器通知");
+  } else {
+    alert("尚未允許通知，之後仍可從瀏覽器設定開啟");
+  }
+}
+
+function getYieldAlertLogs(){
+  try {
+    const raw = localStorage.getItem(getYieldAlertLogsKey());
+    const logs = raw ? JSON.parse(raw) : [];
+    return Array.isArray(logs) ? logs : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveYieldAlertLogs(logs){
+  localStorage.setItem(getYieldAlertLogsKey(), JSON.stringify(logs.slice(0, 30)));
+}
+
+function notifyYieldAlert(message){
+  try {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification("良率過低自動警報", {
+        body: message,
+        tag: "yield-alert"
+      });
+    }
+  } catch (e) {
+    console.warn("通知送出失敗", e);
+  }
+}
+
+function addYieldAlertLog(message){
+  const logs = getYieldAlertLogs();
+  const now = new Date().toISOString();
+
+  const latestSame = logs.find(x => x.message === message);
+  if (latestSame) {
+    const diff = Date.now() - new Date(latestSame.time).getTime();
+    if (diff < 60000) return;
+  }
+
+  logs.unshift({
+    message,
+    time: now
+  });
+
+  saveYieldAlertLogs(logs);
+  renderYieldAlertLogs();
+  notifyYieldAlert(message);
+}
+
+function clearYieldAlertLogs(){
+  localStorage.removeItem(getYieldAlertLogsKey());
+  lastYieldAlertSignature = "";
+  lastYieldAlertTime = 0;
+
+  const banner = document.getElementById("yieldAlertBanner");
+  if (banner) {
+    banner.style.display = "none";
+    banner.innerHTML = "";
+  }
+
+  renderYieldAlertLogs();
+}
+
+function renderYieldAlertLogs(){
+  const list = document.getElementById("yieldAlertLogList");
+  if (!list) return;
+
+  const logs = getYieldAlertLogs();
+
+  if (logs.length === 0) {
+    list.innerHTML = `<div class="yieldAlertEmpty">目前沒有警報紀錄</div>`;
+    return;
+  }
+
+  list.innerHTML = logs.map(log => {
+    const timeText = log.time
+      ? new Date(log.time).toLocaleString("zh-TW", {
+          year:"numeric",
+          month:"2-digit",
+          day:"2-digit",
+          hour:"2-digit",
+          minute:"2-digit",
+          second:"2-digit",
+          hour12:false
+        })
+      : "-";
+
+    return `
+      <div class="yieldAlertLogItem">
+        <div class="yieldAlertLogMain"><b>⚠️ 警報中</b><br>${log.message}</div>
+        <div class="yieldAlertTime">${timeText}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function getLatestConsecutiveNgCount(list){
+  const sorted = [...list].sort((a, b) => {
+    const ta = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+    const tb = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+    return tb - ta;
+  });
+
+  let count = 0;
+
+  for (const item of sorted) {
+    const status = String(item.status || "").toUpperCase();
+    if (status === "NG") {
+      count++;
+    } else {
+      break;
+    }
+  }
+
+  return count;
+}
+
+function updateYieldAlertBanner(messages){
+  const banner = document.getElementById("yieldAlertBanner");
+  if (!banner) return;
+
+  if (!messages || messages.length === 0) {
+    banner.style.display = "none";
+    banner.innerHTML = "";
+    return;
+  }
+
+  banner.style.display = "block";
+  banner.innerHTML = messages.map(msg => `⚠️ ${msg}`).join("<br>");
+}
+
+function checkYieldAlerts(filteredList, productStats, totalOK, totalNG){
+  const settings = loadYieldAlertSettings();
+  const messages = [];
+  const total = totalOK + totalNG;
+  const totalYield = total > 0 ? Math.round((totalOK / total) * 100) : 0;
+
+  if (total >= settings.minSamples && totalYield < settings.yieldThreshold) {
+    messages.push(`整體良率 ${totalYield}% ，低於警戒值 ${settings.yieldThreshold}% 。`);
+  }
+
+  Object.keys(productStats || {}).forEach(productName => {
+    const stats = productStats[productName];
+    const productTotal = (stats?.ok || 0) + (stats?.ng || 0);
+    const yieldRate = productTotal > 0 ? Math.round((stats.ok / productTotal) * 100) : 0;
+
+    if (productTotal >= settings.minSamples && yieldRate < settings.yieldThreshold) {
+      messages.push(`${productName} 良率 ${yieldRate}% ，低於警戒值 ${settings.yieldThreshold}% 。`);
+    }
+  });
+
+  const consecutiveNg = getLatestConsecutiveNgCount(filteredList || []);
+  if (consecutiveNg >= settings.consecutiveNg) {
+    messages.push(`已連續出現 ${consecutiveNg} 件 NG，達到警戒值 ${settings.consecutiveNg} 件。`);
+  }
+
+  updateYieldAlertBanner(messages);
+
+  const signature = messages.join("|");
+  const now = Date.now();
+
+  if (signature && (signature !== lastYieldAlertSignature || now - lastYieldAlertTime > 60000)) {
+    messages.forEach(addYieldAlertLog);
+    lastYieldAlertSignature = signature;
+    lastYieldAlertTime = now;
+  }
+}
+
+
+
+
+function escapeHtml(value){
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function getDisplayProductsFromList(list){
+  const dbProducts = [
+    ...new Set(
+      (Array.isArray(list) ? list : [])
+        .map(x => normalizeProductName(x.product))
+        .filter(p => p && p !== "未分類")
+    )
+  ];
+
+  return [
+    ...new Set([
+      ...selectedProducts.map(p => normalizeProductName(p)),
+      ...dbProducts
+    ])
+  ].filter(p => p && p !== "未分類");
+}
+
+function updateTrendProductOptions(products){
+  const select = document.getElementById("trendProductSelect");
+  if (!select) return;
+
+  const oldValue = select.value || "__all__";
+  const list = Array.isArray(products) ? products : [];
+
+  select.innerHTML = `<option value="__all__">全部產品</option>` +
+    list.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
+
+  select.value = list.includes(oldValue) ? oldValue : "__all__";
+}
+
+function getEventTimeMs(item){
+  if (!item) return 0;
+  const raw = item.timestamp || item.receivedAt || item.createdAt || item.time || item.date;
+  const t = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+}
+
+function getStatusText(item){
+  return String(item?.status || "").toUpperCase();
+}
+
+function getTrendFilteredList(){
+  const product = document.getElementById("trendProductSelect")?.value || "__all__";
+  const limit = Number(document.getElementById("trendLimitSelect")?.value || 50);
+
+  const sorted = [...latestDashboardList]
+    .filter(item => {
+      const status = getStatusText(item);
+      if (status !== "OK" && status !== "NG") return false;
+      if (product === "__all__") return true;
+      return normalizeProductName(item.product) === product;
+    })
+    .sort((a, b) => getEventTimeMs(a) - getEventTimeMs(b));
+
+  return sorted.slice(-limit);
+}
+
+function renderYieldTrend(){
+  const canvas = document.getElementById("yieldTrendCanvas");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  const wrap = canvas.parentElement;
+  const rect = wrap?.getBoundingClientRect?.() || { width: 700, height: 300 };
+  const width = Math.max(320, rect.width || 700);
+  const height = Math.max(240, rect.height || 300);
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+
+  const data = getTrendFilteredList();
+  const settings = loadYieldAlertSettings();
+  const threshold = settings.yieldThreshold;
+
+  const latestText = document.getElementById("trendLatestText");
+  const countText = document.getElementById("trendCountText");
+
+  const padding = { left: 58, right: 18, top: 24, bottom: 38 };
+  const chartW = width - padding.left - padding.right;
+  const chartH = height - padding.top - padding.bottom;
+
+  const yToPx = (value) => padding.top + (100 - value) / 100 * chartH;
+  const xToPx = (index, count) => {
+    if (count <= 1) return padding.left;
+    return padding.left + (index / (count - 1)) * chartW;
+  };
+
+  // 背景
+  ctx.fillStyle = "rgba(0,0,0,0.02)";
+  ctx.fillRect(0, 0, width, height);
+
+  // 格線與 Y 軸文字
+  ctx.font = "12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+
+  [0, 25, 50, 75, 100].forEach(v => {
+    const y = yToPx(v);
+    ctx.strokeStyle = "rgba(148,163,184,0.18)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y);
+    ctx.lineTo(width - padding.right, y);
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(203,213,225,0.78)";
+    ctx.fillText(`${v}%`, padding.left - 8, y);
+  });
+
+  // 警戒值虛線
+  const ty = yToPx(threshold);
+  ctx.strokeStyle = "rgba(248,113,113,0.95)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([7, 7]);
+  ctx.beginPath();
+  ctx.moveTo(padding.left, ty);
+  ctx.lineTo(width - padding.right, ty);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.textAlign = "left";
+  ctx.fillStyle = "rgba(248,113,113,0.95)";
+  ctx.font = "bold 13px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.fillText(`警戒 ${threshold}%`, padding.left + 8, Math.max(14, ty - 10));
+
+  if (data.length === 0) {
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(203,213,225,0.75)";
+    ctx.font = "bold 15px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+    ctx.fillText("目前沒有足夠資料可繪製良率趨勢", width / 2, height / 2);
+    if (latestText) latestText.textContent = "最新移動良率：0%";
+    if (countText) countText.textContent = "顯示 0 筆";
+    return;
+  }
+
+  const points = data.map((item, index) => {
+    const windowItems = data.slice(Math.max(0, index - 9), index + 1);
+    const ok = windowItems.filter(x => getStatusText(x) === "OK").length;
+    const total = windowItems.filter(x => ["OK", "NG"].includes(getStatusText(x))).length;
+    const rate = total > 0 ? Math.round((ok / total) * 100) : 0;
+    return {
+      rate,
+      time: getEventTimeMs(item)
+    };
+  });
+
+  // 折線
+  ctx.strokeStyle = "rgba(96,165,250,0.98)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  points.forEach((pt, i) => {
+    const x = xToPx(i, points.length);
+    const y = yToPx(pt.rate);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // 點
+  points.forEach((pt, i) => {
+    const x = xToPx(i, points.length);
+    const y = yToPx(pt.rate);
+    ctx.fillStyle = pt.rate < threshold ? "rgba(248,113,113,0.98)" : "rgba(96,165,250,0.98)";
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // X 軸時間：首、中、尾
+  ctx.font = "12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+  ctx.fillStyle = "rgba(203,213,225,0.70)";
+  ctx.textBaseline = "top";
+  const labelIndexes = points.length >= 3 ? [0, Math.floor((points.length - 1) / 2), points.length - 1] : [0, points.length - 1];
+  [...new Set(labelIndexes)].forEach(i => {
+    const time = points[i]?.time;
+    if (!time) return;
+    const text = new Date(time).toLocaleTimeString("zh-TW", { hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false });
+    const x = xToPx(i, points.length);
+    ctx.textAlign = i === 0 ? "left" : (i === points.length - 1 ? "right" : "center");
+    ctx.fillText(text, x, height - padding.bottom + 12);
+  });
+
+  const latest = points[points.length - 1]?.rate ?? 0;
+  if (latestText) latestText.textContent = `最新移動良率：${latest}%`;
+  if (countText) countText.textContent = `顯示 ${data.length} 筆`;
+}
+
+function getNgImageUrl(item){
+  if (!item) return "";
+  return item.image_url || item.imageUrl || item.snapshot_url || item.snapshotUrl || item.snapshot || item.photo_url || item.photoUrl || item.ng_image_url || item.ngImageUrl || item.img || "";
+}
+
+function renderNgImageArchive(list = latestDashboardList){
+  const area = document.getElementById("ngImageList");
+  if (!area) return;
+
+  const ngList = [...(Array.isArray(list) ? list : [])]
+    .filter(item => getStatusText(item) === "NG")
+    .sort((a, b) => getEventTimeMs(b) - getEventTimeMs(a))
+    .slice(0, 12);
+
+  if (ngList.length === 0) {
+    area.innerHTML = `<div class="ngImageEmpty">目前沒有 NG 圖片或 NG 紀錄。</div>`;
+    return;
+  }
+
+  area.innerHTML = ngList.map(item => {
+    const imgUrl = getNgImageUrl(item);
+    const id = escapeHtml(item.id || item.case_id || item.caseId || "-");
+    const product = escapeHtml(item.product || "未分類");
+    const timeText = getEventTimeMs(item)
+      ? new Date(getEventTimeMs(item)).toLocaleString("zh-TW", { hour12:false })
+      : "-";
+
+    return `
+      <div class="ngImageItem">
+        <div class="ngImageThumb">
+          ${imgUrl
+            ? `<img src="${escapeHtml(imgUrl)}" alt="NG 瑕疵圖片" loading="lazy" onerror="this.parentElement.textContent='圖片讀取失敗';">`
+            : `<span>此筆沒有圖片欄位</span>`}
+        </div>
+        <div class="ngImageMeta">
+          <div>ID：${id}</div>
+          <div>產品：${product}</div>
+          <div>時間：${escapeHtml(timeText)}</div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+async function getSystemsForRanking(){
+  const tenantId = getCurrentTenantId();
+  const currentSystemId = getCurrentSystemId();
+
+  try {
+    if (tenantId) {
+      const systems = await apiFetch(`/api/systems?tenant_id=${encodeURIComponent(tenantId)}`);
+      if (Array.isArray(systems) && systems.length > 0) {
+        const seen = new Set();
+        return systems
+          .filter(sys => sys?.system_id && !seen.has(sys.system_id) && seen.add(sys.system_id))
+          .map(sys => ({
+            system_id: sys.system_id,
+            system_name: sys.system_name || sys.name || "目前檢視機台"
+          }));
+      }
+    }
+  } catch (e) {
+    console.warn("讀取機台清單失敗，改用目前機台", e);
+  }
+
+  return currentSystemId
+    ? [{ system_id: currentSystemId, system_name: "目前檢視機台" }]
+    : [];
+}
+
+async function loadMachineRanking(force = false){
+  const rowsEl = document.getElementById("machineRankingRows");
+  const footerEl = document.getElementById("machineRankingFooter");
+  if (!rowsEl) return;
+
+  const now = Date.now();
+  if (!force && now - lastMachineRankingLoadTime < 15000) return;
+  lastMachineRankingLoadTime = now;
+
+  try {
+    if (footerEl) footerEl.textContent = "排行讀取中...";
+
+    const tenantId = getCurrentTenantId();
+    const systems = await getSystemsForRanking();
+
+    if (systems.length === 0) {
+      rowsEl.innerHTML = `<div class="rank-row"><div>-</div><div>尚未選擇機台</div><div>0</div><div>0</div><div>0</div><div>0%</div><div>-</div></div>`;
+      if (footerEl) footerEl.textContent = "沒有可比較的機台。";
+      return;
+    }
+
+    const settings = loadYieldAlertSettings();
+
+    const ranking = await Promise.all(systems.map(async sys => {
+      const params = new URLSearchParams();
+      if (tenantId) params.append("tenant_id", tenantId);
+      if (sys.system_id) params.append("system_id", sys.system_id);
+
+      let data = [];
+      try {
+        const result = await apiFetch(`/api/defects?${params.toString()}`);
+        data = Array.isArray(result) ? result : [];
+      } catch (e) {
+        console.warn("讀取機台資料失敗", sys.system_id, e);
+      }
+
+      const valid = data.filter(item => ["OK", "NG"].includes(getStatusText(item)));
+      const ok = valid.filter(item => getStatusText(item) === "OK").length;
+      const ng = valid.filter(item => getStatusText(item) === "NG").length;
+      const total = ok + ng;
+      const yieldRate = total > 0 ? Math.round((ok / total) * 1000) / 10 : 0;
+      const abnormal = total >= settings.minSamples && yieldRate < settings.yieldThreshold;
+
+      return {
+        ...sys,
+        total,
+        ok,
+        ng,
+        yieldRate,
+        abnormal
+      };
+    }));
+
+    ranking.sort((a, b) => {
+      if (a.total === 0 && b.total > 0) return 1;
+      if (b.total === 0 && a.total > 0) return -1;
+      if (a.yieldRate !== b.yieldRate) return a.yieldRate - b.yieldRate;
+      return b.total - a.total;
+    });
+
+    rowsEl.innerHTML = ranking.map((item, index) => {
+      const yieldClass = item.abnormal ? "rank-yield-bad" : "rank-yield-good";
+      const statusClass = item.abnormal ? "rank-status-abnormal" : "rank-status-normal";
+      const statusText = item.abnormal ? "異常" : "正常";
+
+      return `
+        <div class="rank-row rank-body-row">
+          <div>${index + 1}</div>
+          <div class="rank-system-main">
+            <span class="rank-system-id">${escapeHtml(item.system_id)}</span>
+            <span class="rank-system-name">${escapeHtml(item.system_name || "目前檢視機台")}</span>
+          </div>
+          <div>${item.total}</div>
+          <div class="rank-ok">${item.ok}</div>
+          <div class="rank-ng">${item.ng}</div>
+          <div class="${yieldClass}">${item.yieldRate}%</div>
+          <div><span class="rank-status-pill ${statusClass}">${statusText}</span></div>
+        </div>
+      `;
+    }).join("");
+
+    if (footerEl) {
+      footerEl.textContent = `最後更新：${new Date().toLocaleString("zh-TW", { hour12:false })}｜已讀取 ${ranking.reduce((sum, x) => sum + x.total, 0)} 筆資料。排行依目前客戶 ${tenantId || "-"} 分開計算。`;
+    }
+  } catch (e) {
+    console.error(e);
+    if (footerEl) footerEl.textContent = "讀取排行失敗。";
+  }
+}
 
 function getProductStorageKey() {
   const tenantId = sessionStorage.getItem("tenant_id") || "defaultTenant";
@@ -1251,8 +2429,9 @@ function loadSelectedProducts() {
 function normalizeProductName(name) {
   if (!name) return "未分類"; // ⭐ 先擋掉 null/undefined
 
-  const s = String(name)
-  .trim()
+  const original = String(name).trim();
+
+  const s = original
   .toLowerCase()
   .replace(/\s+/g, "")
   .replace(/[^\u4e00-\u9fa5a-z0-9]/g, ""); // ⭐ 清掉奇怪符號
@@ -1266,7 +2445,8 @@ function normalizeProductName(name) {
   if (s.includes("立可帶") || s.includes("修正帶") || s.includes("tape")) return "立可帶";
   if (s.includes("螺帽") || s.includes("螺母") || s.includes("nut")) return "螺帽";
 
-  return "未分類";
+  // ⭐ 不認識的產品不要丟掉，直接保留原本名稱（例如：手機殼、書本）
+  return original;
 }
 
 async function apiFetch(url, options = {}) {
@@ -1542,6 +2722,7 @@ async function loadDashboardStats() {
   try {
     const data = await apiFetch(buildDefectsUrl());
     const list = Array.isArray(data) ? data : [];
+    latestDashboardList = list;
 
 // 1. 先整理 MongoDB 裡實際存在的產品
 const dbProducts = [
@@ -1559,6 +2740,9 @@ const displayProducts = [
     ...dbProducts
   ])
 ].filter(p => p && p !== "未分類");
+
+latestTrendProducts = displayProducts;
+updateTrendProductOptions(displayProducts);
 
 // 3. 只統計要顯示的產品資料
 const filteredList = displayProducts.length === 0
@@ -1665,7 +2849,10 @@ const totalNgEl = document.getElementById("totalNg");
 
 if (totalOkEl) totalOkEl.textContent = totalOK;
 if (totalNgEl) totalNgEl.textContent = totalNG;
-   
+
+checkYieldAlerts(filteredList, productStats, totalOK, totalNG);
+renderYieldTrend();
+renderNgImageArchive(list);
 
     showError("");
   } catch (e) {
@@ -1976,10 +3163,12 @@ list.forEach(t => {
 
   loadSelectedProducts();
   renderProductList();
+  renderYieldAlertSettings();
 
   await loadSiteConfig();
   await startCamera();
   await window.refreshDashboard();
+  await loadMachineRanking(true);
 });
 }
 
@@ -1991,6 +3180,7 @@ window.refreshDashboard = async function() {
     await loadDefects();
     await loadLatestMqtt();
     await loadSummary();
+    await loadMachineRanking(false);
   } catch (e) {
     console.warn("刷新失敗（已忽略）", e);
   }
@@ -2059,6 +3249,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 loadSelectedProducts();
 renderProductList();
+renderYieldAlertSettings();
 
   if (systemSelect) {
     systemSelect.addEventListener("change", async (e) => {
@@ -2067,10 +3258,12 @@ renderProductList();
 
   loadSelectedProducts();
   renderProductList();
+  renderYieldAlertSettings();
 
   await loadSiteConfig();
   await window.refreshDashboard();
   await startCamera();
+  await loadMachineRanking(true);
 });
   }
 
@@ -2091,6 +3284,8 @@ renderProductList();
   await loadSiteConfig();
   await window.refreshDashboard();
   await startCamera();
+  await loadMachineRanking(true);
+  window.addEventListener("resize", () => renderYieldTrend());
 });
 </script>
 
