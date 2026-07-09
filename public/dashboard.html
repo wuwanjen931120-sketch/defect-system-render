@@ -1389,76 +1389,129 @@ if (!token) {
 
 
   
-/* ===== 側邊欄對齊修正：讓首頁左側選單跟事件紀錄頁一致 ===== */
+
+/* ===== 側邊欄完全同步版：讓首頁和事件紀錄頁一樣 ===== */
+.sidebar .brand p{
+  display:block !important;
+  font-size:12px !important;
+  color:var(--muted) !important;
+  margin:3px 0 0 !important;
+  font-weight:500 !important;
+}
+
+.sidebar .nav{
+  display:flex !important;
+  flex-direction:column !important;
+  gap:12px !important;
+}
+
 .sidebar .nav a{
-  display:grid !important;
-  grid-template-columns:minmax(0, 1fr) auto;
-  align-items:center;
-  gap:12px;
-  width:100%;
-  min-height:62px;
-  padding:0 18px;
-  box-sizing:border-box;
-  overflow:hidden;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:space-between !important;
+  gap:12px !important;
+  min-height:56px !important;
+  height:56px !important;
+  padding:0 18px !important;
+  margin:0 !important;
+  border-radius:20px !important;
+  background:linear-gradient(180deg, rgba(40,78,130,.95), rgba(30,58,95,.95)) !important;
+  color:#ffffff !important;
+  border:1px solid rgba(255,255,255,.16) !important;
+  font-size:16px !important;
+  font-weight:800 !important;
+  line-height:1.2 !important;
+  text-decoration:none !important;
+  box-sizing:border-box !important;
+  box-shadow:none !important;
 }
 
-.sidebar .nav a .nav-label{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-.sidebar .nav a .pill{
-  display:inline-flex !important;
-  align-items:center;
-  justify-content:center;
-  flex:0 0 auto;
-  min-width:74px;
-  height:32px;
-  padding:0 14px !important;
-  margin-left:0 !important;
-  border-radius:999px;
-  font-size:14px !important;
-  font-weight:500;
-  line-height:1;
-  white-space:nowrap;
-  box-sizing:border-box;
-}
-
-.sidebar .nav a[href="admin.html"] .pill{
-  min-width:74px;
+.sidebar .nav a:hover{
+  background:linear-gradient(180deg, rgba(52,100,165,.98), rgba(37,72,118,.98)) !important;
+  border-color:rgba(255,255,255,.22) !important;
+  box-shadow:0 8px 18px rgba(0,0,0,.18) !important;
 }
 
 .sidebar .nav a.active{
   background:linear-gradient(180deg, rgba(58,106,172,1), rgba(44,83,136,1)) !important;
   border-color:rgba(160,205,255,.45) !important;
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.08), 0 8px 18px rgba(0,0,0,.22) !important;
+  color:#ffffff !important;
+}
+
+.sidebar .nav a .nav-label{
+  display:flex !important;
+  align-items:center !important;
+  gap:10px !important;
+  min-width:0 !important;
+  flex:1 1 auto !important;
+  white-space:nowrap !important;
+  overflow:visible !important;
+}
+
+.sidebar .nav .pill,
+.sidebar .pill{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  min-width:74px !important;
+  width:74px !important;
+  height:32px !important;
+  padding:0 14px !important;
+  margin-left:auto !important;
+  border-radius:999px !important;
+  background:rgba(8,20,40,.28) !important;
+  border:1px solid rgba(255,255,255,.14) !important;
+  color:rgba(231,238,252,.92) !important;
+  font-size:14px !important;
+  font-weight:500 !important;
+  line-height:1 !important;
+  white-space:nowrap !important;
+  flex:0 0 74px !important;
+  box-sizing:border-box !important;
+  text-decoration:none !important;
 }
 
 .sidebar .nav a.active .pill{
-  background:rgba(9,25,48,.22);
-  border-color:rgba(255,255,255,.18);
-  color:#eaf2ff;
+  background:rgba(9,25,48,.22) !important;
+  border-color:rgba(255,255,255,.18) !important;
+  color:#eaf2ff !important;
 }
 
-@media (max-width: 768px){
-  .sidebar .nav a{
-    min-height:54px;
-    padding:0 16px;
-  }
-
-  .sidebar .nav a .pill{
-    min-width:68px;
-    height:30px;
-    font-size:13px !important;
-    padding:0 12px !important;
-  }
+.sidebar .side-footer{
+  border-top:1px solid rgba(255,255,255,.10) !important;
+  margin-top:18px !important;
+  padding-top:12px !important;
+  display:flex !important;
+  flex-direction:column !important;
+  gap:10px !important;
 }
 
+.sidebar .side-footer .btn{
+  width:100% !important;
+  min-height:56px !important;
+  height:56px !important;
+  padding:0 18px !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+  border-radius:20px !important;
+  font-size:16px !important;
+  font-weight:800 !important;
+  line-height:1.35 !important;
+  background:rgba(14,31,53,.88) !important;
+  color:#ffffff !important;
+  border:1px solid rgba(255,255,255,.12) !important;
+  box-sizing:border-box !important;
+  text-decoration:none !important;
+}
+
+@media (max-width:768px){
+  .sidebar .nav a{min-height:54px !important;height:54px !important;padding:0 16px !important;font-size:15px !important;}
+  .sidebar .nav .pill,.sidebar .pill{min-width:68px !important;width:68px !important;height:30px !important;font-size:13px !important;padding:0 12px !important;flex-basis:68px !important;}
+  .sidebar .side-footer .btn{min-height:54px !important;height:54px !important;font-size:15px !important;padding:0 16px !important;}
+}
 </style>
 
   <link rel="manifest" href="manifest.webmanifest">
@@ -1509,11 +1562,8 @@ if (!token) {
       </div>
 
       <div class="side-footer">
-        <div>狀態：<span style="color:var(--good); font-weight:800;">● 正常</span></div>
-        <div>提示：此頁已接後端 API。</div>
-        <div style="margin-top:10px;">
-          <button type="button" class="btn" onclick="handleHardReset(event)">修復灰底/警告（清快取）</button>
-        </div>
+        <button type="button" class="btn" onclick="handleHardReset(event)">修復灰底/警告（清快取）</button>
+        <button type="button" class="btn" onclick="logout()">登出</button>
       </div>
     </div>
   </aside>
@@ -1556,10 +1606,8 @@ if (!token) {
       </div>
 
       <div class="side-footer">
-        <div>系統概念：即時檢測 + 分流統計 + 遠端急停</div>
-        <div style="margin-top:10px;">
-          <button class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button>
-        </div>
+        <button type="button" class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button>
+        <button type="button" class="btn" onclick="logout()">登出</button>
       </div>
     </aside>
 
@@ -3358,6 +3406,16 @@ renderYieldAlertSettings();
   await loadMachineRanking(true);
   window.addEventListener("resize", () => renderYieldTrend());
 });
+
+
+// 側邊欄登出保險：如果 core.js 沒有提供 logout，就用這個
+if (typeof window.logout !== "function") {
+  window.logout = function(){
+    sessionStorage.clear();
+    localStorage.removeItem("token");
+    window.location.replace("login.html");
+  };
+}
 </script>
 
 </body>
