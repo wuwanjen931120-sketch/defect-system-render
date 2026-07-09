@@ -107,6 +107,72 @@
       font-size: 13px;
       line-height: 1.8;
     }
+
+    /* =========================
+       首頁按鈕：縮小立體按壓版
+       ========================= */
+    .btnRow .btn {
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 13px;
+      border: 1px solid rgba(96,165,250,.32);
+      background: linear-gradient(180deg, #2b5f9c, #1f4775);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow:
+        0 5px 0 rgba(8,20,40,.88),
+        0 10px 18px rgba(0,0,0,.25),
+        inset 0 1px 0 rgba(255,255,255,.16);
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+    }
+
+    .btnRow .btn:hover {
+      background: linear-gradient(180deg, #3a78bf, #245991);
+      border-color: rgba(147,197,253,.48);
+      transform: translateY(-1px);
+      box-shadow:
+        0 6px 0 rgba(8,20,40,.88),
+        0 13px 20px rgba(0,0,0,.32),
+        inset 0 1px 0 rgba(255,255,255,.22);
+    }
+
+    .btnRow .btn:active {
+      background: linear-gradient(180deg, #173a63, #0e2747);
+      transform: translateY(4px);
+      box-shadow:
+        0 2px 0 rgba(8,20,40,.96),
+        0 5px 10px rgba(0,0,0,.35),
+        inset 0 2px 8px rgba(0,0,0,.38);
+    }
+
+    .btnRow .btnPrimary {
+      background: linear-gradient(180deg, #2f7de8, #1d5fb8);
+      border-color: rgba(147,197,253,.55);
+    }
+
+    .btnRow .btnPrimary:hover {
+      background: linear-gradient(180deg, #4a90ff, #2563eb);
+    }
+
+    .btnRow .btnPrimary:active {
+      background: linear-gradient(180deg, #164a94, #12366f);
+    }
+
+    .btnRow .btnDanger {
+      background: linear-gradient(180deg, #b91c1c, #7f1d1d);
+      border-color: rgba(248,113,113,.45);
+    }
+
+    .btnRow .btnDanger:hover {
+      background: linear-gradient(180deg, #dc2626, #991b1b);
+      border-color: rgba(252,165,165,.55);
+    }
+
+    .btnRow .btnDanger:active {
+      background: linear-gradient(180deg, #7f1d1d, #450a0a);
+    }
   </style>
 
   <script defer src="core.js"></script>
@@ -153,7 +219,11 @@
 
     document.getElementById("btnGo").addEventListener("click", () => {
       try {
-        const ok = localStorage.getItem("isLogin") === "true";
+        const ok =
+          sessionStorage.getItem("isLogin") === "true" ||
+          localStorage.getItem("isLogin") === "true" ||
+          !!sessionStorage.getItem("token");
+
         location.href = ok ? "dashboard.html" : "login.html";
       } catch (_) {
         location.href = "login.html";
@@ -178,9 +248,13 @@
 
     document.getElementById("btnEstop").addEventListener("click", async () => {
       try {
+        const token = sessionStorage.getItem("token") || "";
         const response = await fetch("/api/estop", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": token ? `Bearer ${token}` : ""
+          },
           body: JSON.stringify({ action: "emergency_stop" })
         });
         const data = await response.json();
