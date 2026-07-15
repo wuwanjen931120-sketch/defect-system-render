@@ -48,7 +48,7 @@
       const res = await fetch("/api/ai/status", { headers: { Authorization: "Bearer " + token } });
       const data = await res.json();
       aiDot.classList.toggle("on", !!data.enabled);
-      aiMode.textContent = data.enabled ? `OpenAI 模式｜${data.model}` : "本機統計模式｜未設定 OPENAI_API_KEY";
+      aiMode.textContent = data.enabled ? `Gemini API 免費層｜${data.model}` : "本機統計模式｜未設定 GEMINI_API_KEY";
     }catch(err){
       console.error(err);
       aiMode.textContent = "AI 狀態讀取失敗";
@@ -117,6 +117,13 @@
       if (!res.ok) throw new Error(data.message || "AI 回覆失敗");
 
       loading.textContent = data.reply || "沒有收到回覆";
+      if (data.mode === "local-summary-fallback") {
+        aiDot.classList.remove("on");
+        aiMode.textContent = "本機備援模式｜Gemini 暫時無法使用";
+      } else if (data.mode === "gemini") {
+        aiDot.classList.add("on");
+        aiMode.textContent = `Gemini API 免費層｜${data.model || "Gemini"}`;
+      }
       if (data.summary) {
         document.getElementById("statTotal").textContent = data.summary.total ?? "0";
         document.getElementById("statOk").textContent = data.summary.okCount ?? "0";
