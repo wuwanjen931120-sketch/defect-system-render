@@ -1463,30 +1463,36 @@ function buildLocalAiReply(message, summary) {
     }
   }
 
-  lines.push("若要更像 GPT 一樣用自然語言分析，請在 Render Environment Variables 加上 OPENAI_API_KEY。");
+  lines.push("若要由 Gemini AI 進行自然語言分析，請在 Render Environment Variables 加上 GEMINI_API_KEY。");
   return lines.join("\n");
 }
 
-function extractOpenAIText(responseData) {
-  if (responseData?.output_text) return responseData.output_text;
+function extractGeminiText(responseData) {
+  const candidates = Array.isArray(responseData?.candidates) ? responseData.candidates : [];
+  const text = candidates
+    .flatMap(candidate => candidate?.content?.parts || [])
+    .map(part => typeof part?.text === "string" ? part.text : "")
+    .filter(Boolean)
+    .join("\n")
+    .trim();
 
-  const output = responseData?.output || [];
-  for (const item of output) {
-    const content = item?.content || [];
-    for (const part of content) {
-      if (part?.text) return part.text;
-      if (part?.type === "output_text" && part?.text) return part.text;
-    }
+  if (text) return text;
+
+  const blockReason = responseData?.promptFeedback?.blockReason;
+  if (blockReason) {
+    return `Gemini 因安全限制未產生回答（${blockReason}）。請換一種問法再試一次。`;
   }
 
-  return "AI 已回應，但無法讀取文字內容。";
+  return "Gemini 已回應，但沒有可顯示的文字內容。";
 }
 
 app.get("/api/ai/status", auth, (req, res) => {
+  const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
   res.json({
-    enabled: Boolean(process.env.OPENAI_API_KEY),
-    model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-    mode: process.env.OPENAI_API_KEY ? "openai" : "local-summary"
+    enabled: Boolean(process.env.GEMINI_API_KEY),
+    provider: "gemini",
+    model,
+    mode: process.env.GEMINI_API_KEY ? "gemini" : "local-summary"
   });
 });
 
@@ -1506,54 +1512,89 @@ app.post("/api/ai/chat", auth, async (req, res) => {
       .lean();
     const summary = summarizeDefectsForAi(defects);
 
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return res.json({
         mode: "local-summary",
+        provider: "local",
         reply: buildLocalAiReply(message, summary),
         summary
       });
     }
 
-    const systemPrompt = `你是「瑕疵辨識與分流系統」的 AI 助理。請用繁體中文回答，語氣要像在教初學者。
+    const systemPrompt = `你是「瑕疵辨識與分流系統」的 AI 助理。請使用繁體中文回答，並以初學者能理解的方式說明。
 你只能根據下列系統功能與統計資料回答，不要假裝看到不存在的資料。
 系統功能：WebCam 即時預覽、MQTT 訊息接收、MongoDB 瑕疵紀錄、登入權限、首頁儀表板、事件紀錄、系統設定、緊急停止、產品良率與 NG 率分析。
 公式：良率 = OK ÷ (OK + NG) × 100%；NG率 = NG ÷ (OK + NG) × 100%。
-回答時優先給可操作建議，例如檢查 system_id、tenant_id、產品分類、MQTT payload、鏡頭光源、資料是否有存入 MongoDB。`;
+回答時優先提供可實際操作的建議，例如檢查 system_id、tenant_id、產品分類、MQTT payload、鏡頭、光源、治具位置，以及資料是否寫入 MongoDB。
+若資料不足，請明確說明只能提出可能原因，不能把推測當成事實。`;
 
-    const aiInput = [
-      { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: `使用者問題：${String(message).slice(0, 2000)}\n\n目前可用統計資料：\n${JSON.stringify(summary, null, 2).slice(0, 12000)}`
-      }
-    ];
+    const userPrompt = `使用者問題：${String(message).slice(0, 2000)}
 
-    const aiResponse = await axios.post(
-      "https://api.openai.com/v1/responses",
-      {
-        model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
-        input: aiInput,
-        temperature: 0.2
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
+目前可用統計資料：
+${JSON.stringify(summary, null, 2).slice(0, 12000)}`;
+    const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+
+    try {
+      const aiResponse = await axios.post(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          systemInstruction: {
+            parts: [{ text: systemPrompt }]
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: userPrompt }]
+            }
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1200
+          }
         },
-        timeout: 30000
-      }
-    );
+        {
+          headers: {
+            "x-goog-api-key": process.env.GEMINI_API_KEY,
+            "Content-Type": "application/json"
+          },
+          timeout: 30000
+        }
+      );
 
-    res.json({
-      mode: "openai",
-      reply: extractOpenAIText(aiResponse.data),
-      summary
-    });
+      return res.json({
+        mode: "gemini",
+        provider: "gemini",
+        model,
+        reply: extractGeminiText(aiResponse.data),
+        summary
+      });
+    } catch (geminiError) {
+      const status = geminiError?.response?.status;
+      const apiMessage = geminiError?.response?.data?.error?.message || geminiError.message;
+      console.error("Gemini AI chat error:", geminiError?.response?.data || geminiError.message);
+
+      const reason = status === 429
+        ? "Gemini 免費額度或速率限制已達上限"
+        : "Gemini 暫時無法連線";
+
+      return res.json({
+        mode: "local-summary-fallback",
+        provider: "local",
+        model,
+        warning: `${reason}，已自動切換成本機統計模式。`,
+        reply: `${reason}，已自動切換成本機統計模式。
+
+${buildLocalAiReply(message, summary)}`,
+        summary,
+        error_code: status || null,
+        error_detail: process.env.NODE_ENV === "development" ? apiMessage : undefined
+      });
+    }
   } catch (err) {
     console.error("AI chat error:", err?.response?.data || err.message);
-    res.status(500).json({
-      message: "AI 助理暫時無法回覆，請檢查 OPENAI_API_KEY 或網路連線。",
-      fallback: err.message
+    return res.status(500).json({
+      message: "AI 助理暫時無法回覆，請稍後再試。",
+      fallback: process.env.NODE_ENV === "development" ? err.message : undefined
     });
   }
 });
