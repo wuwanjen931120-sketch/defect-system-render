@@ -1,58 +1,69 @@
-# AI 助理 Render 部署說明
+# Gemini AI 助理 Render 部署說明
 
-這版已經不是 WordPress 外掛，而是直接把「AI Engine 類似功能」加進原本的 Node.js / Express 瑕疵辨識網站。
+這個版本已將網站的 OpenAI API 呼叫改為 **Gemini API 免費層**，AI 頁面與原本的登入、MQTT、MongoDB、良率統計功能都保留。
 
-## 新增功能
+## 已修改的功能
 
-- 新增頁面：`/ai.html`
-- 新增前端：`public/ai.js`
-- 新增後端 API：
+- AI 頁面：`/ai.html`
+- 前端：`public/ai.js`
+- 後端：`server.cjs`
+- 後端 API：
   - `GET /api/ai/status`
   - `POST /api/ai/chat`
-- 側邊欄會自動增加「🤖 AI 助理」
-- 右下角會出現「🤖 AI 助理」浮動按鈕
-- 可依登入者權限查詢 MongoDB 的 defects 資料
-- 可回答：
-  - 良率 = OK ÷ (OK + NG) × 100%
-  - NG率 = NG ÷ (OK + NG) × 100%
+- 依登入者權限查詢 MongoDB 的 defects 資料
+- Gemini 可以分析：
+  - 良率與 NG 率
   - 哪個產品 NG 最多
   - 最近 20 筆 NG 數
   - MQTT 測試資料格式
-  - 事件紀錄沒資料時要檢查什麼
+  - 事件紀錄沒資料時的檢查步驟
+- Gemini 額度用完或連線失敗時，自動切換成本機統計備援模式
 
-## Render 要新增的 Environment Variables
+## 第一步：建立免費 Gemini API Key
 
-到 Render → 你的 Web Service → Environment → Add Environment Variable：
+1. 登入 Google AI Studio。
+2. 建立或選擇一個 Google Cloud 專案。
+3. 建立 Gemini API Key。
+4. 不要把 API Key 寫進前端檔案或公開 GitHub。
+
+## 第二步：Render 新增 Environment Variables
+
+到 Render → Web Service → Environment，新增：
 
 ```env
-OPENAI_API_KEY=你的 OpenAI API Key
-OPENAI_MODEL=gpt-4.1-mini
+GEMINI_API_KEY=你的 Gemini API Key
+GEMINI_MODEL=gemini-3.1-flash-lite
 ```
 
-沒有設定 `OPENAI_API_KEY` 時，AI 頁面仍可使用，但會是「本機統計模式」，只會根據 OK/NG 統計固定分析。
+`gemini-3.1-flash-lite` 支援 Gemini API 免費層，適合這個網站的統計分析與一般問答。實際免費次數與速率限制，以 Google AI Studio 專案顯示為準。
 
-## 部署步驟
+若沒有設定 `GEMINI_API_KEY`，AI 頁面仍可使用，但會顯示「本機統計模式」。
 
-1. 把這包檔案上傳或 push 到 GitHub。
-2. Render 會自動重新部署。
-3. 部署完成後，打開：
+## 第三步：重新部署
+
+1. 把修改後的檔案 push 到 GitHub。
+2. 到 Render 選擇 `Manual Deploy` → `Deploy latest commit`。
+3. 部署完成後打開：
 
 ```text
 https://defect-system-render.onrender.com/ai.html
 ```
 
-4. 登入後就可以使用 AI 助理。
+4. 登入後確認右上角顯示：
 
-## 更新後若看不到 AI 按鈕
+```text
+Gemini API 免費層｜gemini-3.1-flash-lite
+```
 
-因為網站有 Service Worker 快取，請按：
+## 更新後仍看到舊畫面
 
-- 首頁的「修復灰底／警告（清快取）」
-- 或瀏覽器按 `Ctrl + F5`
+網站有 Service Worker 快取，可使用：
+
+- 網站內的「修復快取」功能
+- 瀏覽器按 `Ctrl + F5`
+- 或清除該網站的快取後重新登入
 
 ## MQTT 測試格式範例
-
-單筆 OK：
 
 ```json
 {
@@ -63,8 +74,6 @@ https://defect-system-render.onrender.com/ai.html
   "product": "螺帽"
 }
 ```
-
-單筆 NG：
 
 ```json
 {

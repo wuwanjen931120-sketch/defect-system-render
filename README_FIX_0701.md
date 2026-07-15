@@ -14,10 +14,10 @@
    - server.cjs 使用 Brevo SMTP：smtp-relay.brevo.com:2525。
    - 不再使用 Gmail SMTP，避免 Render 上 Gmail 連線 timeout。
 
-4. OPENAI_API_KEY 說明
-   - 沒有 OPENAI_API_KEY 不會影響登入、事件紀錄、首頁、良率統計。
+4. GEMINI_API_KEY 說明
+   - 沒有 GEMINI_API_KEY 不會影響登入、事件紀錄、首頁、良率統計。
    - 沒有 key 時 AI 助理會使用本機統計模式。
-   - 想讓 AI 像 GPT 一樣自然回答，才需要在 Render Environment Variables 加上 OPENAI_API_KEY。
+   - 想讓 Gemini AI 自然回答，才需要在 Render Environment Variables 加上 GEMINI_API_KEY。
 
 ## 上傳方式
 
@@ -55,7 +55,7 @@ JWT_SECRET=任意長密碼
 HIVEMQ_USER=你的 HiveMQ 使用者
 HIVEMQ_PASS=你的 HiveMQ 密碼
 
-AI 真正 GPT 模式才需要：
+Gemini API 免費層模式需要：
 
-OPENAI_API_KEY=你的 OpenAI API Key
-OPENAI_MODEL=gpt-4.1-mini
+GEMINI_API_KEY=你的 Gemini API Key
+GEMINI_MODEL=gemini-3.1-flash-lite
