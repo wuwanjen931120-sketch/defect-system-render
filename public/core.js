@@ -44,6 +44,28 @@
     };
   }
 
+  function escapeHtml(value){
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+  window.escapeHtml = window.escapeHtml || escapeHtml;
+
+  function safeHtml(raw){
+    const text = String(raw ?? "");
+    if(window.DOMPurify){
+      return window.DOMPurify.sanitize(text, {
+        ALLOWED_TAGS:["div","span","b","strong","br","button","img","table","thead","tbody","tr","th","td","a","p"],
+        ALLOWED_ATTR:["class","href","src","alt","title","type","loading","style","aria-label"]
+      });
+    }
+    return escapeHtml(text);
+  }
+  window.safeHtml = safeHtml;
+
   function safeText(v, fallback="-"){
     try{
       if(v === undefined || v === null) return fallback;
@@ -54,16 +76,6 @@
     }
   }
   window.safeText = safeText;
-
-  function escapeHtml(value){
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-  window.escapeHtml = window.escapeHtml || escapeHtml;
 
   function safeNumber(v, fallback=0){
     try{

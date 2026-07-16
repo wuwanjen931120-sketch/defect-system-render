@@ -50,18 +50,12 @@ window.pushLog = function(state, text, note){
   if(state === "WARN"){ badgeClass = "warn"; badgeText = "WARN"; }
 
 
-  const timeTd = document.createElement("td");
-  timeTd.textContent = window.nowTime();
-  const stateTd = document.createElement("td");
-  const badge = document.createElement("span");
-  badge.className = `badge ${badgeClass}`;
-  badge.textContent = badgeText;
-  stateTd.appendChild(badge);
-  const textTd = document.createElement("td");
-  textTd.textContent = window.safeText(text, "-");
-  const noteTd = document.createElement("td");
-  noteTd.textContent = window.safeText(note, "");
-  tr.append(timeTd, stateTd, textTd, noteTd);
+  tr.innerHTML = `
+    <td>${window.escapeHtml(window.nowTime())}</td>
+    <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+    <td>${window.escapeHtml(window.safeText(text, "-"))}</td>
+    <td>${window.escapeHtml(window.safeText(note, ""))}</td>
+  `;
 
 
   body.prepend(tr);
@@ -124,12 +118,15 @@ window.setMqtt = function(online){
 
 window.demoEstop = async function(){
   try{
-    const systemId = sessionStorage.getItem("system_id") || "";
-    const tenantId = sessionStorage.getItem("tenant_id") || "";
-    if (!systemId) throw new Error("尚未選擇機台");
+    const role = sessionStorage.getItem("role") || "user";
+    if (!['super_admin','tenant_admin'].includes(role)) throw new Error("只有管理員可以使用緊急停止");
+    const system_id = sessionStorage.getItem("system_id") || "";
+    const tenant_id = sessionStorage.getItem("tenant_id") || "";
+    if (!system_id) throw new Error("請先選擇機台");
+    if (!confirm(`確定要停止機台 ${system_id} 嗎？`)) return;
     await apiFetch(`${API_BASE}/api/estop`, {
       method: "POST",
-      body: JSON.stringify({ system_id: systemId, tenant_id: tenantId })
+      body: JSON.stringify({ system_id, tenant_id })
     });
 
     pushLog("WARN", "ESTOP", "已觸發緊急停止");
@@ -291,7 +288,7 @@ async function loadDefects(){
 
     data.forEach(item => {
       const div = document.createElement("div");
-      div.textContent = `${window.safeText(item.id, "-")} - ${window.safeText(item.status, "-")} - ${window.safeText(item.timestamp, "-")}`;
+      div.textContent = `${item.id || "-"} - ${item.status || "-"} - ${item.timestamp || "-"}`;
       list.appendChild(div);
     });
 

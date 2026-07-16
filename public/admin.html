@@ -16,6 +16,7 @@
   <meta name="theme-color" content="#0b1220">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script defer src="vendor/dompurify.min.js"></script>
   <script defer src="core.js"></script>
 
   <style>
@@ -368,32 +369,15 @@
         }
 
         data.forEach(u => {
-          const tr = document.createElement("tr");
-          const values = [
-            u.company || "未設定公司",
-            u.username || "-",
-            u.role || "-",
-            u.tenant_id || "-"
-          ];
-
-          values.forEach((value, index) => {
-            const td = document.createElement("td");
-            if (index === 1) {
-              const strong = document.createElement("b");
-              strong.textContent = value;
-              td.appendChild(strong);
-            } else if (index === 2) {
-              const badge = document.createElement("span");
-              badge.className = "badge";
-              badge.textContent = value;
-              td.appendChild(badge);
-            } else {
-              td.textContent = value;
-            }
-            tr.appendChild(td);
+          const row = document.createElement("tr");
+          [u.company || "未設定公司", u.username || "-", u.role || "-", u.tenant_id || "-"].forEach((value, index) => {
+            const cell = document.createElement("td");
+            if (index === 1) { const bold = document.createElement("b"); bold.textContent = value; cell.appendChild(bold); }
+            else if (index === 2) { const badge = document.createElement("span"); badge.className = "badge"; badge.textContent = value; cell.appendChild(badge); }
+            else cell.textContent = value;
+            row.appendChild(cell);
           });
-
-          table.appendChild(tr);
+          table.appendChild(row);
         });
 
       } catch (err) {
