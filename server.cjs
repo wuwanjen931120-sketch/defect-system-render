@@ -1,1511 +1,551 @@
-// ==========================================
-// 1. 套件引入與環境設定 (地基)
-// ==========================================
-const dns = require("dns");
-// Render 有時候連 Gmail SMTP 會先走 IPv6，但 Render 環境可能沒有 IPv6 出口，
-// 會出現 connect ENETUNREACH 2607:f8b0...:465。這裡強制 DNS 優先使用 IPv4。
-try { dns.setDefaultResultOrder("ipv4first"); } catch (_) {}
-dns.setServers(["8.8.8.8", "1.1.1.1"]); // 解決手機熱點 DNS 阻擋
-require("dotenv").config(); // 讀取保險箱 .env
+"use strict";
 
+const dns = require("dns");
+try { dns.setDefaultResultOrder("ipv4first"); } catch (_) {}
+require("dotenv").config();
+
+const crypto = require("crypto");
+const path = require("path");
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const { rateLimit } = require("express-rate-limit");
-const path = require("path");
-const crypto = require("crypto");
 const axios = require("axios");
 const mongoose = require("mongoose");
 const mqtt = require("mqtt");
 const nodemailer = require("nodemailer");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 const {
-  cleanText,
+  normalizeEmail,
   validatePassword,
-  normalizeDefectItem,
-  parsePagination,
-  parseCsv
-} = require("./lib/validators.cjs");
+  cleanText,
+  clampInt,
+  normalizeDefectPayload,
+  hashOtp
+} = require("./lib/security.cjs");
 
-// ==========================================
-// 2. 伺服器、資料庫與寄信系統設定 (內部部門)
-// ==========================================
 const app = express();
+app.set("trust proxy", 1);
+
 const PORT = Number(process.env.PORT || 5000);
+const NODE_ENV = process.env.NODE_ENV || "development";
 const JWT_SECRET = process.env.JWT_SECRET;
+const MONGODB_URI = process.env.MONGODB_URI;
+const MQTT_REPORT_TOPIC = process.env.MQTT_REPORT_TOPIC || "factory/defect/report";
+const MQTT_ESTOP_TOPIC_TEMPLATE = process.env.MQTT_ESTOP_TOPIC_TEMPLATE || "factory/control/estop/{system_id}";
+const MQTT_ESTOP_ACK_TOPIC = process.env.MQTT_ESTOP_ACK_TOPIC || "factory/control/estop/ack/+";
+const OTP_TTL_MINUTES = clampInt(process.env.OTP_TTL_MINUTES, 5, 2, 20);
+const OTP_RESEND_SECONDS = clampInt(process.env.OTP_RESEND_SECONDS, 60, 30, 600);
+const OTP_MAX_ATTEMPTS = clampInt(process.env.OTP_MAX_ATTEMPTS, 5, 3, 10);
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "4h";
+const ALERT_THRESHOLD = clampInt(process.env.ALERT_THRESHOLD, 3, 2, 100);
+const ALERT_WINDOW_MINUTES = clampInt(process.env.ALERT_WINDOW_MINUTES, 10, 1, 1440);
+const ALERT_COOLDOWN_MINUTES = clampInt(process.env.ALERT_COOLDOWN_MINUTES, 30, 1, 1440);
 
 function validateEnvironment() {
-  const missing = ["MONGODB_URI", "JWT_SECRET"].filter(name => !process.env[name]);
-  if (missing.length) {
-    throw new Error(`缺少必要環境變數：${missing.join(", ")}`);
-  }
-
-  const optionalGroups = [
-    ["HIVEMQ_USER", "HIVEMQ_PASS"],
-    ["BREVO_SMTP_LOGIN", "BREVO_SMTP_KEY"],
-    ["GEMINI_API_KEY"]
-  ];
-  optionalGroups.forEach(group => {
-    if (group.some(name => !process.env[name])) {
-      console.warn(`⚠️ 選用功能尚未完整設定：${group.join(", ")}`);
-    }
-  });
+  const missing = [];
+  if (!MONGODB_URI) missing.push("MONGODB_URI");
+  if (!JWT_SECRET || JWT_SECRET.length < 32) missing.push("JWT_SECRET（至少 32 字元）");
+  if (missing.length) throw new Error(`缺少必要環境變數：${missing.join("、")}`);
 }
 validateEnvironment();
 
-app.set("trust proxy", 1);
-
-const defaultOrigins = [
-  "https://defect-system-render.onrender.com",
+const allowedOrigins = new Set([
+  ...String(process.env.ALLOWED_ORIGINS || "").split(",").map(v => v.trim()).filter(Boolean),
+  process.env.APP_BASE_URL,
   "http://localhost:5000",
   "http://127.0.0.1:5000"
-];
-const allowedOrigins = new Set([
-  ...defaultOrigins,
-  ...String(process.env.CORS_ORIGINS || "").split(",").map(v => v.trim()).filter(Boolean),
-  process.env.RENDER_EXTERNAL_URL,
-  process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : ""
-].filter(Boolean).map(v => v.replace(/\/$/, "")));
+].filter(Boolean));
 
+app.use((req, res, next) => {
+  req.requestId = req.headers["x-request-id"] || crypto.randomUUID();
+  res.setHeader("X-Request-Id", req.requestId);
+  next();
+});
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin.replace(/\/$/, ""))) {
-      return callback(null, true);
-    }
-    return callback(new Error("此來源不在 CORS 允許清單"));
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    return callback(Object.assign(new Error("此來源不允許呼叫 API"), { status: 403 }));
   },
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  maxAge: 86400
+  allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
+  maxAge: 600
 }));
-
-const cspDirectives = {
-  defaultSrc: ["'self'"],
-  scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
-  styleSrc: ["'self'", "'unsafe-inline'"],
-  imgSrc: ["'self'", "data:", "blob:", "https:"],
-  connectSrc: ["'self'", "https://generativelanguage.googleapis.com", "https:", "wss:"],
-  fontSrc: ["'self'", "data:"],
-  mediaSrc: ["'self'", "blob:"],
-  workerSrc: ["'self'", "blob:"],
-  objectSrc: ["'none'"],
-  baseUri: ["'self'"],
-  formAction: ["'self'"],
-  frameAncestors: ["'none'"]
-};
-if (process.env.NODE_ENV !== "production") cspDirectives.upgradeInsecureRequests = null;
-
 app.use(helmet({
-  contentSecurityPolicy: { directives: cspDirectives },
-  crossOriginEmbedderPolicy: false
-}));
-app.use(express.json({ limit: "1mb" }));
-
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 300,
-  standardHeaders: "draft-8",
-  legacyHeaders: false,
-  message: { message: "請求次數過多，請稍後再試" }
-});
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
-  standardHeaders: "draft-8",
-  legacyHeaders: false,
-  message: { message: "登入或驗證嘗試過多，請 15 分鐘後再試" }
-});
-const aiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 40,
-  standardHeaders: "draft-8",
-  legacyHeaders: false,
-  message: { message: "AI 查詢次數過多，請稍後再試" }
-});
-app.use("/api", apiLimiter);
-
-// ================= 信箱驗證碼暫存 =================
-// 單機展示版仍使用記憶體；已加入到期、重寄冷卻與錯誤次數上限。
-const loginCodeStore = new Map();
-const OTP_TTL_MS = 5 * 60 * 1000;
-const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
-const OTP_MAX_ATTEMPTS = 5;
-
-function makeLoginCode() {
-  return String(crypto.randomInt(100000, 1000000));
-}
-
-// Render 部署：由同一個 Node.js 服務提供前端網頁
-app.use(express.static(path.join(__dirname, "public"), {
-  etag: true,
-  maxAge: process.env.NODE_ENV === "production" ? "1h" : 0,
-  setHeaders(res, filePath) {
-    if (filePath.endsWith(".html") || filePath.endsWith("sw.js")) {
-      res.setHeader("Cache-Control", "no-cache");
+  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      baseUri: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      mediaSrc: ["'self'", "blob:"],
+      connectSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      fontSrc: ["'self'", "data:"]
     }
-  }
-}));
-
-
-app.post("/api/register", loginLimiter, async (req, res) => {
-  const session = await mongoose.startSession();
-
-  try {
-    session.startTransaction();
-
-  const { company, username, password, invite_code } = req.body;
-
-if (!company || !username || !password) {
-  await session.abortTransaction();
-  session.endSession();
-  return res.status(400).json({ message: "資料不完整" });
-}
-
-const normalizedUsername = cleanText(username, 160).toLowerCase();
-const normalizedCompany = cleanText(company, 120);
-const passwordCheck = validatePassword(password);
-if (!passwordCheck.valid) {
-  await session.abortTransaction();
-  session.endSession();
-  return res.status(400).json({ message: passwordCheck.message });
-}
-if (process.env.REGISTRATION_INVITE_CODE && invite_code !== process.env.REGISTRATION_INVITE_CODE) {
-  await session.abortTransaction();
-  session.endSession();
-  return res.status(403).json({ message: "註冊邀請碼不正確" });
-}
-
-    const usersCol = mongoose.connection.collection("users");
-    const tenantsCol = mongoose.connection.collection("tenants");
-    const systemsCol = mongoose.connection.collection("systems");
-
-const exist = await usersCol.findOne({
-  $or: [
-    { username: normalizedUsername },
-    { email: normalizedUsername }
-  ]
-});
-    if (exist) {
-  await session.abortTransaction();
-  session.endSession();
-  return res.status(400).json({ message: "帳號已存在" });
-}
-
-    const tenant_id = "T" + Date.now();
-    const system_id = "S" + Date.now();
-
-    // 🔥 建立 tenant
-    await tenantsCol.insertOne({
-      tenant_id,
-      company: normalizedCompany,
-      createdAt: new Date()
-    }, { session });
-
-    // 🔥 密碼加密
-    const bcrypt = require("bcrypt");
-    const hash = await bcrypt.hash(password, 10);
-
-    // 🔥 建立 user
-    await usersCol.insertOne({
-  username: normalizedUsername,
-  email: normalizedUsername,
-  password: hash,
-  tenant_id,
-  role: "tenant_admin",
-  createdAt: new Date()
-}, { session });
-
-    // 🔥 建立 system
-    await systemsCol.insertOne({
-      tenant_id,
-      system_id,
-      name: "預設機台",
-      createdAt: new Date()
-    }, { session });
-
-    // ✅ 成功提交
-    await session.commitTransaction();
-    session.endSession();
-
-    res.json({
-      success: true,
-      tenant_id,
-      system_id
-    });
-
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-
-    console.error(err);
-    res.status(500).json({ message: "註冊失敗（已回滾）" });
-  }
-});
-
-
-
-
-
-app.post("/api/login", loginLimiter, async (req, res) => {
-  try {
-    if (process.env.ALLOW_PASSWORD_LOGIN !== "true") {
-      return res.status(403).json({ message: "請使用信箱驗證碼登入流程" });
-    }
-
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ message: "請輸入信箱與密碼" });
-    }
-
-    const usersCol = mongoose.connection.collection("users");
-    const systemsCol = mongoose.connection.collection("systems");
-
-    const user = await usersCol.findOne({
-      email: email.toLowerCase().trim()
-    });
-
-    if (!user) {
-      return res.status(401).json({ message: "信箱不存在，請先註冊" });
-    }
-
-    const bcrypt = require("bcrypt");
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: "密碼錯誤" });
-    }
-
-    let systems = [];
-
-    if (user.role === "super_admin") {
-      systems = await systemsCol.find({}).toArray();
-    } else if (user.role === "tenant_admin") {
-      systems = await systemsCol.find({ tenant_id: user.tenant_id }).toArray();
-    } else {
-      const assignedSystems = Array.isArray(user.systems) ? user.systems.filter(Boolean) : [];
-      systems = assignedSystems.length
-        ? await systemsCol.find({ tenant_id: user.tenant_id, system_id: { $in: assignedSystems } }).toArray()
-        : [];
-    }
-
-    const systemIds = systems.map(s => s.system_id);
-
-    const tokenPayload = {
-      id: user._id,
-      email: user.email,
-      name: user.name,
-      company: user.company,
-      tenant_id: user.tenant_id,
-      role: user.role,
-      systems: systemIds
-    };
-
-    const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: "8h" });
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        name: user.name,
-        company: user.company,
-        tenant_id: user.tenant_id,
-        role: user.role
-      },
-      systems: systemIds
-    });
-
-  } catch (err) {
-    console.error("登入錯誤：", err);
-    res.status(500).json({ message: "登入失敗" });
-  }
-});
-app.get("/api/admin/users", auth, requireRole("super_admin", "tenant_admin"), async (req, res) => {
-  try {
-    const usersCol = mongoose.connection.collection("users");
-    const tenantsCol = mongoose.connection.collection("tenants");
-
-    const query = {};
-
-    // 客戶管理員只能看自己公司的帳號
-    if (req.user.role === "tenant_admin") {
-      query.tenant_id = req.user.tenant_id;
-    }
-
-    const users = await usersCol.find(query).toArray();
-    const tenants = await tenantsCol.find().toArray();
-
-    const result = users.map(u => {
-      const t = tenants.find(x => x.tenant_id === u.tenant_id);
-
-      return {
-        username: u.username,
-        tenant_id: u.tenant_id,
-        company: t?.company || "未知",
-        role: u.role,
-        systems: Array.isArray(u.systems) ? u.systems : []
-      };
-    });
-
-    res.json(result);
-
-  } catch (err) {
-    console.error("admin users error:", err);
-    res.status(500).json({ message: "取得使用者失敗" });
-  }
-});
-
-
-app.get("/api/admin/collections", auth, requireRole("super_admin"), async (req, res) => {
-  const allowed = ["users", "tenants", "systems", "defects"];
-  res.json(allowed);
-});
-
-app.get("/api/admin/collection/:name", auth, requireRole("super_admin"), async (req, res) => {
-  try {
-    const { name } = req.params;
-
-    const allowed = ["users", "tenants", "systems", "defects"];
-
-    if (!allowed.includes(name)) {
-      return res.status(403).json({ message: "不允許讀取此 collection" });
-    }
-
-    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 100, maxLimit: 200 });
-    const projection = name === "users"
-      ? { password: 0, passwordHash: 0, otp: 0, token: 0, secret: 0 }
-      : {};
-    const collection = mongoose.connection.collection(name);
-    const [data, total] = await Promise.all([
-      collection.find({}, { projection }).sort({ _id: -1 }).skip(skip).limit(limit).toArray(),
-      collection.countDocuments({})
-    ]);
-
-    res.json({ data, page, limit, total, totalPages: Math.ceil(total / limit) });
-
-  } catch (err) {
-    console.error("Mongo admin error:", err);
-    res.status(500).json({ message: "讀取資料失敗" });
-  }
-});
-
-app.get("/api/predict", auth, async (req, res) => {
-  try {
-    const scope = await buildScopedDefectQuery(req.user, req.query);
-    if (scope.error) return res.status(scope.status).json({ message: scope.error });
-
-    const data = await Defect.find(scope.query).sort({ timestamp: -1 }).limit(20).lean();
-    const ng = data.filter(d => d.status === "NG").length;
-    res.json({ ng_count: ng, prediction: ng > 5 ? "高風險" : "正常", sample_size: data.length });
-  } catch (err) {
-    console.error("predict error:", err);
-    res.status(500).json({ message: "預測資料讀取失敗" });
-  }
-});
-app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admin"), async (req, res) => {
-  const session = await mongoose.startSession();
-
-  try {
-    session.startTransaction();
-
-    const { company, username, password, role, tenant_id, systems = [] } = req.body;
-
-    const usersCol = mongoose.connection.collection("users");
-    const tenantsCol = mongoose.connection.collection("tenants");
-    const systemsCol = mongoose.connection.collection("systems");
-
-    if (!username || !password || !role) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "資料不完整" });
-    }
-
-    const passwordCheck = validatePassword(password);
-    if (!passwordCheck.valid) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: passwordCheck.message });
-    }
-
-    const exist = await usersCol.findOne({ username });
-    if (exist) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "帳號已存在" });
-    }
-
-    let finalTenantId = tenant_id;
-
-    if (req.user.role === "super_admin") {
-      if (!finalTenantId) {
-        if (!company) {
-          await session.abortTransaction();
-          session.endSession();
-          return res.status(400).json({ message: "缺少公司名稱" });
-        }
-
-        finalTenantId = "T" + Date.now();
-        const system_id = "S" + Date.now();
-
-        await tenantsCol.insertOne({
-          tenant_id: finalTenantId,
-          company,
-          createdAt: new Date()
-        }, { session });
-
-        await systemsCol.insertOne({
-          tenant_id: finalTenantId,
-          system_id,
-          name: "預設機台",
-          createdAt: new Date()
-        }, { session });
-      }
-    }
-
-    if (req.user.role === "tenant_admin") {
-      finalTenantId = req.user.tenant_id;
-
-      if (role !== "user") {
-        await session.abortTransaction();
-        session.endSession();
-        return res.status(403).json({
-          message: "客戶管理員只能建立一般使用者"
-        });
-      }
-    }
-
-    const requestedSystems = Array.isArray(systems)
-      ? systems.map(id => cleanText(id, 100)).filter(Boolean)
-      : [];
-    const validSystems = requestedSystems.length
-      ? await systemsCol.find({ tenant_id: finalTenantId, system_id: { $in: requestedSystems } }, { session }).toArray()
-      : [];
-    if (validSystems.length !== requestedSystems.length) {
-      await session.abortTransaction();
-      session.endSession();
-      return res.status(400).json({ message: "包含不存在或不屬於此租戶的機台" });
-    }
-
-    const bcrypt = require("bcrypt");
-    const hash = await bcrypt.hash(password, 10);
-
-    await usersCol.insertOne({
-      username: cleanText(username, 160).toLowerCase(),
-      email: cleanText(username, 160).toLowerCase(),
-      password: hash,
-      tenant_id: finalTenantId,
-      role,
-      systems: role === "user" ? requestedSystems : [],
-      createdAt: new Date()
-    }, { session });
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.json({
-      success: true,
-      message: "帳號建立成功"
-    });
-
-  } catch (err) {
-    await session.abortTransaction();
-    session.endSession();
-
-    console.error("create-user error:", err);
-    res.status(500).json({ message: "建立帳號失敗（已回滾）" });
-  }
-});
-
-
-
-// 📧 Brevo 郵件系統設定（保留你原本可用的登入驗證碼寄信方式）
-// Render 連 Gmail SMTP 容易 timeout / IPv6 ENETUNREACH，這裡改回你原本使用的 Brevo SMTP。
-const MAIL_FROM = process.env.BREVO_SENDER_EMAIL || process.env.GMAIL_USER || process.env.BREVO_SMTP_LOGIN;
-const ALERT_EMAIL = process.env.ALERT_EMAIL || MAIL_FROM;
-
-const transporter = nodemailer.createTransport({
-  host: "smtp-relay.brevo.com",
-  port: Number(process.env.BREVO_SMTP_PORT || 2525),
-  secure: false,
-  auth: {
-    user: process.env.BREVO_SMTP_LOGIN,
-    pass: process.env.BREVO_SMTP_KEY
   },
-  connectionTimeout: 15000,
-  greetingTimeout: 15000,
-  socketTimeout: 20000
+  hsts: NODE_ENV === "production" ? { maxAge: 15552000, includeSubDomains: true } : false,
+  referrerPolicy: { policy: "same-origin" }
+}));
+app.use(express.json({ limit: "256kb", strict: true }));
+app.use(express.urlencoded({ extended: false, limit: "64kb" }));
+
+const publicDir = path.join(__dirname, "public");
+app.use((req, res, next) => {
+  if (/\.html$/i.test(req.path) || req.path === "/") res.setHeader("Cache-Control", "no-store");
+  next();
 });
+app.use(express.static(publicDir, { dotfiles: "deny", etag: true, index: "index.html", maxAge: NODE_ENV === "production" ? "1h" : 0 }));
 
-// ================= 寄送登入驗證碼 =================
-app.post("/api/login/send-code", loginLimiter, async (req, res) => {
-  try {
-    const { email, password } = req.body;
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false, message: { message: "登入嘗試過於頻繁，請稍後再試" } });
+const otpSendLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: "draft-8", legacyHeaders: false, message: { message: "驗證碼寄送過於頻繁，請稍後再試" } });
+const registerLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: "draft-8", legacyHeaders: false, message: { message: "註冊次數過多，請稍後再試" } });
+const aiLimiter = rateLimit({ windowMs: 60 * 1000, limit: clampInt(process.env.AI_REQUESTS_PER_MINUTE, 10, 1, 60), standardHeaders: "draft-8", legacyHeaders: false, message: { message: "AI 問題傳送過於頻繁，請稍後再試" } });
 
-    if (!email || !password) {
-      return res.status(400).json({ message: "請輸入信箱與密碼" });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-
-    const usersCol = mongoose.connection.collection("users");
-
-    const user = await usersCol.findOne({
-      $or: [
-        { email: normalizedEmail },
-        { username: normalizedEmail }
-      ]
-    });
-
-    if (!user) {
-      return res.status(401).json({ message: "信箱不存在，請先註冊" });
-    }
-
-    const bcrypt = require("bcrypt");
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: "密碼錯誤" });
-    }
-
-    const existingCode = loginCodeStore.get(normalizedEmail);
-    if (existingCode && Date.now() - existingCode.sentAt < OTP_RESEND_COOLDOWN_MS) {
-      const waitSeconds = Math.ceil((OTP_RESEND_COOLDOWN_MS - (Date.now() - existingCode.sentAt)) / 1000);
-      return res.status(429).json({ message: `請等待 ${waitSeconds} 秒後再寄送驗證碼` });
-    }
-
-    const code = makeLoginCode();
-    loginCodeStore.set(normalizedEmail, {
-      code,
-      expiresAt: Date.now() + OTP_TTL_MS,
-      sentAt: Date.now(),
-      attempts: 0
-    });
-
-    await transporter.sendMail({
-      from: MAIL_FROM,
-      to: user.email || user.username,
-      subject: "瑕疵辨識與分流系統登入驗證碼",
-      text: `您的登入驗證碼是：${code}\n\n此驗證碼 5 分鐘內有效。`
-    });
-
-    res.json({
-      success: true,
-      message: "驗證碼已寄出，請到信箱查看"
-    });
-
-  } catch (err) {
-    console.error("send-code error:", err);
-    res.status(500).json({
-      message: "驗證碼寄送失敗，請稍後再試",
-      detail: process.env.NODE_ENV === "development" ? err.message : undefined
-    });
-  }
-});
-
-// ================= 驗證登入驗證碼並登入 =================
-app.post("/api/login/verify-code", loginLimiter, async (req, res) => {
-  try {
-    const { email, code } = req.body;
-
-    if (!email || !code) {
-      return res.status(400).json({ message: "請輸入信箱與驗證碼" });
-    }
-
-    const normalizedEmail = email.toLowerCase().trim();
-    const saved = loginCodeStore.get(normalizedEmail);
-
-    if (!saved) {
-      return res.status(400).json({ message: "請先寄送驗證碼" });
-    }
-
-    if (Date.now() > saved.expiresAt) {
-      loginCodeStore.delete(normalizedEmail);
-      return res.status(400).json({ message: "驗證碼已過期，請重新寄送" });
-    }
-
-    if (String(code).trim() !== saved.code) {
-      saved.attempts = Number(saved.attempts || 0) + 1;
-      if (saved.attempts >= OTP_MAX_ATTEMPTS) {
-        loginCodeStore.delete(normalizedEmail);
-        return res.status(429).json({ message: "驗證碼錯誤次數過多，請重新寄送" });
-      }
-      loginCodeStore.set(normalizedEmail, saved);
-      return res.status(400).json({ message: `驗證碼錯誤，剩餘 ${OTP_MAX_ATTEMPTS - saved.attempts} 次` });
-    }
-
-    loginCodeStore.delete(normalizedEmail);
-
-    const usersCol = mongoose.connection.collection("users");
-    const systemsCol = mongoose.connection.collection("systems");
-
-    const user = await usersCol.findOne({
-  $or: [
-    { email: normalizedEmail },
-    { username: normalizedEmail }
-  ]
-});
-
-    if (!user) {
-      return res.status(401).json({ message: "信箱不存在" });
-    }
-
-    let systems = [];
-
-    if (user.role === "super_admin") {
-      systems = await systemsCol.find({}).toArray();
-    } else if (user.role === "tenant_admin") {
-      systems = await systemsCol.find({ tenant_id: user.tenant_id }).toArray();
-    } else {
-      const assignedSystems = Array.isArray(user.systems) ? user.systems.filter(Boolean) : [];
-      systems = assignedSystems.length
-        ? await systemsCol.find({ tenant_id: user.tenant_id, system_id: { $in: assignedSystems } }).toArray()
-        : [];
-    }
-
-    const systemIds = systems.map(s => s.system_id);
-
-    const tokenPayload = {
-      id: user._id,
-      email: user.email || user.username,
-      name: user.name,
-      company: user.company,
-      tenant_id: user.tenant_id,
-      role: user.role,
-      systems: systemIds
-    };
-
-    const token = jwt.sign(tokenPayload, JWT_SECRET, {
-      expiresIn: "8h"
-    });
-
-    res.json({
-      token,
-      user: {
-        id: user._id,
-        email: user.email || user.username,
-        name: user.name,
-        company: user.company,
-        tenant_id: user.tenant_id,
-        role: user.role
-      },
-      systems: systemIds
-    });
-
-  } catch (err) {
-    console.error("verify-code error:", err);
-    res.status(500).json({
-      message: "驗證登入失敗，請稍後再試",
-      detail: process.env.NODE_ENV === "development" ? err.message : undefined
-    });
-  }
-});
-
-// 🔔 異常警報設定：改用資料庫時間窗，避免服務重啟後歸零
-const ALERT_THRESHOLD = Number(process.env.ALERT_THRESHOLD || 3);
-const ALERT_WINDOW_MINUTES = Number(process.env.ALERT_WINDOW_MINUTES || 10);
-const ALERT_COOLDOWN_MINUTES = Number(process.env.ALERT_COOLDOWN_MINUTES || 10);
-
-// 💾 MongoDB 連線設定
-const dbUri = process.env.MONGODB_URI;
-
-mongoose
-  .connect(dbUri, {
-    serverSelectionTimeoutMS: 10000
-  })
-  .then(() => {
-    console.log("✅ MongoDB 連線成功！");
-
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`🚀 server running on ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error("❌ MongoDB 連線失敗：", err);
-  });
-
-// 📝 定義資料庫 Schema：正式改成 product
 const defectSchema = new mongoose.Schema({
-  tenant_id: { type: String, required: true, index: true },
-  user_id: { type: String, default: "unknown" },
-  system_id: { type: String, required: true, index: true },
-  id: { type: String, required: true },
-  status: { type: String, required: true, enum: ["OK", "NG"], index: true },
-  product: { type: String, required: true, default: "未分類", index: true },
+  tenant_id: { type: String, required: true, trim: true },
+  user_id: { type: String, default: "unknown", trim: true },
+  system_id: { type: String, required: true, trim: true },
+  id: { type: String, required: true, trim: true },
+  status: { type: String, enum: ["OK", "NG"], required: true, uppercase: true },
+  product: { type: String, default: "未分類", trim: true },
   timestamp: { type: Date, default: Date.now, index: true }
 }, { versionKey: false });
 defectSchema.index({ tenant_id: 1, system_id: 1, timestamp: -1 });
 defectSchema.index({ tenant_id: 1, product: 1, timestamp: -1 });
+const Defect = mongoose.model("Defect", defectSchema);
 
 const auditLogSchema = new mongoose.Schema({
-  tenant_id: { type: String, index: true },
-  system_id: { type: String, index: true },
-  user_id: String,
+  request_id: String,
+  actor_id: String,
+  actor_email: String,
   role: String,
-  action: { type: String, required: true, index: true },
+  tenant_id: String,
+  system_id: String,
+  action: { type: String, required: true },
   target: String,
-  payload: mongoose.Schema.Types.Mixed,
-  status: { type: String, default: "recorded" },
-  command_id: { type: String, index: true },
+  status: { type: String, default: "success" },
+  command_id: String,
+  details: mongoose.Schema.Types.Mixed,
   ip: String,
-  createdAt: { type: Date, default: Date.now, index: true }
-}, { versionKey: false });
+  createdAt: { type: Date, default: Date.now }
+}, { collection: "audit_logs", versionKey: false });
 auditLogSchema.index({ tenant_id: 1, createdAt: -1 });
-
-const Defect = mongoose.model("Defect", defectSchema);
+auditLogSchema.index({ command_id: 1 }, { sparse: true });
 const AuditLog = mongoose.model("AuditLog", auditLogSchema);
 
-// ==========================================
-// 3. MQTT 訊息接收與處理 (接收前線資料)
-// ==========================================
-const mqttOptions = {
-  port: 8883,
-  username: process.env.HIVEMQ_USER,
-  password: process.env.HIVEMQ_PASS
-};
+const MAIL_FROM = cleanText(process.env.BREVO_SENDER_EMAIL || process.env.GMAIL_USER || process.env.BREVO_SMTP_LOGIN, 200);
+const ALERT_EMAIL = cleanText(process.env.ALERT_EMAIL || MAIL_FROM, 200);
+const mailEnabled = Boolean(process.env.BREVO_SMTP_LOGIN && process.env.BREVO_SMTP_KEY && MAIL_FROM);
+const transporter = mailEnabled ? nodemailer.createTransport({
+  host: process.env.BREVO_SMTP_HOST || "smtp-relay.brevo.com",
+  port: clampInt(process.env.BREVO_SMTP_PORT, 2525, 1, 65535),
+  secure: String(process.env.BREVO_SMTP_SECURE || "false") === "true",
+  auth: { user: process.env.BREVO_SMTP_LOGIN, pass: process.env.BREVO_SMTP_KEY },
+  connectionTimeout: 15000,
+  greetingTimeout: 15000,
+  socketTimeout: 20000,
+  disableFileAccess: true,
+  disableUrlAccess: true
+}) : null;
 
-// 用來記錄 MQTT 狀態供前端查詢
-let isMqttConnected = false;
-let latestMqttMessage = null;
-
-const client = mqtt.connect(
-  "mqtts://487b901642cc4a189a7c7dfd277110a8.s1.eu.hivemq.cloud",
-  mqttOptions
-);
-
-client.on("connect", () => {
-  isMqttConnected = true;
-  console.log("✅ 成功連線到 HiveMQ 雲端郵局總局！");
-  client.subscribe(["factory/defect/report", "factory/control/ack"]);
-});
-
-client.on("offline", () => {
-  isMqttConnected = false;
-});
-
-client.on("error", (err) => {
-  isMqttConnected = false;
-  console.error("❌ MQTT 錯誤：", err);
-});
-
-
-
-async function evaluateNgAlert({ tenantId, systemId }) {
-  const windowStart = new Date(Date.now() - ALERT_WINDOW_MINUTES * 60 * 1000);
-  const recentNgCount = await Defect.countDocuments({
-    tenant_id: tenantId,
-    system_id: systemId,
-    status: "NG",
-    timestamp: { $gte: windowStart }
-  });
-  if (recentNgCount < ALERT_THRESHOLD) return;
-
-  const system = await mongoose.connection.collection("systems").findOne({ tenant_id: tenantId, system_id: systemId });
-  const lastAlertAt = system?.last_ng_alert_at ? new Date(system.last_ng_alert_at) : null;
-  const cooldownMs = ALERT_COOLDOWN_MINUTES * 60 * 1000;
-  if (lastAlertAt && Date.now() - lastAlertAt.getTime() < cooldownMs) return;
-
-  await mongoose.connection.collection("systems").updateOne(
-    { tenant_id: tenantId, system_id: systemId },
-    { $set: { last_ng_alert_at: new Date() } }
-  );
-
-  if (!process.env.BREVO_SMTP_LOGIN || !process.env.BREVO_SMTP_KEY || !ALERT_EMAIL) {
-    console.warn("⚠️ NG 已達警示門檻，但 SMTP 尚未設定完整");
-    return;
-  }
-
-  await transporter.sendMail({
-    from: MAIL_FROM,
-    to: ALERT_EMAIL,
-    subject: "🚨 產線異常",
-    text: `機台 ${systemId} 在最近 ${ALERT_WINDOW_MINUTES} 分鐘內已有 ${recentNgCount} 筆 NG。`
-  });
-}
-
-client.on("message", async (topic, message) => {
-  try {
-    if (topic === "factory/control/ack") {
-      const ack = JSON.parse(message.toString());
-      const commandId = cleanText(ack.command_id, 100);
-      if (commandId) {
-        await AuditLog.updateOne(
-          { command_id: commandId },
-          { $set: { status: cleanText(ack.status || "acknowledged", 40), ackAt: new Date(), ackPayload: ack } }
-        );
-      }
-      return;
-    }
-
-    if (topic !== "factory/defect/report") return;
-    const data = JSON.parse(message.toString());
-    const systemId = cleanText(data.system_id, 100);
-    if (!systemId) throw new Error("缺少 system_id");
-
-    const systemDoc = await mongoose.connection.collection("systems").findOne({ system_id: systemId });
-    if (!systemDoc) throw new Error("找不到機台");
-
-    const userDoc = await mongoose.connection.collection("users").findOne({ tenant_id: systemDoc.tenant_id });
-    const owner = { user_id: userDoc?.username || "unknown", tenant_id: systemDoc.tenant_id };
-    const rawItems = Array.isArray(data.items) ? data.items : [data];
-    if (!rawItems.length || rawItems.length > 100) throw new Error("items 數量必須介於 1 到 100 筆");
-
-    const normalizedItems = rawItems.map((item, index) => {
-      const result = normalizeDefectItem(item, systemDoc.current_product || "未分類");
-      if (!result.valid) throw new Error(`第 ${index + 1} 筆資料錯誤：${result.message}`);
-      return {
-        tenant_id: owner.tenant_id,
-        user_id: owner.user_id,
-        system_id: systemId,
-        ...result.value
-      };
-    });
-
-    await Defect.insertMany(normalizedItems, { ordered: true });
-    const latest = normalizedItems[normalizedItems.length - 1];
-    latestMqttMessage = {
-      payload: { id: latest.id, status: latest.status, product: latest.product, system_id: systemId },
-      timestamp: latest.timestamp
-    };
-
-    await evaluateNgAlert({ tenantId: owner.tenant_id, systemId });
-    console.log(`✅ MQTT 已存入 ${normalizedItems.length} 筆資料`);
-  } catch (error) {
-    console.error("❌ MQTT 處理錯誤:", error.message);
-  }
-});
-
-// ================= JWT 驗證 =================
+function asyncHandler(fn) { return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next); }
 function auth(req, res, next) {
-  const token = req.headers.authorization?.split(" ")[1];
-
+  const header = String(req.headers.authorization || "");
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
   if (!token) return res.status(401).json({ message: "未登入" });
-
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch {
-    return res.status(401).json({ message: "token錯誤" });
+    req.user = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"], issuer: "defect-system" });
+    return next();
+  } catch (_) {
+    return res.status(401).json({ message: "登入已過期，請重新登入" });
   }
 }
-function requireRole(...roles) {
-  return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: "無權限" });
-    }
-    next();
-  };
-}
+function requireRole(...roles) { return (req, res, next) => roles.includes(req.user?.role) ? next() : res.status(403).json({ message: "權限不足" }); }
+function userSystemIds(user) { return Array.isArray(user?.systems) ? user.systems.map(v => cleanText(v, 100)).filter(Boolean) : []; }
 
-function tokenSystems(user) {
-  return Array.isArray(user?.systems) ? user.systems.filter(Boolean) : [];
-}
-
-async function canAccessSystem(user, tenantId, systemId) {
-  if (!user || !systemId) return false;
-  if (user.role === "super_admin") {
-    return Boolean(await mongoose.connection.collection("systems").findOne({
-      ...(tenantId ? { tenant_id: tenantId } : {}),
-      system_id: systemId
-    }, { projection: { _id: 1 } }));
-  }
-  if (tenantId && tenantId !== user.tenant_id) return false;
-  if (user.role === "tenant_admin") {
-    return Boolean(await mongoose.connection.collection("systems").findOne({
-      tenant_id: user.tenant_id,
-      system_id: systemId
-    }, { projection: { _id: 1 } }));
-  }
-  return tokenSystems(user).includes(systemId);
+async function systemAccess(user, systemId, requestedTenantId) {
+  const cleanId = cleanText(systemId, 100);
+  if (!cleanId) return { allowed: false, status: 400, message: "缺少 system_id" };
+  const system = await mongoose.connection.collection("systems").findOne({ system_id: cleanId }, { projection: { _id: 0, tenant_id: 1, system_id: 1, name: 1, current_product: 1 } });
+  if (!system) return { allowed: false, status: 404, message: "找不到機台" };
+  if (requestedTenantId && system.tenant_id !== requestedTenantId) return { allowed: false, status: 403, message: "機台不屬於指定租戶" };
+  if (user.role === "super_admin") return { allowed: true, system };
+  if (system.tenant_id !== user.tenant_id) return { allowed: false, status: 403, message: "無權存取此租戶" };
+  if (user.role === "tenant_admin") return { allowed: true, system };
+  if (!userSystemIds(user).includes(cleanId)) return { allowed: false, status: 403, message: "無權存取此機台" };
+  return { allowed: true, system };
 }
 
 async function buildScopedDefectQuery(user, params = {}) {
   const query = {};
-  const products = parseCsv(params.products);
-  if (products.length) query.product = { $in: products };
-
-  const requestedTenantId = cleanText(params.tenant_id, 100);
-  const requestedSystemId = cleanText(params.system_id, 100);
-
+  const products = cleanText(params.products, 1000);
+  if (products) {
+    const list = products.split(",").map(v => cleanText(v, 100)).filter(Boolean).slice(0, 30);
+    if (list.length) query.product = { $in: list };
+  }
+  const tenant = cleanText(params.tenant_id, 100);
+  const system = cleanText(params.system_id, 100);
   if (user.role === "super_admin") {
-    if (requestedTenantId) query.tenant_id = requestedTenantId;
-    if (requestedSystemId) {
-      if (!await canAccessSystem(user, requestedTenantId, requestedSystemId)) {
-        return { error: "找不到指定機台", status: 404 };
-      }
-      query.system_id = requestedSystemId;
+    if (tenant) query.tenant_id = tenant;
+    if (system) {
+      const access = await systemAccess(user, system, tenant || undefined);
+      if (!access.allowed) throw Object.assign(new Error(access.message), { status: access.status });
+      query.system_id = system;
+      if (!query.tenant_id) query.tenant_id = access.system.tenant_id;
     }
-    return { query };
-  }
-
-  query.tenant_id = user.tenant_id;
-  if (user.role === "tenant_admin") {
-    if (requestedSystemId) {
-      if (!await canAccessSystem(user, user.tenant_id, requestedSystemId)) {
-        return { error: "無權限查看此機台", status: 403 };
-      }
-      query.system_id = requestedSystemId;
+  } else {
+    if (tenant && tenant !== user.tenant_id) throw Object.assign(new Error("無權存取此租戶"), { status: 403 });
+    query.tenant_id = user.tenant_id;
+    if (system) {
+      const access = await systemAccess(user, system, user.tenant_id);
+      if (!access.allowed) throw Object.assign(new Error(access.message), { status: access.status });
+      query.system_id = system;
+    } else if (user.role === "user") {
+      const ids = userSystemIds(user);
+      query.system_id = ids.length ? { $in: ids } : "__NO_AUTHORIZED_SYSTEM__";
     }
-    return { query };
   }
-
-  const systems = tokenSystems(user);
-  if (!systems.length) return { error: "此帳號尚未被指派任何機台", status: 403 };
-  if (requestedSystemId && !systems.includes(requestedSystemId)) {
-    return { error: "無權限查看此機台", status: 403 };
+  const from = params.date_from ? new Date(params.date_from) : null;
+  const to = params.date_to ? new Date(params.date_to) : null;
+  if ((from && !Number.isNaN(from.valueOf())) || (to && !Number.isNaN(to.valueOf()))) {
+    query.timestamp = {};
+    if (from && !Number.isNaN(from.valueOf())) query.timestamp.$gte = from;
+    if (to && !Number.isNaN(to.valueOf())) query.timestamp.$lte = to;
   }
-  query.system_id = requestedSystemId || { $in: systems };
-  return { query };
+  return query;
 }
 
-async function writeAuditLog(req, data) {
-  try {
-    await AuditLog.create({
-      tenant_id: data.tenant_id || req.user?.tenant_id,
-      system_id: data.system_id,
-      user_id: req.user?.email || req.user?.id,
-      role: req.user?.role,
-      action: data.action,
-      target: data.target,
-      payload: data.payload,
-      status: data.status || "recorded",
-      command_id: data.command_id,
-      ip: req.ip
-    });
-  } catch (err) {
-    console.error("audit log error:", err.message);
-  }
+async function resolveSystemIdsForUserDocument(user) {
+  const col = mongoose.connection.collection("systems");
+  if (user.role === "super_admin") return (await col.find({}, { projection: { system_id: 1 } }).toArray()).map(v => v.system_id);
+  if (user.role === "tenant_admin") return (await col.find({ tenant_id: user.tenant_id }, { projection: { system_id: 1 } }).toArray()).map(v => v.system_id);
+  const assigned = Array.isArray(user.systems) ? user.systems : (user.system_id ? [user.system_id] : []);
+  if (!assigned.length) return [];
+  return (await col.find({ tenant_id: user.tenant_id, system_id: { $in: assigned } }, { projection: { system_id: 1 } }).toArray()).map(v => v.system_id);
 }
 
-
-
-
-// ==========================================
-// 4. API 路由設定 (對前端開放的服務窗口)
-// ==========================================
-app.get("/", (req, res) => {
-  res.send("✅ 產線總部 API 伺服器正常運作中！");
-});
-
-
-
-// 新增這段 ↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓
-app.get("/api/admin/tenants", auth, async (req, res) => {
-  try {
-    if (req.user.role !== "super_admin") {
-      return res.status(403).json({ message: "無權限" });
-    }
-
-    const tenants = await mongoose.connection
-      .collection("tenants")
-      .find({})
-      .sort({ createdAt: -1 })
-      .toArray();
-
-    res.json(tenants);
-
-  } catch (err) {
-    console.error("tenant API error:", err);
-    res.status(500).json({
-      message: "取得 tenants 失敗"
-    });
-  }
-});
-
-
-// 取得客戶網站設定
-app.get("/api/site-config", auth, async (req, res) => {
-  try {
-    const requestedTenantId = cleanText(req.query.tenant_id, 100);
-    const tenantId = req.user.role === "super_admin" ? requestedTenantId : req.user.tenant_id;
-    if (!tenantId) return res.status(400).json({ message: "缺少 tenant_id" });
-    if (req.user.role !== "super_admin" && requestedTenantId && requestedTenantId !== req.user.tenant_id) {
-      return res.status(403).json({ message: "無權限讀取其他租戶設定" });
-    }
-
-    const tenant = await mongoose.connection.collection("tenants").findOne({ tenant_id: tenantId });
-    if (!tenant) return res.status(404).json({ message: "找不到租戶" });
-
-    res.json({
-      success: true,
-      data: {
-        site_title: tenant.company || "瑕疵辨識與分流系統",
-        site_subtitle: "即時檢測畫面 + 系統狀態與數據"
-      }
-    });
-
-  } catch (err) {
-    console.error("site-config API error:", err);
-    res.status(500).json({ message: "取得網站設定失敗" });
-  }
-});
-// 原本就有的
-
-
-// 取得某個 tenant 底下的機台
-app.get("/api/systems", auth, async (req, res) => {
-  try {
-    const { tenant_id } = req.query;
-
-    let query = {};
-   
-
-    if (req.user.role === "super_admin") {
-      if (tenant_id) query.tenant_id = tenant_id;
-    } else {
-  query.tenant_id = req.user.tenant_id;
-
-  if (Array.isArray(req.user.systems) && req.user.systems.length > 0) {
-    query.system_id = { $in: req.user.systems };
-  }
+async function issueLoginResponse(user) {
+  const systems = await resolveSystemIdsForUserDocument(user);
+  const payload = { id: String(user._id), email: user.email || user.username, name: user.name || "", company: user.company || "", tenant_id: user.tenant_id || "", role: user.role || "user", systems };
+  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN, algorithm: "HS256", issuer: "defect-system" });
+  return { token, user: { id: payload.id, email: payload.email, name: payload.name, company: payload.company, tenant_id: payload.tenant_id, role: payload.role }, systems };
 }
 
-    const systems = await mongoose.connection
-      .collection("systems")
-      .find(query)
-      .toArray();
+async function writeAudit(req, action, fields = {}) {
+  try {
+    await AuditLog.create({ request_id: req.requestId, actor_id: req.user?.id || "anonymous", actor_email: req.user?.email || "", role: req.user?.role || "anonymous", tenant_id: fields.tenant_id || req.user?.tenant_id || "", system_id: fields.system_id || "", action, target: fields.target || "", status: fields.status || "success", command_id: fields.command_id || "", details: fields.details || {}, ip: req.ip });
+  } catch (error) { console.warn("audit log failed:", error.message); }
+}
 
-    res.json(systems);
+app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
+  if (String(process.env.ALLOW_PUBLIC_REGISTRATION || "true") !== "true") return res.status(403).json({ message: "目前已關閉公開註冊，請聯絡管理員建立帳號" });
+  const company = cleanText(req.body.company, 120);
+  const username = normalizeEmail(req.body.username);
+  const password = String(req.body.password || "");
+  if (!company || !username || !password) return res.status(400).json({ message: "資料不完整" });
+  const pw = validatePassword(password);
+  if (!pw.valid) return res.status(400).json({ message: pw.errors.join("；") });
+  const users = mongoose.connection.collection("users");
+  if (await users.findOne({ $or: [{ username }, { email: username }] })) return res.status(409).json({ message: "帳號已存在" });
+  const tenant_id = `T${Date.now()}${crypto.randomInt(100, 999)}`;
+  const system_id = `S${Date.now()}${crypto.randomInt(100, 999)}`;
+  const session = await mongoose.startSession();
+  try {
+    await session.withTransaction(async () => {
+      await mongoose.connection.collection("tenants").insertOne({ tenant_id, company, createdAt: new Date() }, { session });
+      await users.insertOne({ username, email: username, password: await bcrypt.hash(password, 12), tenant_id, role: "tenant_admin", systems: [system_id], createdAt: new Date() }, { session });
+      await mongoose.connection.collection("systems").insertOne({ tenant_id, system_id, name: "預設機台", createdAt: new Date() }, { session });
+    });
+  } finally { await session.endSession(); }
+  await writeAudit(req, "tenant.register", { tenant_id, system_id, target: username });
+  return res.status(201).json({ success: true, tenant_id, system_id });
+}));
 
-  } catch (err) {
-    console.error("systems API error:", err);
-    res.status(500).json({ message: "取得 systems 失敗" });
+app.post("/api/login", authLimiter, (req, res) => res.status(409).json({ message: "此系統採用兩步驟登入，請先寄送驗證碼" }));
+
+app.post("/api/login/send-code", otpSendLimiter, asyncHandler(async (req, res) => {
+  if (!mailEnabled) return res.status(503).json({ message: "寄信服務尚未設定，請檢查 Brevo 環境變數" });
+  const email = normalizeEmail(req.body.email);
+  const password = String(req.body.password || "");
+  if (!email || !password) return res.status(400).json({ message: "請輸入信箱與密碼" });
+  const user = await mongoose.connection.collection("users").findOne({ $or: [{ email }, { username: email }] });
+  const matched = user ? await bcrypt.compare(password, user.password || "") : false;
+  if (!user || !matched) return res.status(401).json({ message: "信箱或密碼錯誤" });
+  const col = mongoose.connection.collection("login_otps");
+  const existing = await col.findOne({ email });
+  if (existing?.lastSentAt && Date.now() - new Date(existing.lastSentAt).getTime() < OTP_RESEND_SECONDS * 1000) {
+    const wait = Math.ceil((OTP_RESEND_SECONDS * 1000 - (Date.now() - new Date(existing.lastSentAt).getTime())) / 1000);
+    return res.status(429).json({ message: `請等待 ${wait} 秒後再寄送驗證碼` });
   }
-});
+  const code = String(crypto.randomInt(100000, 1000000));
+  const now = new Date();
+  await col.updateOne({ email }, { $set: { email, codeHash: hashOtp(email, code, JWT_SECRET), attempts: 0, createdAt: now, lastSentAt: now, expiresAt: new Date(now.getTime() + OTP_TTL_MINUTES * 60000) } }, { upsert: true });
+  await transporter.sendMail({ from: MAIL_FROM, to: user.email || user.username, subject: "瑕疵辨識與分流系統登入驗證碼", text: `您的登入驗證碼是：${code}\n\n此驗證碼 ${OTP_TTL_MINUTES} 分鐘內有效。` });
+  const response = { success: true, message: "驗證碼已寄出，請到信箱查看" };
+  if (NODE_ENV === "development" && process.env.DEV_RETURN_OTP === "true") response.dev_code = code;
+  return res.json(response);
+}));
 
-// 健康狀態檢查
-app.get("/api/health", auth, (req, res) => {
-  res.json({
-    status: mongoose.connection.readyState === 1 ? "ok" : "degraded",
-    mongoConnected: mongoose.connection.readyState === 1,
-    mqttConnected: isMqttConnected,
-    smtpConfigured: Boolean(process.env.BREVO_SMTP_LOGIN && process.env.BREVO_SMTP_KEY),
-    geminiConfigured: Boolean(process.env.GEMINI_API_KEY)
-  });
-});
-app.get("/health", (req, res) => {
-  const healthy = mongoose.connection.readyState === 1;
-  res.status(healthy ? 200 : 503).json({ status: healthy ? "ok" : "degraded" });
-});
-// 取得最新一筆 MQTT 訊息
+app.post("/api/login/verify-code", authLimiter, asyncHandler(async (req, res) => {
+  const email = normalizeEmail(req.body.email);
+  const code = cleanText(req.body.code, 12);
+  if (!email || !code) return res.status(400).json({ message: "請輸入信箱與驗證碼" });
+  const col = mongoose.connection.collection("login_otps");
+  const saved = await col.findOne({ email });
+  if (!saved) return res.status(400).json({ message: "請先寄送驗證碼" });
+  if (new Date(saved.expiresAt).getTime() < Date.now()) { await col.deleteOne({ email }); return res.status(400).json({ message: "驗證碼已過期，請重新寄送" }); }
+  if (Number(saved.attempts || 0) >= OTP_MAX_ATTEMPTS) { await col.deleteOne({ email }); return res.status(429).json({ message: "驗證碼錯誤次數過多，請重新寄送" }); }
+  const expected = Buffer.from(String(saved.codeHash || ""), "hex");
+  const actual = Buffer.from(hashOtp(email, code, JWT_SECRET), "hex");
+  if (!(expected.length === actual.length && crypto.timingSafeEqual(expected, actual))) {
+    const updated = await col.findOneAndUpdate({ email }, { $inc: { attempts: 1 } }, { returnDocument: "after" });
+    return res.status(400).json({ message: `驗證碼錯誤，剩餘 ${Math.max(0, OTP_MAX_ATTEMPTS - Number(updated?.attempts || 1))} 次機會` });
+  }
+  await col.deleteOne({ email });
+  const user = await mongoose.connection.collection("users").findOne({ $or: [{ email }, { username: email }] });
+  if (!user) return res.status(401).json({ message: "帳號不存在" });
+  return res.json(await issueLoginResponse(user));
+}));
+
+app.get("/api/admin/users", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
+  const query = req.user.role === "tenant_admin" ? { tenant_id: req.user.tenant_id } : {};
+  const users = await mongoose.connection.collection("users").find(query, { projection: { password: 0, passwordHash: 0, token: 0, secret: 0 } }).sort({ createdAt: -1 }).limit(500).toArray();
+  const tenants = await mongoose.connection.collection("tenants").find({}, { projection: { tenant_id: 1, company: 1 } }).toArray();
+  return res.json(users.map(u => ({ username: u.username || u.email, tenant_id: u.tenant_id, company: tenants.find(t => t.tenant_id === u.tenant_id)?.company || "未知", role: u.role, systems: Array.isArray(u.systems) ? u.systems : [] })));
+}));
+
+app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
+  const username = normalizeEmail(req.body.username);
+  const password = String(req.body.password || "");
+  const role = cleanText(req.body.role, 30);
+  const requestedTenant = cleanText(req.body.tenant_id, 100);
+  const requestedSystems = Array.isArray(req.body.systems) ? req.body.systems.map(v => cleanText(v, 100)).filter(Boolean) : [];
+  if (!username || !password || !role) return res.status(400).json({ message: "資料不完整" });
+  const pw = validatePassword(password);
+  if (!pw.valid) return res.status(400).json({ message: pw.errors.join("；") });
+  if (!new Set(["super_admin", "tenant_admin", "user"]).has(role)) return res.status(400).json({ message: "角色不正確" });
+  if (req.user.role === "tenant_admin" && role !== "user") return res.status(403).json({ message: "租戶管理員只能建立一般使用者" });
+  const users = mongoose.connection.collection("users");
+  if (await users.findOne({ $or: [{ username }, { email: username }] })) return res.status(409).json({ message: "帳號已存在" });
+  const tenant_id = req.user.role === "tenant_admin" ? req.user.tenant_id : requestedTenant;
+  if (!tenant_id) return res.status(400).json({ message: "缺少 tenant_id" });
+  const validSystems = role === "user" && requestedSystems.length ? (await mongoose.connection.collection("systems").find({ tenant_id, system_id: { $in: requestedSystems } }, { projection: { system_id: 1 } }).toArray()).map(v => v.system_id) : [];
+  if (role === "user" && requestedSystems.length !== validSystems.length) return res.status(400).json({ message: "包含不存在或不屬於此租戶的機台" });
+  await users.insertOne({ username, email: username, password: await bcrypt.hash(password, 12), tenant_id, role, systems: validSystems, createdAt: new Date() });
+  await writeAudit(req, "user.create", { tenant_id, target: username, details: { role, systems: validSystems } });
+  return res.status(201).json({ success: true, message: "帳號建立成功" });
+}));
+
+app.get("/api/admin/collections", auth, requireRole("super_admin"), (req, res) => res.json(["users", "tenants", "systems", "defects", "audit_logs"]));
+app.get("/api/admin/collection/:name", auth, requireRole("super_admin"), asyncHandler(async (req, res) => {
+  const name = cleanText(req.params.name, 40);
+  if (!new Set(["users", "tenants", "systems", "defects", "audit_logs"]).has(name)) return res.status(403).json({ message: "不允許讀取此 collection" });
+  const page = clampInt(req.query.page, 1, 1, 100000);
+  const limit = clampInt(req.query.limit, 100, 1, 200);
+  const projection = name === "users" ? { password: 0, passwordHash: 0, otp: 0, token: 0, secret: 0 } : name === "defects" ? { image_data: 0 } : {};
+  const col = mongoose.connection.collection(name);
+  res.setHeader("X-Total-Count", String(await col.countDocuments({})));
+  return res.json(await col.find({}, { projection }).sort({ _id: -1 }).skip((page - 1) * limit).limit(limit).toArray());
+}));
+app.get("/api/admin/tenants", auth, requireRole("super_admin"), asyncHandler(async (req, res) => res.json(await mongoose.connection.collection("tenants").find({}).sort({ createdAt: -1 }).limit(500).toArray())));
+
+app.get("/api/site-config", auth, asyncHandler(async (req, res) => {
+  const requested = cleanText(req.query.tenant_id, 100);
+  const tenant_id = req.user.role === "super_admin" ? requested : req.user.tenant_id;
+  if (!tenant_id) return res.status(400).json({ message: "缺少 tenant_id" });
+  if (req.user.role !== "super_admin" && requested && requested !== req.user.tenant_id) return res.status(403).json({ message: "無權存取此租戶" });
+  const tenant = await mongoose.connection.collection("tenants").findOne({ tenant_id }, { projection: { company: 1 } });
+  if (!tenant) return res.status(404).json({ message: "找不到租戶" });
+  return res.json({ success: true, data: { site_title: tenant.company || "瑕疵辨識與分流系統", site_subtitle: "即時檢測畫面 + 系統狀態與數據" } });
+}));
+
+app.get("/api/systems", auth, asyncHandler(async (req, res) => {
+  const requested = cleanText(req.query.tenant_id, 100);
+  const query = {};
+  if (req.user.role === "super_admin") { if (requested) query.tenant_id = requested; }
+  else {
+    if (requested && requested !== req.user.tenant_id) return res.status(403).json({ message: "無權存取此租戶" });
+    query.tenant_id = req.user.tenant_id;
+    if (req.user.role === "user") { const ids = userSystemIds(req.user); query.system_id = ids.length ? { $in: ids } : "__NO_AUTHORIZED_SYSTEM__"; }
+  }
+  return res.json(await mongoose.connection.collection("systems").find(query, { projection: { secret: 0, token: 0 } }).sort({ name: 1 }).toArray());
+}));
+
+let isMqttConnected = false;
+let latestMqttMessage = null;
+let mqttClient = null;
+app.get("/api/health", (req, res) => res.json({ status: mongoose.connection.readyState === 1 ? "ok" : "degraded", databaseConnected: mongoose.connection.readyState === 1, mqttConnected: isMqttConnected, mailConfigured: mailEnabled, geminiConfigured: Boolean(process.env.GEMINI_API_KEY) }));
+app.get("/health", (req, res) => { const ok = mongoose.connection.readyState === 1; return res.status(ok ? 200 : 503).json({ status: ok ? "ok" : "degraded", databaseConnected: ok }); });
 app.get("/api/mqtt/latest", auth, (req, res) => {
-  const user = req.user;
-
-  if (!latestMqttMessage) {
-    return res.json({ data: null });
-  }
-
-  const msg = latestMqttMessage.payload;
-
-  if (user.role === "super_admin"){
-    return res.json({ data: latestMqttMessage });
-  }
-
-  if (!tokenSystems(user).includes(msg.system_id)) {
-    return res.json({ data: null });
-  }
-
-  return res.json({ data: latestMqttMessage });
+  if (!latestMqttMessage) return res.json({ data: null });
+  if (req.user.role === "super_admin") return res.json({ data: latestMqttMessage });
+  if (latestMqttMessage.tenant_id !== req.user.tenant_id) return res.json({ data: null });
+  if (req.user.role === "tenant_admin") return res.json({ data: latestMqttMessage });
+  return res.json({ data: userSystemIds(req.user).includes(latestMqttMessage.payload.system_id) ? latestMqttMessage : null });
 });
 
-// 讓前端抓取所有歷史資料
-app.get("/api/defects", auth, async (req, res) => {
-  try {
-    const scope = await buildScopedDefectQuery(req.user, req.query);
-    if (scope.error) return res.status(scope.status).json({ message: scope.error });
+app.get("/api/defects", auth, asyncHandler(async (req, res) => {
+  const query = await buildScopedDefectQuery(req.user, req.query);
+  const page = clampInt(req.query.page, 1, 1, 100000);
+  const limit = clampInt(req.query.limit, 500, 1, 1000);
+  res.setHeader("X-Total-Count", String(await Defect.countDocuments(query)));
+  res.setHeader("X-Page", String(page));
+  return res.json(await Defect.find(query).sort({ timestamp: -1 }).skip((page - 1) * limit).limit(limit).lean());
+}));
 
-    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 100, maxLimit: 500 });
-    const [data, total] = await Promise.all([
-      Defect.find(scope.query).sort({ timestamp: -1 }).skip(skip).limit(limit).select("-image_data").lean(),
-      Defect.countDocuments(scope.query)
-    ]);
+app.get("/api/predict", auth, aiLimiter, asyncHandler(async (req, res) => {
+  const query = await buildScopedDefectQuery(req.user, req.query);
+  const data = await Defect.find(query).sort({ timestamp: -1 }).limit(20).select("status").lean();
+  const ng = data.filter(v => v.status === "NG").length;
+  return res.json({ ng_count: ng, sample_size: data.length, prediction: ng > 5 ? "高風險" : "正常" });
+}));
 
-    // 舊版前端預期陣列；未提供 page/limit 時維持相容。
-    if (!req.query.page && !req.query.limit) return res.json(data);
-    return res.json({ data, page, limit, total, totalPages: Math.ceil(total / limit) });
-  } catch (error) {
-    console.error("defects error:", error);
-    res.status(500).json({ message: "抓取資料失敗" });
-  }
-});
+app.get("/api/summary", auth, asyncHandler(async (req, res) => {
+  const query = await buildScopedDefectQuery(req.user, req.query);
+  const [facet = {}] = await Defect.aggregate([{ $match: query }, { $facet: {
+    totals: [{ $group: { _id: null, total: { $sum: 1 }, okCount: { $sum: { $cond: [{ $eq: ["$status", "OK"] }, 1, 0] } }, ngCount: { $sum: { $cond: [{ $eq: ["$status", "NG"] }, 1, 0] } } } }],
+    byProduct: [{ $group: { _id: { $ifNull: ["$product", "未分類"] }, total: { $sum: 1 }, ok: { $sum: { $cond: [{ $eq: ["$status", "OK"] }, 1, 0] } }, ng: { $sum: { $cond: [{ $eq: ["$status", "NG"] }, 1, 0] } } } }],
+    recent: [{ $sort: { timestamp: -1 } }, { $limit: 20 }, { $project: { status: 1 } }]
+  } }]);
+  const totals = facet.totals?.[0] || { total: 0, okCount: 0, ngCount: 0 };
+  const byProduct = {};
+  for (const item of facet.byProduct || []) byProduct[item._id] = { total: item.total, ok: item.ok, ng: item.ng };
+  return res.json({ total: totals.total, okCount: totals.okCount, ngCount: totals.ngCount, yieldRate: totals.total ? ((totals.okCount / totals.total) * 100).toFixed(1) : "0.0", defectRate: totals.total ? ((totals.ngCount / totals.total) * 100).toFixed(1) : "0.0", last20Ng: (facet.recent || []).filter(v => v.status === "NG").length, byProduct });
+}));
 
-app.post("/api/estop", auth, requireRole("super_admin", "tenant_admin"), async (req, res) => {
-  try {
-    const tenantId = cleanText(req.body?.tenant_id || req.user.tenant_id, 100);
-    const systemId = cleanText(req.body?.system_id, 100);
-    if (!systemId) return res.status(400).json({ message: "請指定要停止的 system_id" });
-    if (!await canAccessSystem(req.user, tenantId, systemId)) {
-      return res.status(403).json({ message: "無權限控制此機台" });
-    }
-    if (!isMqttConnected) return res.status(503).json({ message: "MQTT 尚未連線，無法送出急停" });
-
-    const commandId = crypto.randomUUID();
-    const stopPayload = JSON.stringify({
-      command: "STOP",
-      command_id: commandId,
-      tenant_id: tenantId,
-      system_id: systemId,
-      requested_at: new Date().toISOString()
-    });
-
-    client.publish(`factory/control/${systemId}/estop`, stopPayload, { qos: 1 });
-    client.publish("factory/control/estop", stopPayload, { qos: 1 });
-    await writeAuditLog(req, {
-      tenant_id: tenantId,
-      system_id: systemId,
-      action: "ESTOP_REQUESTED",
-      target: `system:${systemId}`,
-      command_id: commandId,
-      payload: { command: "STOP" },
-      status: "sent"
-    });
-
-    res.json({
-      success: true,
-      command_id: commandId,
-      status: "sent",
-      message: "緊急停止指令已送出，等待設備 ACK。"
-    });
-  } catch (error) {
-    console.error("停機指令發送失敗：", error);
-    res.status(500).json({ success: false, message: "停機指令發送失敗" });
-  }
-});
-
-// ==========================================
-// 5. 啟動伺服器大門
-// ==========================================
-app.get("/api/summary", auth, async (req, res) => {
-  try {
-    const scope = await buildScopedDefectQuery(req.user, req.query);
-    if (scope.error) return res.status(scope.status).json({ message: scope.error });
-
-    const data = await Defect.find(scope.query).sort({ timestamp: -1 }).select("status product").lean();
-    const total = data.length;
-    const okCount = data.filter(d => d.status === "OK").length;
-    const ngCount = data.filter(d => d.status === "NG").length;
-    const yieldRate = total > 0 ? ((okCount / total) * 100).toFixed(1) : "0.0";
-    const defectRate = total > 0 ? ((ngCount / total) * 100).toFixed(1) : "0.0";
-    const last20Ng = data.slice(0, 20).filter(d => d.status === "NG").length;
-
-    const byProduct = {};
-    data.forEach(d => {
-      const product = d.product || "未分類";
-      if (!byProduct[product]) byProduct[product] = { total: 0, ok: 0, ng: 0 };
-      byProduct[product].total += 1;
-      if (d.status === "OK") byProduct[product].ok += 1;
-      if (d.status === "NG") byProduct[product].ng += 1;
-    });
-
-    res.json({ total, okCount, ngCount, yieldRate, defectRate, last20Ng, byProduct });
-  } catch (err) {
-    console.error("summary error:", err);
-    res.status(500).json({ message: "統計失敗" });
-  }
-});
-
-// ================= AI 助理：依照登入者權限讀取良率 / NG / 事件紀錄 =================
 function summarizeDefectsForAi(defects) {
   const total = defects.length;
-  const okCount = defects.filter(d => String(d.status || "").toUpperCase() === "OK").length;
-  const ngCount = defects.filter(d => String(d.status || "").toUpperCase() === "NG").length;
-  const yieldRate = total ? Number(((okCount / total) * 100).toFixed(1)) : 0;
-  const defectRate = total ? Number(((ngCount / total) * 100).toFixed(1)) : 0;
-
-  const byProduct = {};
-  const bySystem = {};
-
+  const okCount = defects.filter(v => v.status === "OK").length;
+  const ngCount = defects.filter(v => v.status === "NG").length;
+  const byProduct = {}, bySystem = {};
   for (const d of defects) {
-    const product = d.product || "未分類";
-    const system = d.system_id || "未指定機台";
-    const status = String(d.status || "").toUpperCase();
-
-    if (!byProduct[product]) byProduct[product] = { total: 0, ok: 0, ng: 0, yieldRate: 0, defectRate: 0 };
-    byProduct[product].total += 1;
-    if (status === "OK") byProduct[product].ok += 1;
-    if (status === "NG") byProduct[product].ng += 1;
-
-    if (!bySystem[system]) bySystem[system] = { total: 0, ok: 0, ng: 0, yieldRate: 0, defectRate: 0 };
-    bySystem[system].total += 1;
-    if (status === "OK") bySystem[system].ok += 1;
-    if (status === "NG") bySystem[system].ng += 1;
+    const p = d.product || "未分類", s = d.system_id || "未指定機台";
+    byProduct[p] ||= { total: 0, ok: 0, ng: 0, yieldRate: 0, defectRate: 0 };
+    bySystem[s] ||= { total: 0, ok: 0, ng: 0, yieldRate: 0, defectRate: 0 };
+    for (const x of [byProduct[p], bySystem[s]]) { x.total++; if (d.status === "OK") x.ok++; if (d.status === "NG") x.ng++; }
   }
-
-  for (const item of Object.values(byProduct)) {
-    item.yieldRate = item.total ? Number(((item.ok / item.total) * 100).toFixed(1)) : 0;
-    item.defectRate = item.total ? Number(((item.ng / item.total) * 100).toFixed(1)) : 0;
-  }
-
-  for (const item of Object.values(bySystem)) {
-    item.yieldRate = item.total ? Number(((item.ok / item.total) * 100).toFixed(1)) : 0;
-    item.defectRate = item.total ? Number(((item.ng / item.total) * 100).toFixed(1)) : 0;
-  }
-
-  const recent = defects.slice(0, 12).map(d => ({
-    time: d.timestamp,
-    product: d.product || "未分類",
-    status: d.status || "未知",
-    system_id: d.system_id || "未指定",
-    case_id: d.id || "-"
-  }));
-
-  const last20 = defects.slice(0, 20);
-  const last20Ng = last20.filter(d => String(d.status || "").toUpperCase() === "NG").length;
-
-  return { total, okCount, ngCount, yieldRate, defectRate, last20Ng, byProduct, bySystem, recent };
+  for (const group of [byProduct, bySystem]) for (const x of Object.values(group)) { x.yieldRate = x.total ? Number((x.ok / x.total * 100).toFixed(1)) : 0; x.defectRate = x.total ? Number((x.ng / x.total * 100).toFixed(1)) : 0; }
+  return { total, okCount, ngCount, yieldRate: total ? Number((okCount / total * 100).toFixed(1)) : 0, defectRate: total ? Number((ngCount / total * 100).toFixed(1)) : 0, last20Ng: defects.slice(0, 20).filter(v => v.status === "NG").length, byProduct, bySystem, recent: defects.slice(0, 12).map(d => ({ time: d.timestamp, product: d.product || "未分類", status: d.status, system_id: d.system_id, case_id: d.id })) };
 }
-
 function buildLocalAiReply(message, summary) {
   const text = String(message || "").toLowerCase();
-  const lines = [];
-
-  lines.push(`目前資料總數 ${summary.total} 筆，OK ${summary.okCount} 筆，NG ${summary.ngCount} 筆。`);
-  lines.push(`良率 = ${summary.yieldRate}%；NG率 = ${summary.defectRate}%。`);
-
-  if (text.includes("mqtt") || text.includes("測試資料") || text.includes("payload") || text.includes("格式")) {
-    lines.push("MQTT Topic 建議使用：factory/defect/report");
-    lines.push('OK 範例：{"system_id":"你的機台ID","id":"case_001","status":"OK","product":"螺帽"}');
-    lines.push('NG 範例：{"system_id":"你的機台ID","id":"case_002","status":"NG","product":"螺帽"}');
-    lines.push("重點：system_id 一定要和網站登入後可查看的機台一致，status 建議只打 OK 或 NG。");
-  }
-
-  if (text.includes("沒資料") || text.includes("沒有資料") || text.includes("不顯示")) {
-    lines.push("事件紀錄沒有資料時，優先檢查：1. MQTT topic 是否是 factory/defect/report；2. JSON 是否正確；3. system_id 是否存在；4. 該登入帳號是否有該機台權限；5. MongoDB defects 是否有存入資料。");
-  }
-
-  if (summary.total === 0) {
-    lines.push("目前沒有符合條件的檢測紀錄，可以先從 MQTT 發送 OK/NG 測試資料，或確認機台 system_id 是否正確。");
-    return lines.join("\n");
-  }
-
-  if (text.includes("良率") || text.includes("yield")) {
-    lines.push("公式：良率 = OK ÷ (OK + NG) × 100%。如果良率偏低，建議先看 NG 最多的產品與最近 20 筆紀錄。");
-  }
-
-  if (text.includes("ng") || text.includes("瑕疵") || text.includes("異常") || text.includes("警報")) {
-    lines.push(`最近 20 筆中有 ${summary.last20Ng} 筆 NG。若連續 NG 過多，建議先停機檢查鏡頭、光源、治具位置與產品分類是否正確。`);
-  }
-
-  const productRows = Object.entries(summary.byProduct)
-    .sort((a, b) => b[1].ng - a[1].ng || b[1].total - a[1].total)
-    .slice(0, 5);
-
-  if (productRows.length) {
-    lines.push("產品統計：");
-    for (const [name, item] of productRows) {
-      lines.push(`- ${name}：總數 ${item.total}，OK ${item.ok}，NG ${item.ng}，良率 ${item.yieldRate}%，NG率 ${item.defectRate}%`);
-    }
-  }
-
-  lines.push("若要由 Gemini AI 進行自然語言分析，請在 Render Environment Variables 加上 GEMINI_API_KEY。");
+  const lines = [`目前資料總數 ${summary.total} 筆，OK ${summary.okCount} 筆，NG ${summary.ngCount} 筆。`, `良率 ${summary.yieldRate}%；NG 率 ${summary.defectRate}%。`];
+  if (text.includes("mqtt") || text.includes("payload") || text.includes("格式")) lines.push(`Topic：${MQTT_REPORT_TOPIC}`, '{"system_id":"S001","id":"case_001","status":"OK","product":"螺帽"}', '{"system_id":"S001","id":"case_002","status":"NG","product":"螺帽"}');
+  if (!summary.total) lines.push("目前沒有符合條件的檢測紀錄，請確認 MQTT payload、system_id 與 MongoDB 寫入狀態。");
+  if (text.includes("ng") || text.includes("異常") || text.includes("瑕疵")) lines.push(`最近 20 筆有 ${summary.last20Ng} 筆 NG；建議依序檢查光源、鏡頭、治具位置與產品分類。`);
   return lines.join("\n");
 }
-
-function extractGeminiText(responseData) {
-  const candidates = Array.isArray(responseData?.candidates) ? responseData.candidates : [];
-  const text = candidates
-    .flatMap(candidate => candidate?.content?.parts || [])
-    .map(part => typeof part?.text === "string" ? part.text : "")
-    .filter(Boolean)
-    .join("\n")
-    .trim();
-
-  if (text) return text;
-
-  const blockReason = responseData?.promptFeedback?.blockReason;
-  if (blockReason) {
-    return `Gemini 因安全限制未產生回答（${blockReason}）。請換一種問法再試一次。`;
+function extractGeminiText(data) {
+  const text = (data?.candidates || []).flatMap(c => c?.content?.parts || []).map(p => typeof p?.text === "string" ? p.text : "").filter(Boolean).join("\n").trim();
+  return text || (data?.promptFeedback?.blockReason ? `Gemini 因安全限制未產生回答（${data.promptFeedback.blockReason}）。` : "Gemini 已回應，但沒有可顯示的文字內容。");
+}
+app.get("/api/ai/status", auth, (req, res) => { const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite"; return res.json({ enabled: Boolean(process.env.GEMINI_API_KEY), provider: "gemini", model, mode: process.env.GEMINI_API_KEY ? "gemini" : "local-summary" }); });
+app.post("/api/ai/chat", auth, aiLimiter, asyncHandler(async (req, res) => {
+  const message = cleanText(req.body.message, 2000);
+  if (!message) return res.status(400).json({ message: "請輸入問題" });
+  const query = await buildScopedDefectQuery(req.user, req.body || {});
+  const defects = await Defect.find(query).sort({ timestamp: -1 }).limit(500).lean();
+  const summary = summarizeDefectsForAi(defects);
+  if (!process.env.GEMINI_API_KEY) return res.json({ mode: "local-summary", provider: "local", reply: buildLocalAiReply(message, summary), summary });
+  const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+  try {
+    const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      systemInstruction: { parts: [{ text: "你是瑕疵辨識與分流系統的 AI 助理。請使用繁體中文，先給結論，再提供最多 5 個可操作步驟。只能根據提供的統計資料回答；資料不足時必須說明只是可能原因。" }] },
+      contents: [{ role: "user", parts: [{ text: `使用者問題：${message}\n\n目前統計資料：\n${JSON.stringify(summary).slice(0, 12000)}` }] }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 700 }
+    }, { headers: { "x-goog-api-key": process.env.GEMINI_API_KEY, "Content-Type": "application/json" }, timeout: 30000, maxContentLength: 1048576, maxBodyLength: 1048576, proxy: false });
+    return res.json({ mode: "gemini", provider: "gemini", model, reply: extractGeminiText(response.data), summary });
+  } catch (error) {
+    const reason = error?.response?.status === 429 ? "Gemini 免費額度或速率限制已達上限" : "Gemini 暫時無法連線";
+    return res.json({ mode: "local-summary-fallback", provider: "local", model, warning: `${reason}，已自動切換成本機統計模式。`, reply: `${reason}，已自動切換成本機統計模式。\n\n${buildLocalAiReply(message, summary)}`, summary });
   }
+}));
 
-  return "Gemini 已回應，但沒有可顯示的文字內容。";
+app.post("/api/current-product", auth, asyncHandler(async (req, res) => {
+  const system_id = cleanText(req.body.system_id, 100), product = cleanText(req.body.product, 100), tenant_id = cleanText(req.body.tenant_id, 100);
+  if (!system_id || !product) return res.status(400).json({ message: "缺少 system_id 或 product" });
+  const access = await systemAccess(req.user, system_id, tenant_id || undefined);
+  if (!access.allowed) return res.status(access.status).json({ message: access.message });
+  await mongoose.connection.collection("systems").updateOne({ tenant_id: access.system.tenant_id, system_id }, { $set: { current_product: product, updatedAt: new Date() } });
+  await writeAudit(req, "system.current_product.update", { tenant_id: access.system.tenant_id, system_id, target: product });
+  return res.json({ success: true, message: "產品設定成功" });
+}));
+
+app.post("/api/estop", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
+  const system_id = cleanText(req.body.system_id, 100), tenant_id = cleanText(req.body.tenant_id, 100);
+  if (!system_id) return res.status(400).json({ message: "請先選擇要停止的機台" });
+  const access = await systemAccess(req.user, system_id, tenant_id || undefined);
+  if (!access.allowed) return res.status(access.status).json({ message: access.message });
+  if (!mqttClient || !isMqttConnected) return res.status(503).json({ message: "MQTT 尚未連線，無法發送急停指令" });
+  const command_id = crypto.randomUUID();
+  const topic = MQTT_ESTOP_TOPIC_TEMPLATE.replace("{system_id}", system_id);
+  const payload = JSON.stringify({ command: "STOP", command_id, tenant_id: access.system.tenant_id, system_id, requested_at: new Date().toISOString() });
+  await new Promise((resolve, reject) => mqttClient.publish(topic, payload, { qos: 1 }, e => e ? reject(e) : resolve()));
+  await writeAudit(req, "machine.estop", { tenant_id: access.system.tenant_id, system_id, command_id, status: "pending_ack", details: { topic } });
+  return res.status(202).json({ success: true, command_id, status: "pending_ack", message: "緊急停止指令已送出，等待設備確認。" });
+}));
+
+async function evaluateNgAlert(tenant_id, system_id) {
+  if (!mailEnabled || !ALERT_EMAIL) return;
+  const now = new Date(), since = new Date(now.getTime() - ALERT_WINDOW_MINUTES * 60000);
+  const count = await Defect.countDocuments({ tenant_id, system_id, status: "NG", timestamp: { $gte: since } });
+  if (count < ALERT_THRESHOLD) return;
+  const col = mongoose.connection.collection("alert_states"), key = `${tenant_id}:${system_id}:ng-window`, state = await col.findOne({ key });
+  if (state?.lastSentAt && now.getTime() - new Date(state.lastSentAt).getTime() < ALERT_COOLDOWN_MINUTES * 60000) return;
+  await transporter.sendMail({ from: MAIL_FROM, to: ALERT_EMAIL, subject: "產線 NG 異常警報", text: `機台 ${system_id} 在最近 ${ALERT_WINDOW_MINUTES} 分鐘內有 ${count} 筆 NG，已達門檻 ${ALERT_THRESHOLD} 筆。` });
+  await col.updateOne({ key }, { $set: { key, tenant_id, system_id, lastSentAt: now, lastCount: count } }, { upsert: true });
 }
 
-app.get("/api/ai/status", auth, (req, res) => {
-  const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
-  res.json({
-    enabled: Boolean(process.env.GEMINI_API_KEY),
-    provider: "gemini",
-    model,
-    mode: process.env.GEMINI_API_KEY ? "gemini" : "local-summary"
-  });
-});
-
-app.post("/api/ai/chat", auth, aiLimiter, async (req, res) => {
-  try {
-    const { message, system_id, tenant_id, products } = req.body || {};
-
-    if (!message || !String(message).trim()) {
-      return res.status(400).json({ message: "請輸入問題" });
-    }
-
-    if (String(message).length > 2000) {
-      return res.status(400).json({ message: "問題文字不可超過 2000 字" });
-    }
-
-    const scope = await buildScopedDefectQuery(req.user, { system_id, tenant_id, products });
-    if (scope.error) return res.status(scope.status).json({ message: scope.error });
-    const defects = await Defect.find(scope.query)
-      .sort({ timestamp: -1 })
-      .limit(500)
-      .select("-image_data")
-      .lean();
-    const summary = summarizeDefectsForAi(defects);
-
-    if (!process.env.GEMINI_API_KEY) {
-      return res.json({
-        mode: "local-summary",
-        provider: "local",
-        reply: buildLocalAiReply(message, summary),
-        summary
-      });
-    }
-
-    const systemPrompt = `你是「瑕疵辨識與分流系統」的 AI 助理。
-
-回答規則：
-1. 一律使用繁體中文，直接回答問題，不要打招呼、不要自我介紹。
-2. 一般回答控制在 250～450 個中文字內；只有使用者明確要求詳細說明時才可加長。
-3. 最多使用 3 個小標題，每個小標題下以精簡條列呈現。
-4. 不要每次重複所有產品統計，只列出與問題直接相關的數據。
-5. 使用者問「NG 最多」時，要分清楚：
-   - NG 數量最多：比較 ng 數量。
-   - NG 率最高：比較 defectRate。
-   若兩者不是同一產品，必須分別說明。
-6. 使用者問 MQTT 範例時，只提供必要欄位與一組 OK、一組 NG 範例，不要再附上過長的通用說明。
-7. 若資料不足，明確說明只能提出可能原因，不可把推測當成事實。
-8. 回答可以使用 Markdown，但避免過多分隔線、重複標題或冗長前言。
-9. 先給結論，再給必要的操作步驟。
-
-你只能根據下列系統功能與統計資料回答，不要假裝看到不存在的資料。
-系統功能：WebCam 即時預覽、MQTT 訊息接收、MongoDB 瑕疵紀錄、登入權限、首頁儀表板、事件紀錄、系統設定、緊急停止、產品良率與 NG 率分析。
-公式：良率 = OK ÷ (OK + NG) × 100%；NG率 = NG ÷ (OK + NG) × 100%。
-排錯時優先提供可實際操作的建議，例如檢查 system_id、tenant_id、產品分類、MQTT payload、鏡頭、光源、治具位置，以及資料是否寫入 MongoDB。`;
-
-    const userPrompt = `使用者問題：${String(message).slice(0, 2000)}
-
-目前可用統計資料：
-${JSON.stringify(summary, null, 2).slice(0, 12000)}`;
-    const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
-
+function createMqttClient() {
+  if (!process.env.HIVEMQ_USER || !process.env.HIVEMQ_PASS) { console.warn("⚠️ MQTT 帳密未設定，跳過 MQTT 連線"); return null; }
+  const client = mqtt.connect(process.env.MQTT_URL || "mqtts://487b901642cc4a189a7c7dfd277110a8.s1.eu.hivemq.cloud", { port: clampInt(process.env.MQTT_PORT, 8883, 1, 65535), username: process.env.HIVEMQ_USER, password: process.env.HIVEMQ_PASS, reconnectPeriod: 5000, connectTimeout: 15000, clean: true });
+  client.on("connect", () => { isMqttConnected = true; client.subscribe([MQTT_REPORT_TOPIC, MQTT_ESTOP_ACK_TOPIC], { qos: 1 }); console.log("✅ MQTT 已連線"); });
+  client.on("offline", () => { isMqttConnected = false; }); client.on("close", () => { isMqttConnected = false; }); client.on("error", e => { isMqttConnected = false; console.error("MQTT 錯誤:", e.message); });
+  client.on("message", async (topic, buffer) => {
     try {
-      const aiResponse = await axios.post(
-        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-        {
-          systemInstruction: {
-            parts: [{ text: systemPrompt }]
-          },
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: userPrompt }]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 700
-          }
-        },
-        {
-          headers: {
-            "x-goog-api-key": process.env.GEMINI_API_KEY,
-            "Content-Type": "application/json"
-          },
-          timeout: 30000
-        }
-      );
-
-      return res.json({
-        mode: "gemini",
-        provider: "gemini",
-        model,
-        reply: extractGeminiText(aiResponse.data),
-        summary
-      });
-    } catch (geminiError) {
-      const status = geminiError?.response?.status;
-      const apiMessage = geminiError?.response?.data?.error?.message || geminiError.message;
-      console.error("Gemini AI chat error:", geminiError?.response?.data || geminiError.message);
-
-      const reason = status === 429
-        ? "Gemini 免費額度或速率限制已達上限"
-        : "Gemini 暫時無法連線";
-
-      return res.json({
-        mode: "local-summary-fallback",
-        provider: "local",
-        model,
-        warning: `${reason}，已自動切換成本機統計模式。`,
-        reply: `${reason}，已自動切換成本機統計模式。
-
-${buildLocalAiReply(message, summary)}`,
-        summary,
-        error_code: status || null,
-        error_detail: process.env.NODE_ENV === "development" ? apiMessage : undefined
-      });
-    }
-  } catch (err) {
-    console.error("AI chat error:", err?.response?.data || err.message);
-    return res.status(500).json({
-      message: "AI 助理暫時無法回覆，請稍後再試。",
-      fallback: process.env.NODE_ENV === "development" ? err.message : undefined
-    });
-  }
-});
-
-app.post("/api/current-product", auth, requireRole("super_admin", "tenant_admin"), async (req, res) => {
-  try {
-    const tenantId = cleanText(req.body?.tenant_id || req.user.tenant_id, 100);
-    const systemId = cleanText(req.body?.system_id, 100);
-    const product = cleanText(req.body?.product, 100);
-    if (!tenantId || !systemId || !product) return res.status(400).json({ message: "缺少參數" });
-    if (!await canAccessSystem(req.user, tenantId, systemId)) {
-      return res.status(403).json({ message: "無權限設定此機台產品" });
-    }
-
-    const result = await mongoose.connection.collection("systems").updateOne(
-      { tenant_id: tenantId, system_id: systemId },
-      { $set: { current_product: product, updatedAt: new Date() } }
-    );
-    if (!result.matchedCount) return res.status(404).json({ message: "找不到機台" });
-
-    await writeAuditLog(req, {
-      tenant_id: tenantId,
-      system_id: systemId,
-      action: "CURRENT_PRODUCT_UPDATED",
-      target: `system:${systemId}`,
-      payload: { product }
-    });
-    res.json({ message: "產品設定成功" });
-  } catch (err) {
-    console.error("current-product error:", err);
-    res.status(500).json({ message: "設定失敗" });
-  }
-});
-
-app.get("/api/admin/audit-logs", auth, requireRole("super_admin", "tenant_admin"), async (req, res) => {
-  try {
-    const { page, limit, skip } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 200 });
-    const query = req.user.role === "super_admin" ? {} : { tenant_id: req.user.tenant_id };
-    const [data, total] = await Promise.all([
-      AuditLog.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      AuditLog.countDocuments(query)
-    ]);
-    res.json({ data, page, limit, total, totalPages: Math.ceil(total / limit) });
-  } catch (err) {
-    console.error("audit logs error:", err);
-    res.status(500).json({ message: "讀取操作紀錄失敗" });
-  }
-});
-
-app.use((err, req, res, next) => {
-  if (res.headersSent) return next(err);
-  const requestId = crypto.randomUUID();
-  console.error(`[${requestId}]`, err);
-  const isCorsError = err?.message?.includes("CORS");
-  res.status(isCorsError ? 403 : 500).json({
-    message: isCorsError ? "來源不被允許" : "伺服器處理失敗",
-    request_id: requestId,
-    detail: process.env.NODE_ENV === "development" ? err.message : undefined
+      const raw = JSON.parse(buffer.toString("utf8"));
+      if (topic.startsWith(MQTT_ESTOP_ACK_TOPIC.replace("+", ""))) { const command_id = cleanText(raw.command_id, 100); if (command_id) await AuditLog.updateOne({ command_id }, { $set: { status: cleanText(raw.status || "acknowledged", 40), "details.ack": raw, "details.acknowledgedAt": new Date() } }); return; }
+      if (topic !== MQTT_REPORT_TOPIC) return;
+      const systemId = cleanText(raw.system_id, 100);
+      const systemDoc = await mongoose.connection.collection("systems").findOne({ system_id: systemId }, { projection: { tenant_id: 1, current_product: 1 } });
+      if (!systemDoc) throw new Error("找不到機台");
+      const normalized = normalizeDefectPayload(raw, systemDoc.current_product || "未分類");
+      const owner = await mongoose.connection.collection("users").findOne({ tenant_id: systemDoc.tenant_id }, { projection: { username: 1, email: 1 } });
+      const now = new Date();
+      const docs = normalized.items.map(item => ({ tenant_id: systemDoc.tenant_id, user_id: owner?.username || owner?.email || "unknown", system_id: normalized.system_id, id: item.id, status: item.status, product: item.product, timestamp: now }));
+      await Defect.insertMany(docs, { ordered: true });
+      const last = docs[docs.length - 1]; latestMqttMessage = { payload: { id: last.id, status: last.status, product: last.product, system_id: last.system_id }, tenant_id: last.tenant_id, timestamp: now };
+      if (docs.some(v => v.status === "NG")) await evaluateNgAlert(systemDoc.tenant_id, normalized.system_id);
+    } catch (error) { console.error("MQTT 訊息拒絕:", error.message); }
   });
-});
+  return client;
+}
+
+app.get("/", (req, res) => res.sendFile(path.join(publicDir, "index.html")));
+app.use("/api", (req, res) => res.status(404).json({ message: "找不到此 API", request_id: req.requestId }));
+app.use((error, req, res, next) => { const status = Number(error.status || error.statusCode || 500); if (status >= 500) console.error(`[${req.requestId}]`, error); return res.status(status).json({ message: status >= 500 && NODE_ENV === "production" ? "伺服器暫時發生錯誤" : (error.message || "請求失敗"), request_id: req.requestId }); });
+
+async function ensureIndexes() {
+  const tasks = [
+    mongoose.connection.collection("login_otps").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    mongoose.connection.collection("login_otps").createIndex({ email: 1 }, { unique: true }),
+    mongoose.connection.collection("users").createIndex({ email: 1 }, { unique: true, sparse: true }),
+    mongoose.connection.collection("users").createIndex({ username: 1 }, { unique: true, sparse: true }),
+    mongoose.connection.collection("systems").createIndex({ tenant_id: 1, system_id: 1 }, { unique: true }),
+    mongoose.connection.collection("alert_states").createIndex({ key: 1 }, { unique: true }),
+    Defect.createIndexes(),
+    AuditLog.createIndexes()
+  ];
+  const results = await Promise.allSettled(tasks);
+  results.forEach(result => {
+    if (result.status === "rejected") console.warn("索引建立警告：", result.reason?.message || result.reason);
+  });
+}
+async function start() { await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000, maxPoolSize: 10 }); console.log("✅ MongoDB 連線成功"); await ensureIndexes(); mqttClient = createMqttClient(); app.listen(PORT, "0.0.0.0", () => console.log(`🚀 server running on ${PORT}`)); }
+if (require.main === module) start().catch(error => { console.error("❌ 伺服器啟動失敗:", error); process.exit(1); });
+module.exports = { app, start };

@@ -1,64 +1,52 @@
-# 瑕疵辨識與分流系統：部署說明
+# Render 部署說明
 
-## 專案結構
+## 1. 必填環境變數
 
-- `server.cjs`：Node.js / Express / MongoDB / MQTT / Gemini 後端
-- `public/`：前端 HTML、CSS、JavaScript 與 PWA 資源
-- `lib/validators.cjs`：密碼、MQTT payload、分頁與輸入驗證
-- `tests/`：Node 內建測試
-- `.env.example`：完整環境變數清單
-- `render.yaml`：Render Blueprint
-- `docs/API_SECURITY.md`：API 與角色權限說明
+Render → Service → Environment 中至少設定：
 
-## 本機測試
+- `MONGODB_URI`
+- `JWT_SECRET`：至少 32 個隨機字元
+- `APP_BASE_URL=https://defect-system-render.onrender.com`
+- `ALLOWED_ORIGINS=https://defect-system-render.onrender.com`
 
-1. 複製 `.env.example` 為 `.env`，填入至少：
+要使用 MQTT、Email 登入驗證與 Gemini，再依 `env.example` 補齊相關變數。
 
-   ```env
-   MONGODB_URI=
-   JWT_SECRET=
-   ```
+## 2. Build / Start
 
-2. 安裝並檢查：
-
-   ```powershell
-   npm ci
-   npm run check
-   npm test
-   npm audit --omit=dev
-   npm start
-   ```
-
-3. 開啟 `http://localhost:5000`。
-
-## Render 設定
-
-- Service Type：Web Service
-- Runtime：Node
-- Build Command：`npm ci`
-- Start Command：`npm start`
-- Health Check Path：`/health`
-
-請依 `.env.example` 或 `render.yaml` 加入環境變數。真正的金鑰只能放在 Render Environment，不能上傳 GitHub。
-
-## 重要安全設定
-
-```env
-NODE_ENV=production
-CORS_ORIGINS=https://defect-system-render.onrender.com
-ALLOW_PASSWORD_LOGIN=false
+```text
+Build Command: npm ci
+Start Command: npm start
+Health Check: /health
 ```
 
-- `CORS_ORIGINS` 可用逗號加入多個正式網域。
-- `ALLOW_PASSWORD_LOGIN=false` 表示只使用 Email OTP 登入。
-- 設定 `REGISTRATION_INVITE_CODE` 後，註冊 API 必須提供相同邀請碼。
-- `GEMINI_API_KEY` 沒設定時，AI 會自動改用本機統計備援。
+## 3. 部署後檢查
 
-## 部署後檢查
+1. 開啟 `/health`，確認 `status` 為 `ok`。
+2. 開啟首頁、登入、儀表板、事件紀錄、設定與 AI 頁面。
+3. 使用一般使用者測試：不可透過網址參數查看未授權機台。
+4. 使用租戶管理員測試急停：必須先選機台，系統回傳 `pending_ack`。
+5. 開啟 `/api/health`，確認 MongoDB、MQTT、Email、Gemini 設定狀態。
 
-1. `/health` 回傳 `status: ok`。
-2. 登入頁能寄送並驗證 OTP。
-3. 一般 user 只能看到被指派的 systems。
-4. `/api/estop` 只有 tenant_admin / super_admin 能操作。
-5. PWA 不會快取 `/api/*` 或帶 Authorization 的請求。
-6. GitHub Actions 的 check、test、audit 均通過。
+## 4. 安全提醒
+
+- API Key、MongoDB 密碼、JWT Secret 只放 Render Environment，不可提交到 GitHub。
+- 正式使用時可將 `ALLOW_PUBLIC_REGISTRATION=false`，改由管理員建立帳號。
+- 急停設備需訂閱 `MQTT_ESTOP_TOPIC_TEMPLATE` 對應的機台 Topic，並回傳 ACK。
+
+## 5. Render 顯示 `npm error Exit handler never called!`
+
+本專案已固定使用 Node.js `22.23.1`，避免 Render 自動採用 Node.js 24 時的 npm 安裝異常。
+
+若服務已經在 Render 建立，請在 Dashboard 手動確認：
+
+```text
+Environment：NODE_VERSION=22.23.1
+Build Command：npm ci --no-audit --no-fund
+Start Command：npm start
+```
+
+儲存後使用：
+
+```text
+Manual Deploy → Clear build cache & deploy
+```

@@ -2,12 +2,18 @@ services:
   - type: web
     name: defect-system
     runtime: node
-    buildCommand: npm ci
+    buildCommand: npm ci --no-audit --no-fund
     startCommand: npm start
     healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: 22.23.1
+      - key: APP_BASE_URL
+        value: https://defect-system-render.onrender.com
+      - key: ALLOWED_ORIGINS
+        value: https://defect-system-render.onrender.com
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
@@ -20,8 +26,6 @@ services:
         sync: false
       - key: BREVO_SMTP_KEY
         sync: false
-      - key: BREVO_SMTP_PORT
-        value: 2525
       - key: BREVO_SENDER_EMAIL
         sync: false
       - key: ALERT_EMAIL
@@ -30,13 +34,11 @@ services:
         sync: false
       - key: GEMINI_MODEL
         value: gemini-3.1-flash-lite
-      - key: CORS_ORIGINS
-        value: https://defect-system-render.onrender.com
-      - key: ALLOW_PASSWORD_LOGIN
-        value: "false"
-      - key: ALERT_THRESHOLD
-        value: "3"
-      - key: ALERT_WINDOW_MINUTES
-        value: "10"
-      - key: ALERT_COOLDOWN_MINUTES
-        value: "10"
+      - key: ALLOW_PUBLIC_REGISTRATION
+        value: "true"
+      - key: MQTT_REPORT_TOPIC
+        value: factory/defect/report
+      - key: MQTT_ESTOP_TOPIC_TEMPLATE
+        value: factory/control/estop/{system_id}
+      - key: MQTT_ESTOP_ACK_TOPIC
+        value: factory/control/estop/ack/+
