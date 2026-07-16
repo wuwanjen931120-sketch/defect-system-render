@@ -84,3 +84,10 @@ Gemini API 免費層｜gemini-3.1-flash-lite
   "product": "螺帽"
 }
 ```
+
+## 安全限制
+
+- `POST /api/ai/chat` 必須帶 JWT。
+- AI 查詢有速率限制，單次問題最多 2000 字。
+- AI 只會讀取登入者有權限的 tenant/system 資料。
+- Gemini 回傳失敗時會改用本機統計備援，不會暴露正式環境錯誤細節。

@@ -1,0 +1,33 @@
+1150713 系統專題審查報告－程式修正版
+日期：2026-07-16
+
+這份專案已依審查報告，以目前最新的 Gemini AI 版本為基礎修改。
+
+主要完成項目：
+1. 移除 public/server.js，避免公開後端原始碼。
+2. 修正 PWA manifest、icon-512.png 與 service worker；API/登入資料不再被快取。
+3. defects、summary、predict、AI、site-config 加入 tenant/system 權限範圍。
+4. current-product 與 estop 限制管理員權限；estop 加入 system_id、command_id、ACK 與 AuditLog。
+5. OTP 加入冷卻、到期與錯誤次數限制；密碼加入基本強度要求。
+6. 加入 Helmet、CSP、CORS allowlist、API/登入/AI rate limit 與統一錯誤回應。
+7. MQTT payload 驗證、資料庫索引、NG 時間窗警示與冷卻。
+8. Mongo 管理 API 排除密碼等敏感欄位並支援分頁。
+9. 新增測試、GitHub Actions CI、API 權限文件與完整 env 範例。
+10. npm audit 結果：0 個已知漏洞。
+
+上傳方式：
+- 將本資料夾全部檔案覆蓋 GitHub 專案。
+- 不要上傳 .env，也不要把 API Key 寫入程式。
+- Render Build Command 使用 npm ci，Start Command 使用 npm start。
+- 依 .env.example 檢查 Environment Variables。
+
+部署後測試：
+- npm run check
+- npm test
+- npm audit --omit=dev
+- 開啟 /health 確認 status 為 ok
+
+尚未完全處理：
+- OTP 目前仍是單機記憶體，正式多實例應改 MongoDB TTL 或 Redis。
+- JWT 仍存 sessionStorage；正式商用可改 HttpOnly Secure cookie。
+- CSP 因舊頁面含大量 inline script/style，暫時仍允許 unsafe-inline。
