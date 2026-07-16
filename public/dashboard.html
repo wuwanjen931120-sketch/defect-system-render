@@ -2076,8 +2076,8 @@ function renderYieldAlertLogs(){
 
     return `
       <div class="yieldAlertLogItem">
-        <div class="yieldAlertLogMain"><b>⚠️ 警報中</b><br>${log.message}</div>
-        <div class="yieldAlertTime">${timeText}</div>
+        <div class="yieldAlertLogMain"><b>⚠️ 警報中</b><br>${escapeHtml(log.message)}</div>
+        <div class="yieldAlertTime">${escapeHtml(timeText)}</div>
       </div>
     `;
   }).join("");
@@ -2115,7 +2115,7 @@ function updateYieldAlertBanner(messages){
   }
 
   banner.style.display = "block";
-  banner.innerHTML = messages.map(msg => `⚠️ ${msg}`).join("<br>");
+  banner.innerHTML = messages.map(msg => `⚠️ ${escapeHtml(msg)}`).join("<br>");
 }
 
 function checkYieldAlerts(filteredList, productStats, totalOK, totalNG){
@@ -2784,10 +2784,14 @@ function renderProductList() {
       border-radius:10px;
       background:#2563eb;
       cursor:pointer;
-    " onclick="removeProduct('${p}')">
-      ${p} ❌
+    " data-product="${escapeHtml(p)}">
+      ${escapeHtml(p)} ❌
     </span>
   `).join("");
+
+  div.querySelectorAll("[data-product]").forEach(el => {
+    el.addEventListener("click", () => removeProduct(el.dataset.product || ""));
+  });
 }
 
 function updateMqttStatus(ok, textMsg = "") {
@@ -2931,7 +2935,7 @@ const product = normalizeProductName(item.product);
       if (gaugeArea) {
         gaugeArea.innerHTML += `
           <div class="gaugeBox">
-            <div class="gaugeLabel">${productName}</div>
+            <div class="gaugeLabel">${escapeHtml(productName)}</div>
             <div class="gauge" style="
               --p:${yieldRate};
               background: conic-gradient(
@@ -2953,7 +2957,7 @@ const product = normalizeProductName(item.product);
       if (dynamicRows) {
         dynamicRows.innerHTML += `
           <div class="pt-row">
-            <div class="pt-name">${productName}</div>
+            <div class="pt-name">${escapeHtml(productName)}</div>
             <div class="pt-ok">${stats.ok}</div>
             <div class="pt-ng">${stats.ng}</div>
           </div>
@@ -3007,12 +3011,12 @@ async function loadDefects() {
         statusText === "OK" ? "status-ok" : "";
 
       row.innerHTML = `
-        <div class="defect-id">${item.id || "-"}</div>
+        <div class="defect-id">${escapeHtml(item.id || "-")}</div>
         <div class="defect-status ${statusClass}">
-          ${statusText} ${item.product ? `(${item.product})` : ""}
+          ${escapeHtml(statusText)} ${item.product ? `(${escapeHtml(item.product)})` : ""}
         </div>
         <div class="defect-time">
-          ${item.timestamp ? new Date(item.timestamp).toLocaleString("zh-TW") : "-"}
+          ${escapeHtml(item.timestamp ? new Date(item.timestamp).toLocaleString("zh-TW") : "-")}
         </div>
       `;
 

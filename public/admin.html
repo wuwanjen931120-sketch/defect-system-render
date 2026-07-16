@@ -368,14 +368,32 @@
         }
 
         data.forEach(u => {
-          table.innerHTML += `
-            <tr>
-              <td>${u.company || "未設定公司"}</td>
-              <td><b>${u.username || "-"}</b></td>
-              <td><span class="badge">${u.role || "-"}</span></td>
-              <td>${u.tenant_id || "-"}</td>
-            </tr>
-          `;
+          const tr = document.createElement("tr");
+          const values = [
+            u.company || "未設定公司",
+            u.username || "-",
+            u.role || "-",
+            u.tenant_id || "-"
+          ];
+
+          values.forEach((value, index) => {
+            const td = document.createElement("td");
+            if (index === 1) {
+              const strong = document.createElement("b");
+              strong.textContent = value;
+              td.appendChild(strong);
+            } else if (index === 2) {
+              const badge = document.createElement("span");
+              badge.className = "badge";
+              badge.textContent = value;
+              td.appendChild(badge);
+            } else {
+              td.textContent = value;
+            }
+            tr.appendChild(td);
+          });
+
+          table.appendChild(tr);
         });
 
       } catch (err) {

@@ -1,61 +1,77 @@
+"use strict";
 
-
-const CACHE_NAME = "aiot-pwa-v6-sidebar-all-ai"; // ✅ bump version
-const ASSETS = [
+const CACHE_NAME = "aiot-pwa-v7-static-only";
+const STATIC_ASSETS = [
   "./",
   "./index.html",
   "./login.html",
+  "./register.html",
   "./dashboard.html",
   "./logs.html",
   "./settings.html",
   "./ai.html",
+  "./admin.html",
+  "./mongo-admin.html",
   "./style.css",
   "./core.js",
   "./script.js",
   "./ai.js",
-  "./manifest.webmanifest"
+  "./sidebar-common.js",
+  "./manifest.webmanifest",
+  "./icon-192.png",
+  "./icon-512.png"
 ];
 
-
-self.addEventListener("install", (event) => {
+self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
   );
 });
 
-
-self.addEventListener("activate", (event) => {
+self.addEventListener("activate", event => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    console.log('Current caches:', keys); // 顯示所有的快取鍵
-    await Promise.all(keys.map(k => {
-      if (k !== CACHE_NAME) {
-        console.log(`Deleting cache: ${k}`);
-        return caches.delete(k);
-      }
-      return Promise.resolve();
-    }));
+    await Promise.all(keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key)));
     await self.clients.claim();
   })());
 });
 
+self.addEventListener("fetch", event => {
+  const request = event.request;
+  if (request.method !== "GET") return;
 
-// ✅ Network-first：避免舊快取讓頁面灰底、白畫面、三警告
-self.addEventListener("fetch", (event) => {
-  const req = event.request;
-  if (req.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
 
+  // 登入、API、帶 Authorization 的請求永遠不進快取。
+  if (url.pathname.startsWith("/api/") || request.headers.has("Authorization")) return;
+
+  if (request.mode === "navigate") {
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(request, { cache: "no-store" });
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(request, response.clone());
+        return response;
+      } catch (_) {
+        return (await caches.match(request)) || (await caches.match("./index.html"));
+      }
+    })());
+    return;
+  }
 
   event.respondWith((async () => {
-    try {
-      const fresh = await fetch(req);
-      const cache = await caches.open(CACHE_NAME);
-      cache.put(req, fresh.clone());
-      return fresh;
-    } catch (e) {
-      const cached = await caches.match(req);
-      return cached || caches.match("./index.html");
-    }
+    const cached = await caches.match(request);
+    const networkPromise = fetch(request).then(async response => {
+      if (response.ok) {
+        const cache = await caches.open(CACHE_NAME);
+        cache.put(request, response.clone());
+      }
+      return response;
+    }).catch(() => null);
+
+    return cached || (await networkPromise) || Response.error();
   })());
 });
-

@@ -255,9 +255,14 @@
             "Content-Type": "application/json",
             "Authorization": token ? `Bearer ${token}` : ""
           },
-          body: JSON.stringify({ action: "emergency_stop" })
+          body: JSON.stringify({
+            action: "emergency_stop",
+            tenant_id: sessionStorage.getItem("tenant_id") || "",
+            system_id: sessionStorage.getItem("system_id") || ""
+          })
         });
         const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "緊急停止失敗");
         alert(data.message || "緊急停止已觸發");
       } catch (error) {
         console.error(error);

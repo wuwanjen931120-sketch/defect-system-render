@@ -55,6 +55,16 @@
   }
   window.safeText = safeText;
 
+  function escapeHtml(value){
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+  window.escapeHtml = window.escapeHtml || escapeHtml;
+
   function safeNumber(v, fallback=0){
     try{
       const n = Number(String(v ?? "").trim());

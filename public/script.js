@@ -50,12 +50,18 @@ window.pushLog = function(state, text, note){
   if(state === "WARN"){ badgeClass = "warn"; badgeText = "WARN"; }
 
 
-  tr.innerHTML = `
-    <td>${window.nowTime()}</td>
-    <td><span class="badge ${badgeClass}">${badgeText}</span></td>
-    <td>${window.safeText(text, "-")}</td>
-    <td>${window.safeText(note, "")}</td>
-  `;
+  const timeTd = document.createElement("td");
+  timeTd.textContent = window.nowTime();
+  const stateTd = document.createElement("td");
+  const badge = document.createElement("span");
+  badge.className = `badge ${badgeClass}`;
+  badge.textContent = badgeText;
+  stateTd.appendChild(badge);
+  const textTd = document.createElement("td");
+  textTd.textContent = window.safeText(text, "-");
+  const noteTd = document.createElement("td");
+  noteTd.textContent = window.safeText(note, "");
+  tr.append(timeTd, stateTd, textTd, noteTd);
 
 
   body.prepend(tr);
@@ -118,8 +124,12 @@ window.setMqtt = function(online){
 
 window.demoEstop = async function(){
   try{
+    const systemId = sessionStorage.getItem("system_id") || "";
+    const tenantId = sessionStorage.getItem("tenant_id") || "";
+    if (!systemId) throw new Error("尚未選擇機台");
     await apiFetch(`${API_BASE}/api/estop`, {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify({ system_id: systemId, tenant_id: tenantId })
     });
 
     pushLog("WARN", "ESTOP", "已觸發緊急停止");
@@ -281,7 +291,7 @@ async function loadDefects(){
 
     data.forEach(item => {
       const div = document.createElement("div");
-      div.innerHTML = `${item.id} - ${item.status} - ${item.timestamp}`;
+      div.textContent = `${window.safeText(item.id, "-")} - ${window.safeText(item.status, "-")} - ${window.safeText(item.timestamp, "-")}`;
       list.appendChild(div);
     });
 
