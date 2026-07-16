@@ -26,10 +26,43 @@
     }, extra || {});
   }
 
+  function renderBotMarkdown(element, text){
+    const safeText = String(text ?? "");
+
+    // marked 或 DOMPurify 尚未載入時，退回純文字顯示，避免頁面壞掉。
+    if (!window.marked || !window.DOMPurify) {
+      element.textContent = safeText;
+      return;
+    }
+
+    try {
+      const rawHtml = window.marked.parse(safeText, {
+        breaks: true,
+        gfm: true
+      });
+
+      element.innerHTML = window.DOMPurify.sanitize(rawHtml, {
+        USE_PROFILES: { html: true }
+      });
+    } catch (err) {
+      console.error("Markdown 解析失敗", err);
+      element.textContent = safeText;
+    }
+  }
+
+  function setMessageContent(element, text, who){
+    if ((who || "bot") === "bot") {
+      renderBotMarkdown(element, text);
+    } else {
+      element.textContent = String(text ?? "");
+    }
+  }
+
   function addMessage(text, who){
+    const messageWho = who || "bot";
     const div = document.createElement("div");
-    div.className = "msg " + (who || "bot");
-    div.textContent = text;
+    div.className = "msg " + messageWho;
+    setMessageContent(div, text, messageWho);
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
     return div;
@@ -116,7 +149,7 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "AI 回覆失敗");
 
-      loading.textContent = data.reply || "沒有收到回覆";
+      setMessageContent(loading, data.reply || "沒有收到回覆", "bot");
       if (data.mode === "local-summary-fallback") {
         aiDot.classList.remove("on");
         aiMode.textContent = "本機備援模式｜Gemini 暫時無法使用";
@@ -132,7 +165,7 @@
       }
     }catch(err){
       console.error(err);
-      loading.textContent = "AI 助理暫時無法回覆：" + err.message;
+      setMessageContent(loading, "AI 助理暫時無法回覆：" + err.message, "bot");
     }finally{
       sendBtn.disabled = false;
       sendBtn.textContent = "送出";
