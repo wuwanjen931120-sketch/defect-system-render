@@ -221,8 +221,7 @@
     document.getElementById("btnGo").addEventListener("click", () => {
       try {
         const ok =
-          sessionStorage.getItem("isLogin") === "true" ||
-          localStorage.getItem("isLogin") === "true" ||
+          sessionStorage.getItem("isLogin") === "true" &&
           !!sessionStorage.getItem("token");
 
         location.href = ok ? "dashboard.html" : "login.html";

@@ -2190,10 +2190,20 @@ function updateTrendProductOptions(products){
   if (!select) return;
 
   const oldValue = select.value || "__all__";
-  const list = Array.isArray(products) ? products : [];
+  const list = Array.isArray(products) ? products.map(String) : [];
+  select.replaceChildren();
 
-  select.innerHTML = `<option value="__all__">全部產品</option>` +
-    list.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join("");
+  const allOption = document.createElement("option");
+  allOption.value = "__all__";
+  allOption.textContent = "全部產品";
+  select.appendChild(allOption);
+
+  list.forEach(product => {
+    const option = document.createElement("option");
+    option.value = product;
+    option.textContent = product;
+    select.appendChild(option);
+  });
 
   select.value = list.includes(oldValue) ? oldValue : "__all__";
 }
@@ -2363,7 +2373,11 @@ function renderYieldTrend(){
 
 function getNgImageUrl(item){
   if (!item) return "";
-  return item.image_url || item.imageUrl || item.snapshot_url || item.snapshotUrl || item.snapshot || item.photo_url || item.photoUrl || item.ng_image_url || item.ngImageUrl || item.img || "";
+  const raw = String(item.image_url || item.imageUrl || item.snapshot_url || item.snapshotUrl || item.snapshot || item.photo_url || item.photoUrl || item.ng_image_url || item.ngImageUrl || item.img || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("/")) return new URL(raw, window.location.origin).href;
+  if (/^https:\/\//i.test(raw)) return raw;
+  return "";
 }
 
 function renderNgImageArchive(list = latestDashboardList){
@@ -2375,34 +2389,56 @@ function renderNgImageArchive(list = latestDashboardList){
     .sort((a, b) => getEventTimeMs(b) - getEventTimeMs(a))
     .slice(0, 12);
 
+  area.replaceChildren();
   if (ngList.length === 0) {
-    area.innerHTML = `<div class="ngImageEmpty">目前沒有 NG 圖片或 NG 紀錄。</div>`;
+    const empty = document.createElement("div");
+    empty.className = "ngImageEmpty";
+    empty.textContent = "目前沒有 NG 圖片或 NG 紀錄。";
+    area.appendChild(empty);
     return;
   }
 
-  area.innerHTML = ngList.map(item => {
+  ngList.forEach(item => {
+    const card = document.createElement("div");
+    card.className = "ngImageItem";
+
+    const thumb = document.createElement("div");
+    thumb.className = "ngImageThumb";
     const imgUrl = getNgImageUrl(item);
-    const id = escapeHtml(item.id || item.case_id || item.caseId || "-");
-    const product = escapeHtml(item.product || "未分類");
+    if (imgUrl) {
+      const image = document.createElement("img");
+      image.src = imgUrl;
+      image.alt = "NG 瑕疵圖片";
+      image.loading = "lazy";
+      image.addEventListener("error", () => {
+        thumb.replaceChildren();
+        thumb.textContent = "圖片讀取失敗";
+      });
+      thumb.appendChild(image);
+    } else {
+      const missing = document.createElement("span");
+      missing.textContent = "此筆沒有圖片欄位";
+      thumb.appendChild(missing);
+    }
+
+    const meta = document.createElement("div");
+    meta.className = "ngImageMeta";
     const timeText = getEventTimeMs(item)
       ? new Date(getEventTimeMs(item)).toLocaleString("zh-TW", { hour12:false })
       : "-";
+    [
+      `ID：${item.id || item.case_id || item.caseId || "-"}`,
+      `產品：${item.product || "未分類"}`,
+      `時間：${timeText}`
+    ].forEach(text => {
+      const line = document.createElement("div");
+      line.textContent = text;
+      meta.appendChild(line);
+    });
 
-    return `
-      <div class="ngImageItem">
-        <div class="ngImageThumb">
-          ${imgUrl
-            ? `<img src="${escapeHtml(imgUrl)}" alt="NG 瑕疵圖片" loading="lazy" onerror="this.parentElement.textContent='圖片讀取失敗';">`
-            : `<span>此筆沒有圖片欄位</span>`}
-        </div>
-        <div class="ngImageMeta">
-          <div>ID：${id}</div>
-          <div>產品：${product}</div>
-          <div>時間：${escapeHtml(timeText)}</div>
-        </div>
-      </div>
-    `;
-  }).join("");
+    card.append(thumb, meta);
+    area.appendChild(card);
+  });
 }
 
 async function getSystemsForRanking(){
@@ -2776,19 +2812,26 @@ function renderProductList() {
   }
 
   if (!div) return;
+  div.replaceChildren();
 
-  div.innerHTML = selectedProducts.map(p => `
-    <span style="
-      display:inline-block;
-      padding:6px 12px;
-      margin:4px;
-      border-radius:10px;
-      background:#2563eb;
-      cursor:pointer;
-    " onclick="removeProduct('${p}')">
-      ${p} ❌
-    </span>
-  `).join("");
+  selectedProducts.forEach(product => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.textContent = `${product} ❌`;
+    chip.setAttribute("aria-label", `移除產品 ${product}`);
+    Object.assign(chip.style, {
+      display: "inline-block",
+      padding: "6px 12px",
+      margin: "4px",
+      border: "0",
+      borderRadius: "10px",
+      background: "#2563eb",
+      color: "#fff",
+      cursor: "pointer"
+    });
+    chip.addEventListener("click", () => removeProduct(product));
+    div.appendChild(chip);
+  });
 }
 
 function updateMqttStatus(ok, textMsg = "") {

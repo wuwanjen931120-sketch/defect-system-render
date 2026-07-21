@@ -1,15 +1,10 @@
 "use strict";
-const CACHE_NAME = "aiot-static-v8-security-review";
+
+const CACHE_NAME = "aiot-static-v9";
 const STATIC_ASSETS = [
-  "./index.html",
-  "./login.html",
-  "./dashboard.html",
-  "./logs.html",
-  "./settings.html",
-  "./ai.html",
+  "./offline.html",
   "./style.css",
   "./core.js",
-  "./script.js",
   "./ai.js",
   "./sidebar-common.js",
   "./manifest.webmanifest",
@@ -20,7 +15,11 @@ const STATIC_ASSETS = [
 ];
 
 self.addEventListener("install", event => {
-  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS)).then(() => self.skipWaiting()));
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(STATIC_ASSETS))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", event => {
@@ -34,20 +33,32 @@ self.addEventListener("activate", event => {
 self.addEventListener("fetch", event => {
   const request = event.request;
   const url = new URL(request.url);
-  if (request.method !== "GET" || url.origin !== self.location.origin || url.pathname.startsWith("/api/") || url.pathname === "/health") return;
+
+  if (
+    request.method !== "GET" ||
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith("/api/") ||
+    url.pathname === "/health" ||
+    request.headers.has("Authorization")
+  ) return;
 
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("./index.html")));
+    event.respondWith(
+      fetch(request, { cache: "no-store" })
+        .catch(() => caches.match("./offline.html"))
+    );
     return;
   }
+
+  if (!STATIC_ASSETS.some(asset => new URL(asset, self.location.href).pathname === url.pathname)) return;
 
   event.respondWith((async () => {
     const cached = await caches.match(request);
     if (cached) return cached;
     const response = await fetch(request);
-    if (response.ok) {
+    if (response.ok && response.type === "basic") {
       const cache = await caches.open(CACHE_NAME);
-      cache.put(request, response.clone());
+      await cache.put(request, response.clone());
     }
     return response;
   })());
