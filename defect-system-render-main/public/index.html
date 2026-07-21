@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>瑕疵辨識與分流系統</title>
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0b1220" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <style>
+    .centerWrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .panel {
+      width: min(780px, 100%);
+      background: rgba(18, 35, 59, .78);
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 20px;
+    }
+
+    .hero {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+
+    .heroIcon {
+      width: 64px;
+      height: 64px;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, .9), rgba(34, 197, 94, .6));
+      box-shadow: var(--shadow);
+      flex: 0 0 auto;
+    }
+
+    .heroTitle {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: .8px;
+    }
+
+    .heroSub {
+      margin: 6px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 13px;
+    }
+
+    .liveFrame {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      max-height: 360px;
+      border-radius: 16px;
+      border: 2px solid rgba(121, 89, 255, .85);
+      background: rgba(0, 0, 0, .25);
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .liveFrame video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .liveHint {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      font-size: 12px;
+      color: rgba(231, 238, 252, .86);
+      background: rgba(0, 0, 0, .42);
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 12px;
+      padding: 8px 10px;
+      backdrop-filter: blur(6px);
+    }
+
+    .btnRow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .note {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    /* =========================
+       首頁按鈕：縮小立體按壓版
+       ========================= */
+    .btnRow .btn {
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 13px;
+      border: 1px solid rgba(96,165,250,.32);
+      background: linear-gradient(180deg, #2b5f9c, #1f4775);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow:
+        0 5px 0 rgba(8,20,40,.88),
+        0 10px 18px rgba(0,0,0,.25),
+        inset 0 1px 0 rgba(255,255,255,.16);
+      transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+    }
+
+    .btnRow .btn:hover {
+      background: linear-gradient(180deg, #3a78bf, #245991);
+      border-color: rgba(147,197,253,.48);
+      transform: translateY(-1px);
+      box-shadow:
+        0 6px 0 rgba(8,20,40,.88),
+        0 13px 20px rgba(0,0,0,.32),
+        inset 0 1px 0 rgba(255,255,255,.22);
+    }
+
+    .btnRow .btn:active {
+      background: linear-gradient(180deg, #173a63, #0e2747);
+      transform: translateY(4px);
+      box-shadow:
+        0 2px 0 rgba(8,20,40,.96),
+        0 5px 10px rgba(0,0,0,.35),
+        inset 0 2px 8px rgba(0,0,0,.38);
+    }
+
+    .btnRow .btnPrimary {
+      background: linear-gradient(180deg, #2f7de8, #1d5fb8);
+      border-color: rgba(147,197,253,.55);
+    }
+
+    .btnRow .btnPrimary:hover {
+      background: linear-gradient(180deg, #4a90ff, #2563eb);
+    }
+
+    .btnRow .btnPrimary:active {
+      background: linear-gradient(180deg, #164a94, #12366f);
+    }
+
+    .btnRow .btnDanger {
+      background: linear-gradient(180deg, #b91c1c, #7f1d1d);
+      border-color: rgba(248,113,113,.45);
+    }
+
+    .btnRow .btnDanger:hover {
+      background: linear-gradient(180deg, #dc2626, #991b1b);
+      border-color: rgba(252,165,165,.55);
+    }
+
+    .btnRow .btnDanger:active {
+      background: linear-gradient(180deg, #7f1d1d, #450a0a);
+    }
+  </style>
+
+  <script defer src="vendor/dompurify.min.js"></script>
+  <script defer src="core.js"></script>
+</head>
+<body>
+  <div class="centerWrap">
+    <main class="panel">
+      <section class="hero">
+        <div class="heroIcon"></div>
+        <div>
+          <h1 class="heroTitle">瑕疵辨識與分流系統</h1>
+          <p class="heroSub">WebCam 即時預覽、MQTT 訊息接收、MongoDB 紀錄與後台管理。</p>
+        </div>
+      </section>
+
+      <section class="liveFrame">
+        <video id="camera" autoplay playsinline muted></video>
+        <div class="liveHint">WebCam 即時預覽｜請允許瀏覽器使用鏡頭</div>
+      </section>
+
+      <div class="btnRow">
+        <button class="btn btnPrimary" id="btnGo">進入系統</button>
+        <button class="btn" onclick="location.href='login.html'">前往登入</button>
+        <button class="btn" onclick="location.href='dashboard.html'">前往首頁</button>
+        <button class="btn btnDanger" id="btnEstop">緊急停止</button>
+        <button class="btn" id="btnFix">修復灰底／警告（清快取）</button>
+      </div>
+
+      <div class="note">
+        <div>✅ 未登入時，會自動導向登入頁。</div>
+        <div>✅ 若畫面仍顯示舊版，請按 Ctrl + F5 強制重新整理。</div>
+      </div>
+    </main>
+  </div>
+
+  <div id="errorBar"></div>
+
+  <script>
+    window.addEventListener("load", () => {
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("./sw.js").catch(console.error);
+      }
+    });
+
+    document.getElementById("btnGo").addEventListener("click", () => {
+      try {
+        const ok =
+          sessionStorage.getItem("isLogin") === "true" &&
+          !!sessionStorage.getItem("token");
+
+        location.href = ok ? "dashboard.html" : "login.html";
+      } catch (_) {
+        location.href = "login.html";
+      }
+    });
+
+    document.getElementById("btnFix").addEventListener("click", async () => {
+      try {
+        if (typeof window.swHardReset === "function") {
+          await window.swHardReset();
+        }
+        if (typeof window.toast === "function") {
+          window.toast("已清快取，請按 Ctrl + F5", "OK");
+        } else {
+          alert("已清快取，請按 Ctrl + F5");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("清除快取失敗，請手動按 Ctrl + F5");
+      }
+    });
+
+    document.getElementById("btnEstop").addEventListener("click", async () => {
+      try {
+        const token = sessionStorage.getItem("token") || "";
+        const role = sessionStorage.getItem("role") || "user";
+        const system_id = sessionStorage.getItem("system_id") || "";
+        const tenant_id = sessionStorage.getItem("tenant_id") || "";
+        if (!token) { location.href = "login.html"; return; }
+        if (!["super_admin", "tenant_admin"].includes(role)) throw new Error("只有管理員可以使用緊急停止");
+        if (!system_id) throw new Error("請先進入系統並選擇機台");
+        if (!confirm(`確定要停止機台 ${system_id} 嗎？`)) return;
+        const response = await fetch("/api/estop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+          body: JSON.stringify({ system_id, tenant_id })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "急停失敗");
+        alert(data.message || "緊急停止指令已送出");
+      } catch (error) {
+        console.error(error);
+        alert(error.message || "緊急停止傳送失敗");
+      }
+    });
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: false
+        });
+        document.getElementById("camera").srcObject = stream;
+      } catch (error) {
+        console.error("無法開啟鏡頭：", error);
+        const hint = document.querySelector(".liveHint");
+        if (hint) hint.textContent = "無法開啟鏡頭：請檢查瀏覽器權限";
+      }
+    }
+
+    startCamera();
+  </script>
+</body>
+</html>

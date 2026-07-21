@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <script>
+    const token = sessionStorage.getItem("token");
+    if (!token) {
+      alert("請先登入");
+      window.location.replace("login.html");
+    }
+  </script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI 助理 - 瑕疵辨識與分流系統</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b1220">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <script defer src="core.js"></script>
+
+  <style>
+    .aiLayout{
+      display:grid;
+      grid-template-columns:minmax(0,1.45fr) minmax(320px,.8fr);
+      gap:14px;
+      margin-top:14px;
+      align-items:start;
+    }
+
+    .aiCard{
+      background:rgba(18,35,59,.75);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:18px;
+      box-shadow:var(--shadow);
+      padding:14px;
+    }
+
+    .aiStatus{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(0,0,0,.18);
+      border-radius:999px;
+      padding:7px 12px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .dotAi{
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background:#f59e0b;
+      box-shadow:0 0 12px rgba(245,158,11,.75);
+    }
+
+    .dotAi.on{
+      background:#22c55e;
+      box-shadow:0 0 12px rgba(34,197,94,.75);
+    }
+
+    .chatBox{
+      height:58vh;
+      min-height:430px;
+      overflow:auto;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(0,0,0,.16);
+      border-radius:16px;
+      padding:14px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      scroll-behavior:smooth;
+    }
+
+    .msg{
+      max-width:86%;
+      padding:12px 14px;
+      border-radius:16px;
+      line-height:1.65;
+      word-break:break-word;
+      border:1px solid rgba(255,255,255,.10);
+    }
+
+    .msg.bot{
+      align-self:flex-start;
+      background:rgba(59,130,246,.12);
+      white-space:normal;
+    }
+
+    .msg.user{
+      align-self:flex-end;
+      background:rgba(34,197,94,.14);
+      white-space:pre-wrap;
+    }
+
+    /* Gemini 回傳 Markdown 的顯示樣式 */
+    .msg.bot > :first-child{ margin-top:0; }
+    .msg.bot > :last-child{ margin-bottom:0; }
+
+    .msg.bot h1,
+    .msg.bot h2,
+    .msg.bot h3,
+    .msg.bot h4{
+      margin:16px 0 8px;
+      line-height:1.35;
+      color:var(--text);
+    }
+
+    .msg.bot h1{ font-size:22px; }
+    .msg.bot h2{ font-size:20px; }
+    .msg.bot h3{ font-size:18px; }
+    .msg.bot h4{ font-size:16px; }
+
+    .msg.bot p{ margin:8px 0; }
+    .msg.bot ul,
+    .msg.bot ol{
+      margin:8px 0;
+      padding-left:24px;
+    }
+    .msg.bot li{ margin:4px 0; }
+
+    .msg.bot code{
+      padding:2px 6px;
+      border-radius:6px;
+      background:rgba(0,0,0,.28);
+      font-family:Consolas, "Courier New", monospace;
+      font-size:.92em;
+    }
+
+    .msg.bot pre{
+      margin:10px 0;
+      padding:12px;
+      overflow:auto;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:12px;
+      background:rgba(0,0,0,.34);
+      white-space:pre;
+    }
+
+    .msg.bot pre code{
+      padding:0;
+      background:transparent;
+      border-radius:0;
+      font-size:13px;
+    }
+
+    .msg.bot blockquote{
+      margin:10px 0;
+      padding:8px 12px;
+      border-left:4px solid rgba(96,165,250,.85);
+      background:rgba(59,130,246,.08);
+      color:var(--muted);
+    }
+
+    .msg.bot table{
+      width:100%;
+      margin:10px 0;
+      border-collapse:collapse;
+      display:block;
+      overflow-x:auto;
+    }
+
+    .msg.bot th,
+    .msg.bot td{
+      padding:8px 10px;
+      border:1px solid rgba(255,255,255,.12);
+      text-align:left;
+      white-space:nowrap;
+    }
+
+    .msg.bot th{ background:rgba(255,255,255,.07); }
+    .msg.bot a{
+      color:#93c5fd;
+      text-decoration:underline;
+    }
+
+    .chatForm{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .chatForm textarea,
+    .aiFilters input,
+    .aiFilters select{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(0,0,0,.18);
+      color:var(--text);
+      outline:none;
+      font-size:15px;
+      box-sizing:border-box;
+    }
+
+    .chatForm textarea{
+      resize:vertical;
+      min-height:54px;
+      max-height:150px;
+    }
+
+    .sendBtn{
+      min-width:110px;
+      border-radius:14px;
+      font-size:16px;
+      font-weight:900;
+    }
+
+    .quickBtns{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin:12px 0;
+    }
+
+    .quickBtn{
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.07);
+      color:var(--text);
+      padding:8px 12px;
+      cursor:pointer;
+      font-weight:800;
+    }
+
+    .quickBtn:hover{ background:rgba(59,130,246,.22); }
+
+    .aiFilters{
+      display:grid;
+      gap:10px;
+    }
+
+    .labelText{
+      color:var(--muted);
+      font-size:13px;
+      font-weight:800;
+      margin:2px 0 -4px;
+    }
+
+    .aiFilterActions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .summaryGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .miniStat{
+      background:rgba(0,0,0,.18);
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:14px;
+      padding:12px;
+    }
+
+    .miniStat b{
+      display:block;
+      font-size:24px;
+      margin-top:4px;
+    }
+
+    .miniStat span{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:800;
+    }
+
+    .helpText{
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.7;
+      margin-top:10px;
+    }
+
+    .leftTop{
+      display:flex;
+      align-items:flex-start;
+      gap:14px;
+      min-width:0;
+    }
+
+    @media(max-width:900px){
+      .aiLayout{ grid-template-columns:1fr; }
+      .chatBox{ height:55vh; }
+      .msg{ max-width:94%; }
+      .chatForm{ grid-template-columns:1fr; }
+      .sendBtn{ width:100%; min-height:48px; }
+      .aiFilterActions{ grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay" class="drawerOverlay" onclick="toggleDrawer(false)"></div>
+
+  <aside id="drawer" class="drawer">
+    <div class="sidebar" style="display:block; position:static; height:100vh;">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>瑕疵辨識與分流系統</h1>
+          <p>Defect System</p>
+        </div>
+      </div>
+      <div class="nav"></div>
+      <div class="side-footer">
+        <button class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button>
+        <button class="btn" onclick="logout()" style="margin-top:10px;">登出</button>
+      </div>
+    </div>
+  </aside>
+
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>瑕疵辨識與分流系統</h1>
+          <p>Defect System</p>
+        </div>
+      </div>
+      <div class="nav"></div>
+      <div class="side-footer">
+        <button class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button>
+        <button class="btn" onclick="logout()" style="margin-top:10px;">登出</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="leftTop">
+          <button class="hamburger" onclick="toggleDrawer(true)">☰</button>
+          <div class="pageTitle">
+            <b>AI 助理</b>
+            <span>可詢問良率、NG率、瑕疵紀錄、MQTT 測試與系統操作</span>
+          </div>
+        </div>
+        <div class="rightTop">
+          <span class="aiStatus"><i class="dotAi" id="aiDot"></i><span id="aiMode">檢查 AI 狀態中...</span></span>
+        </div>
+      </div>
+
+      <section class="aiLayout">
+        <div class="aiCard">
+          <h2 style="margin:0 0 8px;">🤖 問你的瑕疵系統</h2>
+          <p class="helpText" style="margin-top:0;">可以直接問：「目前良率多少？」、「哪個產品 NG 最多？」、「螺帽沒資料怎麼辦？」、「MQTT 測試資料要怎麼打？」</p>
+
+          <div class="quickBtns">
+            <button class="quickBtn" data-q="目前總良率、OK、NG、NG率是多少？">看目前良率</button>
+            <button class="quickBtn" data-q="幫我找出 NG 最多的產品，並給改善建議。">找 NG 最多產品</button>
+            <button class="quickBtn" data-q="如果事件紀錄沒有資料，我應該檢查哪些地方？">紀錄沒資料怎麼辦</button>
+            <button class="quickBtn" data-q="MQTT 測試資料格式要怎麼打？請給我 OK 與 NG 範例。">MQTT 範例</button>
+          </div>
+
+          <div class="chatBox" id="chatBox">
+            <div class="msg bot">你好，我是這個瑕疵辨識網站的 AI 助理。你可以問我良率、NG率、事件紀錄、產品分類、機台資料或 MQTT 測試格式。</div>
+          </div>
+
+          <form class="chatForm" id="chatForm">
+            <textarea id="messageInput" placeholder="輸入問題，例如：螺帽為什麼沒有資料？" required></textarea>
+            <button class="btn btnPrimary sendBtn" id="sendBtn" type="submit">送出</button>
+          </form>
+        </div>
+
+        <aside class="aiCard">
+          <h3 style="margin:0 0 12px;">查詢篩選</h3>
+          <div class="aiFilters">
+            <div class="labelText">機台 system_id</div>
+            <select id="systemSelect">
+              <option value="">全部可查看機台</option>
+            </select>
+
+            <div class="labelText">產品名稱 products</div>
+            <input id="productsInput" placeholder="可空白，例如：螺帽,手機殼" />
+
+            <div class="aiFilterActions">
+              <button class="btn btnPrimary" id="showAllSummary" type="button">查看全部</button>
+              <button class="btn" id="refreshSummary" type="button">重新讀取統計</button>
+            </div>
+          </div>
+
+          <div class="summaryGrid">
+            <div class="miniStat"><span>總筆數</span><b id="statTotal">-</b></div>
+            <div class="miniStat"><span>OK</span><b id="statOk">-</b></div>
+            <div class="miniStat"><span>NG</span><b id="statNg">-</b></div>
+            <div class="miniStat"><span>良率</span><b id="statYield">-</b></div>
+          </div>
+
+          <div class="helpText">
+            <b>AI 模式說明：</b><br>
+            右上角會顯示目前使用的 Gemini 模型與連線狀態。<br>
+            Gemini 暫時無法使用或免費額度用完時，系統會自動切換成本機統計備援模式，不影響登入、事件紀錄與良率統計。
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <div id="errorBar" style="display:none;"></div>
+  <script src="sidebar-common.js"></script>
+  <script defer src="vendor/marked.umd.js"></script>
+  <script defer src="vendor/dompurify.min.js"></script>
+  <script defer src="ai.js"></script>
+</body>
+</html>
