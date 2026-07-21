@@ -2,37 +2,43 @@
 
 ## 已完成的核心修正
 
-- 統一並保留 `index.html`、`login.html`、`dashboard.html` 等正式檔名。
-- 補上 `icon-512.png`，Service Worker 只快取靜態檔案，不快取 API、登入或健康檢查回應。
-- 移除 `public/server.js`，避免後端程式碼被靜態下載。
-- `defects`、`summary`、`predict`、`site-config`、`systems`、`current-product` 全面加入租戶與機台作用域檢查。
-- 急停限制為 `tenant_admin` / `super_admin`，必須指定機台，加入 `command_id`、ACK Topic 與 `audit_logs`。
-- OTP 改存 MongoDB TTL collection，加入寄送冷卻、驗證次數限制與過期清理。
-- 關閉直接密碼登入，統一使用帳密驗證後寄 OTP、OTP 成功才簽發 JWT。
-- 加入 Helmet、安全 HTTP headers、CORS allowlist、請求大小限制、API 速率限制與 request id。
-- 管理頁排除 password、token、secret 等敏感欄位，並加入分頁上限。
-- 加入密碼政策、公開註冊開關與註冊速率限制。
-- MQTT payload 加入欄位、型別、狀態與單次筆數驗證。
-- NG 告警改為 MongoDB 時間窗統計與冷卻，不再依賴伺服器記憶體計數。
-- 加入 Defect、OTP、User、System、AuditLog 索引。
-- 修正動態畫面中的主要 XSS 輸出點，加入本機 DOMPurify 與 HTML escaping 工具。
-- `npm audit` 已降為 0 個已知漏洞。
-- 新增 Node 單元測試、`npm run check` 與 GitHub Actions CI。
+- 正式頁面使用固定短檔名，manifest、service worker 與前端跳轉已同步。
+- 移除 `public/server.js` 與重複資料夾，避免後端原始碼外洩及測試誤讀。
+- Service Worker 只快取靜態 CSS、JS、圖示與離線頁，不快取 HTML、登入、API 或健康檢查。
+- 瑕疵、摘要、預測、AI、系統、站台設定與目前產品 API 皆以 JWT 角色、租戶與機台範圍為準。
+- 急停僅限管理員，加入指定機台、`command_id`、ACK Topic、狀態查詢與操作稽核。
+- OTP 存入 MongoDB TTL collection，加入寄送冷卻、錯誤次數上限與過期清理。
+- 登入採帳密驗證後寄 OTP，OTP 成功才簽發正式 JWT。
+- 加入 Helmet、CSP、CORS allowlist、request id、輸入大小限制與速率限制。
+- 公開註冊可關閉，也可透過 `REGISTRATION_INVITE_CODE` 限制。
+- 管理 API 排除敏感欄位並限制 collection 白名單、筆數與分頁。
+- MQTT payload 驗證必填欄位、狀態、時間、圖片網址與單次筆數。
+- NG 警報使用資料庫時間窗與冷卻，不再依賴記憶體累計。
+- 新增常用索引、AuditLog 查詢、CSV 匯出、測試與 CI。
+- `npm audit --omit=dev` 為 0 個已知漏洞。
 
-## 仍需硬體端配合
+## E-stop 硬體端需求
 
-急停 ACK 不是單靠網站即可完成。設備端需：
+設備需訂閱：
 
-1. 訂閱 `factory/control/estop/<system_id>`。
-2. 執行急停後 publish 至 `factory/control/estop/ack/<system_id>`。
-3. Payload 至少包含 `command_id` 與 `status`。
+```text
+factory/control/estop/<system_id>
+```
 
-範例：
+執行後回傳：
+
+```text
+factory/control/estop/ack/<system_id>
+```
+
+Payload 至少包含：
 
 ```json
 {"command_id":"後端送出的 UUID","status":"executed"}
 ```
 
-## 建議後續功能
+## 仍需後續重構
 
-報表匯出、告警中心、圖片追溯與完整角色/機台管理介面屬新增功能，不是安全修補的一部分，建議在核心流程實機驗證完成後再分階段加入。
+- 將 sessionStorage JWT 改成 HttpOnly Secure SameSite Cookie。
+- 把大量 inline script/style 拆成外部檔案後移除 CSP `unsafe-inline`。
+- 若正式保存瑕疵圖片，使用 Cloudinary、S3 或其他持久化儲存，而非 Render 本機磁碟。

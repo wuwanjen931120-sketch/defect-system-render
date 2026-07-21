@@ -1,15 +1,10 @@
-# Render npm ENOTEMPTY 修正
+# Render 安裝失敗處理
 
-錯誤：`ENOTEMPTY ... node_modules/form-data`。
+若出現 `ENOTEMPTY`、npm cache 或安裝中斷：
 
-Render Dashboard 請設定：
+1. Build Command 設為 `bash render-build.sh`。
+2. Start Command 設為 `npm start`。
+3. Node 使用 22.x；`render.yaml` 目前指定 `NODE_VERSION=22.23.1`。
+4. 執行 `Manual Deploy → Clear build cache & deploy`。
 
-- Build Command：`bash render-build.sh`
-- Start Command：`npm start`
-- Environment：`NODE_VERSION=22.23.1`
-
-儲存後執行：
-
-`Manual Deploy` → `Clear build cache & deploy`
-
-本修正版也已將 package-lock.json 內不可公開存取的內部套件網址改回 `https://registry.npmjs.org/`。
+`render-build.sh` 會先移除舊 `node_modules`，再使用 `package-lock.json` 執行 `npm ci --no-audit --no-fund`。

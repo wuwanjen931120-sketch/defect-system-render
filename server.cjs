@@ -22,7 +22,9 @@ const {
   cleanText,
   clampInt,
   normalizeDefectPayload,
-  hashOtp
+  hashOtp,
+  timingSafeTextEqual,
+  csvCell
 } = require("./lib/security.cjs");
 
 const app = express();
@@ -42,6 +44,8 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "4h";
 const ALERT_THRESHOLD = clampInt(process.env.ALERT_THRESHOLD, 3, 2, 100);
 const ALERT_WINDOW_MINUTES = clampInt(process.env.ALERT_WINDOW_MINUTES, 10, 1, 1440);
 const ALERT_COOLDOWN_MINUTES = clampInt(process.env.ALERT_COOLDOWN_MINUTES, 30, 1, 1440);
+const ALLOW_PUBLIC_REGISTRATION = String(process.env.ALLOW_PUBLIC_REGISTRATION || (NODE_ENV === "production" ? "false" : "true")) === "true";
+const REGISTRATION_INVITE_CODE = String(process.env.REGISTRATION_INVITE_CODE || "");
 
 function validateEnvironment() {
   const missing = [];
@@ -80,7 +84,7 @@ app.use(helmet({
       baseUri: ["'self'"],
       objectSrc: ["'none'"],
       frameAncestors: ["'none'"],
-      imgSrc: ["'self'", "data:", "blob:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
       mediaSrc: ["'self'", "blob:"],
       connectSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
@@ -113,6 +117,7 @@ const defectSchema = new mongoose.Schema({
   id: { type: String, required: true, trim: true },
   status: { type: String, enum: ["OK", "NG"], required: true, uppercase: true },
   product: { type: String, default: "未分類", trim: true },
+  image_url: { type: String, default: "", trim: true },
   timestamp: { type: Date, default: Date.now, index: true }
 }, { versionKey: false });
 defectSchema.index({ tenant_id: 1, system_id: 1, timestamp: -1 });
@@ -138,7 +143,7 @@ auditLogSchema.index({ tenant_id: 1, createdAt: -1 });
 auditLogSchema.index({ command_id: 1 }, { sparse: true });
 const AuditLog = mongoose.model("AuditLog", auditLogSchema);
 
-const MAIL_FROM = cleanText(process.env.BREVO_SENDER_EMAIL || process.env.GMAIL_USER || process.env.BREVO_SMTP_LOGIN, 200);
+const MAIL_FROM = cleanText(process.env.BREVO_SENDER_EMAIL || process.env.BREVO_SMTP_LOGIN, 200);
 const ALERT_EMAIL = cleanText(process.env.ALERT_EMAIL || MAIL_FROM, 200);
 const mailEnabled = Boolean(process.env.BREVO_SMTP_LOGIN && process.env.BREVO_SMTP_KEY && MAIL_FROM);
 const transporter = mailEnabled ? nodemailer.createTransport({
@@ -243,7 +248,10 @@ async function writeAudit(req, action, fields = {}) {
 }
 
 app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
-  if (String(process.env.ALLOW_PUBLIC_REGISTRATION || "true") !== "true") return res.status(403).json({ message: "目前已關閉公開註冊，請聯絡管理員建立帳號" });
+  if (!ALLOW_PUBLIC_REGISTRATION) return res.status(403).json({ message: "目前已關閉公開註冊，請聯絡管理員建立帳號" });
+  if (REGISTRATION_INVITE_CODE && !timingSafeTextEqual(req.body.invite_code, REGISTRATION_INVITE_CODE)) {
+    return res.status(403).json({ message: "註冊邀請碼不正確" });
+  }
   const company = cleanText(req.body.company, 120);
   const username = normalizeEmail(req.body.username);
   const password = String(req.body.password || "");
@@ -354,6 +362,35 @@ app.get("/api/admin/collection/:name", auth, requireRole("super_admin"), asyncHa
 }));
 app.get("/api/admin/tenants", auth, requireRole("super_admin"), asyncHandler(async (req, res) => res.json(await mongoose.connection.collection("tenants").find({}).sort({ createdAt: -1 }).limit(500).toArray())));
 
+app.get("/api/admin/audit-logs", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
+  const page = clampInt(req.query.page, 1, 1, 100000);
+  const limit = clampInt(req.query.limit, 100, 1, 500);
+  const requestedTenant = cleanText(req.query.tenant_id, 100);
+  const requestedSystem = cleanText(req.query.system_id, 100);
+  const query = {};
+
+  if (req.user.role === "tenant_admin") {
+    if (requestedTenant && requestedTenant !== req.user.tenant_id) return res.status(403).json({ message: "無權存取此租戶" });
+    query.tenant_id = req.user.tenant_id;
+  } else if (requestedTenant) {
+    query.tenant_id = requestedTenant;
+  }
+
+  if (requestedSystem) {
+    const access = await systemAccess(req.user, requestedSystem, query.tenant_id || undefined);
+    if (!access.allowed) return res.status(access.status).json({ message: access.message });
+    query.system_id = requestedSystem;
+    if (!query.tenant_id) query.tenant_id = access.system.tenant_id;
+  }
+
+  res.setHeader("X-Total-Count", String(await AuditLog.countDocuments(query)));
+  return res.json(await AuditLog.find(query)
+    .sort({ createdAt: -1 })
+    .skip((page - 1) * limit)
+    .limit(limit)
+    .lean());
+}));
+
 app.get("/api/site-config", auth, asyncHandler(async (req, res) => {
   const requested = cleanText(req.query.tenant_id, 100);
   const tenant_id = req.user.role === "super_admin" ? requested : req.user.tenant_id;
@@ -396,6 +433,32 @@ app.get("/api/defects", auth, asyncHandler(async (req, res) => {
   res.setHeader("X-Total-Count", String(await Defect.countDocuments(query)));
   res.setHeader("X-Page", String(page));
   return res.json(await Defect.find(query).sort({ timestamp: -1 }).skip((page - 1) * limit).limit(limit).lean());
+}));
+
+app.get("/api/defects/export.csv", auth, asyncHandler(async (req, res) => {
+  const query = await buildScopedDefectQuery(req.user, req.query);
+  const limit = clampInt(req.query.limit, 5000, 1, 10000);
+  const rows = await Defect.find(query)
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .select("tenant_id system_id id status product image_url timestamp")
+    .lean();
+  const header = ["tenant_id", "system_id", "id", "status", "product", "image_url", "timestamp"];
+  const csv = [
+    header.map(csvCell).join(","),
+    ...rows.map(row => [
+      row.tenant_id,
+      row.system_id,
+      row.id,
+      row.status,
+      row.product,
+      row.image_url || "",
+      row.timestamp ? new Date(row.timestamp).toISOString() : ""
+    ].map(csvCell).join(","))
+  ].join("\r\n");
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="defects-${new Date().toISOString().slice(0, 10)}.csv"`);
+  return res.send(`\uFEFF${csv}`);
 }));
 
 app.get("/api/predict", auth, aiLimiter, asyncHandler(async (req, res) => {
@@ -476,6 +539,24 @@ app.post("/api/current-product", auth, asyncHandler(async (req, res) => {
   return res.json({ success: true, message: "產品設定成功" });
 }));
 
+app.get("/api/estop/:command_id", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
+  const command_id = cleanText(req.params.command_id, 100);
+  if (!/^[0-9a-f-]{36}$/i.test(command_id)) return res.status(400).json({ message: "command_id 格式不正確" });
+  const query = { command_id, action: "machine.estop" };
+  if (req.user.role === "tenant_admin") query.tenant_id = req.user.tenant_id;
+  const log = await AuditLog.findOne(query).sort({ createdAt: -1 }).lean();
+  if (!log) return res.status(404).json({ message: "找不到急停指令" });
+  return res.json({
+    command_id: log.command_id,
+    status: log.status,
+    tenant_id: log.tenant_id,
+    system_id: log.system_id,
+    requested_at: log.createdAt,
+    acknowledged_at: log.details?.acknowledgedAt || null,
+    ack: log.details?.ack || null
+  });
+}));
+
 app.post("/api/estop", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
   const system_id = cleanText(req.body.system_id, 100), tenant_id = cleanText(req.body.tenant_id, 100);
   if (!system_id) return res.status(400).json({ message: "請先選擇要停止的機台" });
@@ -502,8 +583,12 @@ async function evaluateNgAlert(tenant_id, system_id) {
 }
 
 function createMqttClient() {
-  if (!process.env.HIVEMQ_USER || !process.env.HIVEMQ_PASS) { console.warn("⚠️ MQTT 帳密未設定，跳過 MQTT 連線"); return null; }
-  const client = mqtt.connect(process.env.MQTT_URL || "mqtts://487b901642cc4a189a7c7dfd277110a8.s1.eu.hivemq.cloud", { port: clampInt(process.env.MQTT_PORT, 8883, 1, 65535), username: process.env.HIVEMQ_USER, password: process.env.HIVEMQ_PASS, reconnectPeriod: 5000, connectTimeout: 15000, clean: true });
+  const mqttUrl = cleanText(process.env.MQTT_URL, 500);
+  const mqttUser = cleanText(process.env.HIVEMQ_USER, 200);
+  const mqttPass = String(process.env.HIVEMQ_PASS || "");
+  if (!mqttUrl && !mqttUser && !mqttPass) { console.warn("⚠️ MQTT 尚未設定，跳過 MQTT 連線"); return null; }
+  if (!mqttUrl || !mqttUser || !mqttPass) { console.warn("⚠️ MQTT_URL、HIVEMQ_USER、HIVEMQ_PASS 必須一起設定，已跳過 MQTT 連線"); return null; }
+  const client = mqtt.connect(mqttUrl, { port: clampInt(process.env.MQTT_PORT, 8883, 1, 65535), username: mqttUser, password: mqttPass, reconnectPeriod: 5000, connectTimeout: 15000, clean: true });
   client.on("connect", () => { isMqttConnected = true; client.subscribe([MQTT_REPORT_TOPIC, MQTT_ESTOP_ACK_TOPIC], { qos: 1 }); console.log("✅ MQTT 已連線"); });
   client.on("offline", () => { isMqttConnected = false; }); client.on("close", () => { isMqttConnected = false; }); client.on("error", e => { isMqttConnected = false; console.error("MQTT 錯誤:", e.message); });
   client.on("message", async (topic, buffer) => {
@@ -516,10 +601,24 @@ function createMqttClient() {
       if (!systemDoc) throw new Error("找不到機台");
       const normalized = normalizeDefectPayload(raw, systemDoc.current_product || "未分類");
       const owner = await mongoose.connection.collection("users").findOne({ tenant_id: systemDoc.tenant_id }, { projection: { username: 1, email: 1 } });
-      const now = new Date();
-      const docs = normalized.items.map(item => ({ tenant_id: systemDoc.tenant_id, user_id: owner?.username || owner?.email || "unknown", system_id: normalized.system_id, id: item.id, status: item.status, product: item.product, timestamp: now }));
+      const receivedAt = new Date();
+      const docs = normalized.items.map(item => ({
+        tenant_id: systemDoc.tenant_id,
+        user_id: owner?.username || owner?.email || "unknown",
+        system_id: normalized.system_id,
+        id: item.id,
+        status: item.status,
+        product: item.product,
+        image_url: item.image_url || "",
+        timestamp: item.timestamp || receivedAt
+      }));
       await Defect.insertMany(docs, { ordered: true });
-      const last = docs[docs.length - 1]; latestMqttMessage = { payload: { id: last.id, status: last.status, product: last.product, system_id: last.system_id }, tenant_id: last.tenant_id, timestamp: now };
+      const last = docs[docs.length - 1];
+      latestMqttMessage = {
+        payload: { id: last.id, status: last.status, product: last.product, system_id: last.system_id, image_url: last.image_url },
+        tenant_id: last.tenant_id,
+        timestamp: receivedAt
+      };
       if (docs.some(v => v.status === "NG")) await evaluateNgAlert(systemDoc.tenant_id, normalized.system_id);
     } catch (error) { console.error("MQTT 訊息拒絕:", error.message); }
   });

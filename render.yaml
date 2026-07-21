@@ -18,6 +18,10 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: MQTT_URL
+        sync: false
+      - key: MQTT_PORT
+        value: "8883"
       - key: HIVEMQ_USER
         sync: false
       - key: HIVEMQ_PASS
@@ -36,6 +40,8 @@ services:
         value: gemini-3.1-flash-lite
       - key: ALLOW_PUBLIC_REGISTRATION
         value: "true"
+      - key: REGISTRATION_INVITE_CODE
+        sync: false
       - key: MQTT_REPORT_TOPIC
         value: factory/defect/report
       - key: MQTT_ESTOP_TOPIC_TEMPLATE
