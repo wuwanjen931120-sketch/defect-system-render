@@ -1,38 +1,33 @@
-1150713 系統專題審查報告－程式修正版
-完成日期：2026-07-21
-依據：1150713_系統專題審查報告 (1).docx
+1150713 系統專題審查報告－登入與部署修正版
+完成日期：2026-07-22
+依據：1150713_系統專題審查報告 (1)(1).docx
 
-本次已完成：
-1. 移除 public/server.js，後端程式不再被 Express 靜態公開。
-2. 清除 lib/lib、test/test、舊 env 與未使用程式等重複或混淆檔案。
-3. 統一 index.html、login.html、dashboard.html 等正式檔名與 PWA 路徑。
-4. Service Worker 改為只快取靜態資產；登入頁、儀表板、API 與健康檢查不離線快取。
-5. defects、summary、predict、AI、systems、site-config、current-product 全面套用 JWT 與 tenant/system scope。
-6. E-stop 限制 tenant_admin/super_admin，加入 system_id、command_id、機台 Topic、ACK 與 AuditLog。
-7. 新增 GET /api/estop/:command_id，可查詢急停 ACK 狀態。
-8. OTP 存入 MongoDB TTL collection，加入重寄冷卻、有效期限與錯誤次數上限。
-9. 註冊加入速率限制、密碼政策、公開註冊開關與可選邀請碼。
-10. 加入 Helmet、CSP、CORS allowlist、request id、請求大小限制與統一錯誤處理。
-11. MQTT payload 驗證 system_id、id/case_id、OK/NG、timestamp、HTTPS 圖片路徑與單次筆數。
-12. NG 警報改用 MongoDB 時間窗統計與冷卻，避免服務重啟後歸零。
-13. 管理 collection API 採白名單、分頁並排除 password/token/secret 等敏感欄位。
-14. 新增 AuditLog 查詢 API、瑕疵 CSV 匯出 API，事件紀錄頁增加「匯出 CSV」按鈕。
-15. 修正事件紀錄、產品標籤與 NG 圖片等主要動態輸出點，避免把資料直接塞入 innerHTML/onclick。
-16. 新增資料庫索引、Node 單元測試與 GitHub Actions CI。
-17. 統一 .env.example、render.yaml 與 README_DEPLOY.md。
-18. npm audit --omit=dev：0 個已知漏洞。
+本次針對「此來源不允許呼叫 API」與登入無法使用完成：
+1. 新增 lib/origin-policy.cjs，統一正規化 APP_BASE_URL、ALLOWED_ORIGINS 與 Render 網址。
+2. CORS 會辨識 X-Forwarded-Host / X-Forwarded-Proto，與目前網站同來源的 API 不再被誤擋。
+3. 保留白名單限制，未授權外部網站仍回傳 403。
+4. 登入程式移至 public/login.js，使用 /api/... 相對路徑，避免前端拼錯 API 網址。
+5. 新增 GET /api/login/status，登入頁可顯示 MongoDB 與 Email OTP 是否設定完成。
+6. Email OTP 改支援通用 SMTP_*，並相容既有 Brevo、Gmail、EMAIL_* Render 環境變數。
+7. 支援 users collection 中 password、passwordHash、password_hash 三種 bcrypt 欄位。
+8. SMTP 寄送失敗時刪除未送達 OTP，避免等待重寄冷卻。
+9. OTP 驗證限制為 6 位數，前端輸入框自動排除非數字。
+10. login.html、login.js、sw.js 與 manifest 設定為不快取；Service Worker 更新為 aiot-static-v10。
+11. 新增 CORS 同來源測試、登入結構測試與 GitHub Actions CI。
+12. 新增 docs/LOGIN_TROUBLESHOOTING.md，更新部署、API 與審查要求完成狀態。
+13. 清除 gitignore.txt、lib/validators.cjs、public/script.js 與舊修正文件等未使用檔案。
+14. 加入 .npmrc，Render 固定由 https://registry.npmjs.org/ 安裝套件。
 
-檢查指令：
-- npm ci --no-fund
-- npm run check
-- npm audit --omit=dev
+原審查報告既有完成項目仍保留：
+- PWA 路徑與圖示、public/server.js 移除
+- JWT/RBAC/tenant/system scope
+- OTP MongoDB TTL、速率限制與密碼政策
+- Helmet/CSP/HSTS、統一錯誤處理
+- MQTT schema、E-stop ACK、AuditLog
+- Summary aggregate、索引、CSV 匯出、Gemini fallback
 
-Render：
+Render 建議：
 - Build Command：bash render-build.sh
 - Start Command：npm start
 - Health Check：/health
-
-仍屬後續架構升級：
-- JWT 目前仍存 sessionStorage；完整改成 HttpOnly Secure SameSite Cookie 需同步重構所有前端登入與 API 呼叫。
-- 舊頁面仍有大量 inline script/style，因此 CSP 暫時保留 unsafe-inline；主要外部資料輸出點已先安全化。
-- E-stop ACK 必須由實際設備訂閱與回傳，單靠網站無法模擬硬體已執行。
+- 更新後執行 Manual Deploy → Clear build cache & deploy

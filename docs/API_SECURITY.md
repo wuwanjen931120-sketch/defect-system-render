@@ -10,7 +10,8 @@
 
 | Method | Endpoint | 驗證 | 權限與說明 |
 |---|---|---|---|
-| POST | `/api/login/send-code` | 帳密 | 驗證帳密後寄送 OTP；有寄送冷卻與 IP rate limit |
+| GET | `/api/login/status` | 無 | 回傳資料庫、Email OTP、公開註冊是否可用，不回傳帳密或 Secret |
+| POST | `/api/login/send-code` | 帳密 | 驗證帳密後寄送 OTP；有寄送冷卻與 IP rate limit；相容 `password`、`passwordHash`、`password_hash` bcrypt 欄位 |
 | POST | `/api/login/verify-code` | OTP | OTP 成功後才簽發 JWT；有到期與錯誤次數上限 |
 | GET | `/api/defects` | JWT | 依 tenant/system 範圍限制；支援 `page`、`limit`、`system_id`、`products`、日期篩選 |
 | GET | `/api/defects/export.csv` | JWT | 匯出授權範圍內資料，最多 10,000 筆，含 CSV 公式注入防護 |
@@ -54,3 +55,18 @@ Payload: {"command_id":"後端送出的 UUID","status":"executed","system_id":"S
 ```
 
 未指派機台時，瑕疵查詢不會自動取得整個租戶資料。
+
+## CORS 規則
+
+API 只允許以下來源：
+
+- 與目前 Render 網站同來源
+- `APP_BASE_URL`
+- `ALLOWED_ORIGINS` 逗號分隔白名單
+- Render 自動提供的 `RENDER_EXTERNAL_HOSTNAME`
+
+來源會先轉為標準 `scheme://host[:port]` 格式，避免尾端 `/`、URL path 或 Render 代理 Host 造成誤判。其他來源仍回傳 403。
+
+## 登入與 SMTP
+
+正式登入必須完成帳密與 Email OTP。寄信設定優先讀取通用 `SMTP_*`，並相容舊版 Brevo、Gmail、`EMAIL_*` 欄位。SMTP 未設定時 `/api/login/status` 會回傳 `email_login_enabled=false`，登入頁會直接顯示設定提示。

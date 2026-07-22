@@ -26,6 +26,10 @@ const {
   timingSafeTextEqual,
   csvCell
 } = require("./lib/security.cjs");
+const {
+  buildConfiguredOrigins,
+  isOriginAllowed
+} = require("./lib/origin-policy.cjs");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -55,27 +59,25 @@ function validateEnvironment() {
 }
 validateEnvironment();
 
-const allowedOrigins = new Set([
-  ...String(process.env.ALLOWED_ORIGINS || "").split(",").map(v => v.trim()).filter(Boolean),
-  process.env.APP_BASE_URL,
-  "http://localhost:5000",
-  "http://127.0.0.1:5000"
-].filter(Boolean));
+const allowedOrigins = buildConfiguredOrigins(process.env);
 
 app.use((req, res, next) => {
   req.requestId = req.headers["x-request-id"] || crypto.randomUUID();
   res.setHeader("X-Request-Id", req.requestId);
   next();
 });
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-    return callback(Object.assign(new Error("此來源不允許呼叫 API"), { status: 403 }));
-  },
-  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
-  maxAge: 600
-}));
+app.use((req, res, next) => {
+  const corsMiddleware = cors({
+    origin(origin, callback) {
+      if (isOriginAllowed(req, origin, allowedOrigins)) return callback(null, true);
+      return callback(Object.assign(new Error("此來源不允許呼叫 API"), { status: 403 }));
+    },
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
+    maxAge: 600
+  });
+  return corsMiddleware(req, res, next);
+});
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: {
@@ -99,11 +101,18 @@ app.use(express.json({ limit: "256kb", strict: true }));
 app.use(express.urlencoded({ extended: false, limit: "64kb" }));
 
 const publicDir = path.join(__dirname, "public");
-app.use((req, res, next) => {
-  if (/\.html$/i.test(req.path) || req.path === "/") res.setHeader("Cache-Control", "no-store");
-  next();
-});
-app.use(express.static(publicDir, { dotfiles: "deny", etag: true, index: "index.html", maxAge: NODE_ENV === "production" ? "1h" : 0 }));
+app.use(express.static(publicDir, {
+  dotfiles: "deny",
+  etag: true,
+  index: "index.html",
+  maxAge: NODE_ENV === "production" ? "1h" : 0,
+  setHeaders(res, filePath) {
+    const name = path.basename(filePath).toLowerCase();
+    if (/\.html$/i.test(filePath) || new Set(["sw.js", "login.js", "manifest.webmanifest"]).has(name)) {
+      res.setHeader("Cache-Control", "no-store, max-age=0");
+    }
+  }
+}));
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHeaders: "draft-8", legacyHeaders: false, message: { message: "登入嘗試過於頻繁，請稍後再試" } });
 const otpSendLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: "draft-8", legacyHeaders: false, message: { message: "驗證碼寄送過於頻繁，請稍後再試" } });
@@ -143,14 +152,20 @@ auditLogSchema.index({ tenant_id: 1, createdAt: -1 });
 auditLogSchema.index({ command_id: 1 }, { sparse: true });
 const AuditLog = mongoose.model("AuditLog", auditLogSchema);
 
-const MAIL_FROM = cleanText(process.env.BREVO_SENDER_EMAIL || process.env.BREVO_SMTP_LOGIN, 200);
+const smtpProvider = cleanText(process.env.SMTP_PROVIDER || (process.env.BREVO_SMTP_LOGIN ? "brevo" : (process.env.GMAIL_USER ? "gmail" : "custom")), 30).toLowerCase();
+const smtpUser = cleanText(process.env.SMTP_USER || process.env.BREVO_SMTP_LOGIN || process.env.GMAIL_USER || process.env.EMAIL_USER, 200);
+const smtpPass = String(process.env.SMTP_PASS || process.env.BREVO_SMTP_KEY || process.env.GMAIL_APP_PASSWORD || process.env.GMAIL_PASS || process.env.EMAIL_PASS || "");
+const MAIL_FROM = cleanText(process.env.SMTP_FROM || process.env.BREVO_SENDER_EMAIL || process.env.GMAIL_USER || process.env.EMAIL_FROM || smtpUser, 200);
 const ALERT_EMAIL = cleanText(process.env.ALERT_EMAIL || MAIL_FROM, 200);
-const mailEnabled = Boolean(process.env.BREVO_SMTP_LOGIN && process.env.BREVO_SMTP_KEY && MAIL_FROM);
+const smtpHost = cleanText(process.env.SMTP_HOST || process.env.BREVO_SMTP_HOST || (smtpProvider === "gmail" ? "smtp.gmail.com" : "smtp-relay.brevo.com"), 200);
+const smtpPort = clampInt(process.env.SMTP_PORT || process.env.BREVO_SMTP_PORT, smtpProvider === "gmail" ? 465 : 2525, 1, 65535);
+const smtpSecure = String(process.env.SMTP_SECURE || process.env.BREVO_SMTP_SECURE || (smtpProvider === "gmail" ? "true" : "false")) === "true";
+const mailEnabled = Boolean(smtpUser && smtpPass && MAIL_FROM);
 const transporter = mailEnabled ? nodemailer.createTransport({
-  host: process.env.BREVO_SMTP_HOST || "smtp-relay.brevo.com",
-  port: clampInt(process.env.BREVO_SMTP_PORT, 2525, 1, 65535),
-  secure: String(process.env.BREVO_SMTP_SECURE || "false") === "true",
-  auth: { user: process.env.BREVO_SMTP_LOGIN, pass: process.env.BREVO_SMTP_KEY },
+  host: smtpHost,
+  port: smtpPort,
+  secure: smtpSecure,
+  auth: { user: smtpUser, pass: smtpPass },
   connectionTimeout: 15000,
   greetingTimeout: 15000,
   socketTimeout: 20000,
@@ -274,15 +289,32 @@ app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
   return res.status(201).json({ success: true, tenant_id, system_id });
 }));
 
-app.post("/api/login", authLimiter, (req, res) => res.status(409).json({ message: "此系統採用兩步驟登入，請先寄送驗證碼" }));
+app.get("/api/login/status", (req, res) => {
+  return res.json({
+    database_connected: mongoose.connection.readyState === 1,
+    email_login_enabled: mailEnabled,
+    two_factor_required: true,
+    registration_enabled: ALLOW_PUBLIC_REGISTRATION,
+    smtp_provider: mailEnabled ? smtpProvider : "not-configured"
+  });
+});
+
+app.post("/api/login", authLimiter, (req, res) => res.status(409).json({
+  message: "此系統採用兩步驟登入，請先寄送驗證碼，再輸入信箱收到的 6 位數驗證碼"
+}));
 
 app.post("/api/login/send-code", otpSendLimiter, asyncHandler(async (req, res) => {
-  if (!mailEnabled) return res.status(503).json({ message: "寄信服務尚未設定，請檢查 Brevo 環境變數" });
+  if (!mailEnabled) return res.status(503).json({
+    message: "寄信服務尚未設定。請在 Render Environment 設定 SMTP_USER、SMTP_PASS、SMTP_FROM，或設定 Brevo/Gmail 相容變數"
+  });
   const email = normalizeEmail(req.body.email);
   const password = String(req.body.password || "");
   if (!email || !password) return res.status(400).json({ message: "請輸入信箱與密碼" });
   const user = await mongoose.connection.collection("users").findOne({ $or: [{ email }, { username: email }] });
-  const matched = user ? await bcrypt.compare(password, user.password || "") : false;
+  const storedPasswordHash = String(user?.password || user?.passwordHash || user?.password_hash || "");
+  const matched = user && /^\$2[aby]\$/.test(storedPasswordHash)
+    ? await bcrypt.compare(password, storedPasswordHash)
+    : false;
   if (!user || !matched) return res.status(401).json({ message: "信箱或密碼錯誤" });
   const col = mongoose.connection.collection("login_otps");
   const existing = await col.findOne({ email });
@@ -293,7 +325,13 @@ app.post("/api/login/send-code", otpSendLimiter, asyncHandler(async (req, res) =
   const code = String(crypto.randomInt(100000, 1000000));
   const now = new Date();
   await col.updateOne({ email }, { $set: { email, codeHash: hashOtp(email, code, JWT_SECRET), attempts: 0, createdAt: now, lastSentAt: now, expiresAt: new Date(now.getTime() + OTP_TTL_MINUTES * 60000) } }, { upsert: true });
-  await transporter.sendMail({ from: MAIL_FROM, to: user.email || user.username, subject: "瑕疵辨識與分流系統登入驗證碼", text: `您的登入驗證碼是：${code}\n\n此驗證碼 ${OTP_TTL_MINUTES} 分鐘內有效。` });
+  try {
+    await transporter.sendMail({ from: MAIL_FROM, to: user.email || user.username, subject: "瑕疵辨識與分流系統登入驗證碼", text: `您的登入驗證碼是：${code}\n\n此驗證碼 ${OTP_TTL_MINUTES} 分鐘內有效。` });
+  } catch (error) {
+    await col.deleteOne({ email }).catch(() => {});
+    console.error("OTP 寄送失敗：", error.message);
+    throw Object.assign(new Error("驗證碼寄送失敗，請檢查 Render 的 SMTP 設定後再試"), { status: 502 });
+  }
   const response = { success: true, message: "驗證碼已寄出，請到信箱查看" };
   if (NODE_ENV === "development" && process.env.DEV_RETURN_OTP === "true") response.dev_code = code;
   return res.json(response);
@@ -302,7 +340,7 @@ app.post("/api/login/send-code", otpSendLimiter, asyncHandler(async (req, res) =
 app.post("/api/login/verify-code", authLimiter, asyncHandler(async (req, res) => {
   const email = normalizeEmail(req.body.email);
   const code = cleanText(req.body.code, 12);
-  if (!email || !code) return res.status(400).json({ message: "請輸入信箱與驗證碼" });
+  if (!email || !/^\d{6}$/.test(code)) return res.status(400).json({ message: "請輸入信箱與 6 位數驗證碼" });
   const col = mongoose.connection.collection("login_otps");
   const saved = await col.findOne({ email });
   if (!saved) return res.status(400).json({ message: "請先寄送驗證碼" });

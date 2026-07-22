@@ -1,10 +1,34 @@
 # Render 安裝失敗處理
 
-若出現 `ENOTEMPTY`、npm cache 或安裝中斷：
+## npm `ETIMEDOUT` 或出現內部 registry 網址
 
-1. Build Command 設為 `bash render-build.sh`。
-2. Start Command 設為 `npm start`。
-3. Node 使用 22.x；`render.yaml` 目前指定 `NODE_VERSION=22.23.1`。
-4. 執行 `Manual Deploy → Clear build cache & deploy`。
+本版已同時使用：
 
-`render-build.sh` 會先移除舊 `node_modules`，再使用 `package-lock.json` 執行 `npm ci --no-audit --no-fund`。
+```text
+.npmrc
+render-build.sh
+package-lock.json
+```
+
+固定從以下公開來源安裝：
+
+```text
+https://registry.npmjs.org/
+```
+
+`package-lock.json` 不含 `applied-caas`、`internal.api.openai.org` 或其他內部 Artifactory 網址。
+
+更新 GitHub 後執行：
+
+```text
+Manual Deploy → Clear build cache & deploy
+```
+
+## `ENOTEMPTY`、npm cache 或安裝中斷
+
+1. Build Command：`bash render-build.sh`
+2. Start Command：`npm start`
+3. Node：22.x
+4. 清除 build cache 後重新部署
+
+`render-build.sh` 會刪除舊 `node_modules`，再執行 `npm ci --no-audit --no-fund`。

@@ -1,22 +1,37 @@
-最終驗證結果（2026-07-21）
+本次修正版驗證結果（2026-07-22）
 
-1. npm ci --no-audit --no-fund：成功
-2. npm run check：成功
-   - Node/前端外部 JS 語法檢查：成功
-   - Node 自動測試：13/13 通過
-3. npm audit --omit=dev：0 vulnerabilities
-4. HTML 本機連結檢查：0 個缺失資源
-5. 11 段 HTML inline script 經 node --check：全部成功
-6. HTTP smoke test：
-   - /login.html = 200，Cache-Control=no-store，CSP 存在
-   - 未登入 /api/defects = 401
-   - 未登入 /api/predict = 401
-   - /server.js = 404（public/server.js 已移除）
-   - 未連 MongoDB 時 /health = 503 degraded
+1. npm run check：成功
+   - server.cjs、security.cjs、origin-policy.cjs 語法檢查成功
+   - core.js、login.js、ai.js 語法檢查成功
+   - Node 自動測試：20/20 通過
+2. CORS 測試：
+   - APP_BASE_URL 尾端斜線與 URL path 正規化成功
+   - Render X-Forwarded-Host / X-Forwarded-Proto 同來源放行成功
+   - 非白名單外部來源拒絕成功
+3. 登入結構測試：
+   - login.html 使用 login.js
+   - send-code、verify-code、login/status API 路徑存在
+   - 前端不再使用 window.location.origin 拼接 API
+4. PWA / 專案結構測試：
+   - public/server.js、lib/lib、test/test 不存在
+   - 舊 gitignore.txt、validators.cjs、script.js 不存在
+   - Service Worker 不快取應用 HTML 或 API
+5. npm 安裝來源測試：
+   - .npmrc 與 render-build.sh 指向 https://registry.npmjs.org/
+   - package-lock.json 不含內部 OpenAI/Artifactory registry
+6. HTML 本機資源檢查：0 個缺失
+7. HTML inline script 語法檢查：10 段全部成功
+8. package.json、package-lock.json、manifest.webmanifest：JSON 解析成功
+9. 敏感資訊掃描：未放入 MongoDB 真實連線字串、SMTP 密碼、Gemini/OpenAI API Key
+
+套件說明：
+- 本次未修改 dependencies 或 package-lock 版本。
+- 使用者提供版本的既有驗證文件記錄 npm audit --omit=dev 為 0 vulnerabilities。
+- 本次隔離環境無法連線 npm registry，因此未重新執行線上 npm audit；Render/GitHub Actions 部署時會再執行安裝與 audit。
 
 未執行的外部整合測試：
-- 真實 MongoDB Atlas 讀寫
+- 真實 MongoDB Atlas 帳號與 OTP collection 讀寫
+- Brevo/Gmail 實際寄信
 - HiveMQ 訊息收發與實體 E-stop ACK
-- Brevo 寄信
 - Gemini API 實際回覆
-原因：壓縮檔中不應包含使用者的服務帳密與 API Key；部署後需以 Render Environment Variables 測試。
+原因：壓縮檔中不可包含使用者的服務帳密與 API Key；需部署後以 Render Environment Variables 驗證。
