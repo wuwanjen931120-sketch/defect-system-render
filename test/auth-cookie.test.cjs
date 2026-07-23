@@ -26,10 +26,10 @@ test("cookie token is preferred over bearer token", () => {
   assert.equal(token, "cookie-token");
 });
 
-test("auth cookie is HttpOnly, strict and secure in production", () => {
+test("auth cookie is HttpOnly, Lax and secure in production", () => {
   const value = buildSessionCookie("abc", { secure: true, maxAgeSeconds: 3600 });
   assert.match(value, /HttpOnly/);
-  assert.match(value, /SameSite=Strict/);
+  assert.match(value, /SameSite=Lax/);
   assert.match(value, /Secure/);
   assert.match(value, /Max-Age=3600/);
 });

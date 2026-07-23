@@ -1,3 +1,5 @@
+2026-07-23 登入迴圈修正：登入後先確認 Cookie、SameSite=Lax、JWT 瘦身、Auth JS 取消快取、Session 重試。
+
 1150713 系統專題審查報告－全部未完成項目修正版
 完成日期：2026-07-23
 AI 方案：Gemini API 免費層

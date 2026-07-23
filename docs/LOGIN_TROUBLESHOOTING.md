@@ -48,3 +48,23 @@ password_hash
 - 預設最多輸入錯誤 5 次。
 - 重新寄送後，舊驗證碼立即失效。
 - SMTP 寄送失敗時，本版會刪除未寄出的 OTP，避免被重寄冷卻鎖住。
+
+
+## 「登入成功後又跳回登入頁」
+
+舊版可能因登入 Cookie 沒有被確認、舊的驗證程式仍被快取，或 JWT 放入太多機台資料而超過 Cookie 大小，造成 `/api/session` 回傳 401。
+
+本版已改為：
+
+- 驗證碼成功後立即呼叫 `/api/session`；確認成功才前往儀表板。
+- Cookie 使用 `SameSite=Lax` 與 HTTPS `Secure`。
+- JWT 只放使用者 ID 與信箱，權限和機台清單改由資料庫讀取。
+- `auth-bootstrap.js` 不再加入 Service Worker 快取，且檔名帶版本參數。
+- 登入狀態檢查遇到短暫網路問題時重試三次。
+
+部署後請依序操作：
+
+1. Render：`Manual Deploy → Clear build cache & deploy`。
+2. 登入頁按一次「修復灰底/警告（清快取）」。
+3. 按 `Ctrl + F5`。
+4. 重新登入。

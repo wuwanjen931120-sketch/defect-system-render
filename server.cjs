@@ -53,6 +53,10 @@ const OTP_MAX_ATTEMPTS = clampInt(process.env.OTP_MAX_ATTEMPTS, 5, 3, 10);
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "4h";
 const JWT_COOKIE_MAX_AGE_SECONDS = clampInt(process.env.JWT_COOKIE_MAX_AGE_SECONDS, 14400, 300, 604800);
 const AUTH_COOKIE_NAME = cleanText(process.env.AUTH_COOKIE_NAME || DEFAULT_COOKIE_NAME, 80);
+const AUTH_COOKIE_SAME_SITE = ["Strict", "Lax", "None"].includes(String(process.env.AUTH_COOKIE_SAME_SITE || "Lax"))
+  ? String(process.env.AUTH_COOKIE_SAME_SITE || "Lax")
+  : "Lax";
+const AUTH_COOKIE_FORCE_SECURE = String(process.env.AUTH_COOKIE_SECURE || "").toLowerCase() === "true";
 const ALERT_THRESHOLD = clampInt(process.env.ALERT_THRESHOLD, 3, 2, 100);
 const ALERT_WINDOW_MINUTES = clampInt(process.env.ALERT_WINDOW_MINUTES, 10, 1, 1440);
 const ALERT_COOLDOWN_MINUTES = clampInt(process.env.ALERT_COOLDOWN_MINUTES, 30, 1, 1440);
@@ -123,7 +127,7 @@ app.use(express.static(publicDir, {
   maxAge: NODE_ENV === "production" ? "1h" : 0,
   setHeaders(res, filePath) {
     const name = path.basename(filePath).toLowerCase();
-    if (/\.html$/i.test(filePath) || new Set(["sw.js", "login.js", "manifest.webmanifest"]).has(name)) {
+    if (/\.html$/i.test(filePath) || new Set(["sw.js", "login.js", "auth-bootstrap.js", "manifest.webmanifest"]).has(name)) {
       res.setHeader("Cache-Control", "no-store, max-age=0");
     }
   }
@@ -189,14 +193,46 @@ const transporter = mailEnabled ? nodemailer.createTransport({
 }) : null;
 
 function asyncHandler(fn) { return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next); }
-function auth(req, res, next) {
+function requestUsesHttps(req) {
+  const forwarded = String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim().toLowerCase();
+  return Boolean(req.secure || forwarded === "https");
+}
+
+function secureCookieForRequest(req) {
+  return AUTH_COOKIE_FORCE_SECURE || NODE_ENV === "production" || requestUsesHttps(req);
+}
+
+async function auth(req, res, next) {
   const token = getSessionToken(req, AUTH_COOKIE_NAME);
   if (!token) return res.status(401).json({ message: "未登入" });
   try {
-    req.user = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"], issuer: "defect-system" });
+    const claims = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"], issuer: "defect-system" });
+    const users = mongoose.connection.collection("users");
+    let user = null;
+    if (claims.sub && mongoose.Types.ObjectId.isValid(String(claims.sub))) {
+      user = await users.findOne({ _id: new mongoose.Types.ObjectId(String(claims.sub)) });
+    }
+    if (!user && claims.email) {
+      const email = normalizeEmail(claims.email);
+      user = await users.findOne({ $or: [{ email }, { username: email }] });
+    }
+    if (!user) return res.status(401).json({ message: "登入帳號已不存在，請重新登入" });
+    req.authClaims = claims;
+    req.user = {
+      id: String(user._id),
+      email: user.email || user.username || "",
+      name: user.name || "",
+      company: user.company || "",
+      tenant_id: user.tenant_id || "",
+      role: user.role || "user",
+      systems: Array.isArray(user.systems) ? user.systems : (user.system_id ? [user.system_id] : [])
+    };
     return next();
-  } catch (_) {
-    return res.status(401).json({ message: "登入已過期，請重新登入" });
+  } catch (error) {
+    if (error?.name === "JsonWebTokenError" || error?.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "登入已過期，請重新登入" });
+    }
+    return next(error);
   }
 }
 function requireRole(...roles) { return (req, res, next) => roles.includes(req.user?.role) ? next() : res.status(403).json({ message: "權限不足" }); }
@@ -263,18 +299,38 @@ async function resolveSystemIdsForUserDocument(user) {
   return (await col.find({ tenant_id: user.tenant_id, system_id: { $in: assigned } }, { projection: { system_id: 1 } }).toArray()).map(v => v.system_id);
 }
 
-async function issueLoginResponse(user, res) {
+async function issueLoginResponse(user, req, res) {
   const systems = await resolveSystemIdsForUserDocument(user);
-  const payload = { id: String(user._id), email: user.email || user.username, name: user.name || "", company: user.company || "", tenant_id: user.tenant_id || "", role: user.role || "user", systems };
-  const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN, algorithm: "HS256", issuer: "defect-system" });
+  // Cookie 只放最小必要資料，避免機台很多時 JWT 超過瀏覽器 Cookie 大小上限。
+  const token = jwt.sign(
+    { email: user.email || user.username || "", session_type: "web" },
+    JWT_SECRET,
+    {
+      subject: String(user._id),
+      expiresIn: JWT_EXPIRES_IN,
+      algorithm: "HS256",
+      issuer: "defect-system"
+    }
+  );
   res.setHeader("Set-Cookie", buildSessionCookie(token, {
     cookieName: AUTH_COOKIE_NAME,
-    secure: NODE_ENV === "production",
-    sameSite: "Strict",
+    secure: secureCookieForRequest(req),
+    sameSite: AUTH_COOKIE_SAME_SITE,
     maxAgeSeconds: JWT_COOKIE_MAX_AGE_SECONDS
   }));
   res.setHeader("Cache-Control", "no-store");
-  return { success: true, user: { id: payload.id, email: payload.email, name: payload.name, company: payload.company, tenant_id: payload.tenant_id, role: payload.role }, systems };
+  return {
+    success: true,
+    user: {
+      id: String(user._id),
+      email: user.email || user.username || "",
+      name: user.name || "",
+      company: user.company || "",
+      tenant_id: user.tenant_id || "",
+      role: user.role || "user"
+    },
+    systems
+  };
 }
 
 async function writeAudit(req, action, fields = {}) {
@@ -376,10 +432,11 @@ app.post("/api/login/verify-code", authLimiter, asyncHandler(async (req, res) =>
   await col.deleteOne({ email });
   const user = await mongoose.connection.collection("users").findOne({ $or: [{ email }, { username: email }] });
   if (!user) return res.status(401).json({ message: "帳號不存在" });
-  return res.json(await issueLoginResponse(user, res));
+  return res.json(await issueLoginResponse(user, req, res));
 }));
 
-app.get("/api/session", auth, (req, res) => {
+app.get("/api/session", auth, asyncHandler(async (req, res) => {
+  const systems = await resolveSystemIdsForUserDocument(req.user);
   res.setHeader("Cache-Control", "no-store");
   return res.json({
     authenticated: true,
@@ -391,15 +448,15 @@ app.get("/api/session", auth, (req, res) => {
       tenant_id: req.user.tenant_id || "",
       role: req.user.role || "user"
     },
-    systems: Array.isArray(req.user.systems) ? req.user.systems : []
+    systems
   });
-});
+}));
 
 app.post("/api/logout", (req, res) => {
   res.setHeader("Set-Cookie", buildClearCookie({
     cookieName: AUTH_COOKIE_NAME,
-    secure: NODE_ENV === "production",
-    sameSite: "Strict"
+    secure: secureCookieForRequest(req),
+    sameSite: AUTH_COOKIE_SAME_SITE
   }));
   res.setHeader("Cache-Control", "no-store");
   return res.json({ success: true });

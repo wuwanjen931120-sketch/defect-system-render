@@ -46,6 +46,36 @@
     return publicAuth;
   }
 
+  function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function readSession(maxAttempts = 3) {
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const response = await fetch("/api/session", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+          headers: { "Accept": "application/json" }
+        });
+        if (response.status === 401 || response.status === 403) {
+          const error = new Error("unauthorized");
+          error.authFailure = true;
+          throw error;
+        }
+        if (!response.ok) throw new Error(`session check failed: ${response.status}`);
+        return await response.json();
+      } catch (error) {
+        lastError = error;
+        if (error.authFailure || attempt === maxAttempts) break;
+        await wait(500 * attempt);
+      }
+    }
+    throw lastError || new Error("session check failed");
+  }
+
   try {
     const cached = JSON.parse(localStorage.getItem(PUBLIC_AUTH_KEY) || "null");
     if (cached?.user) applyPublicAuth(cached);
@@ -53,19 +83,15 @@
 
   window.clearPublicAuth = clearPublicAuth;
   window.applyPublicAuth = applyPublicAuth;
-  window.authReady = fetch("/api/session", {
-    method: "GET",
-    cache: "no-store",
-    credentials: "same-origin",
-    headers: { "Accept": "application/json" }
-  }).then(async response => {
-    if (!response.ok) throw new Error("unauthorized");
-    const data = await response.json();
+  window.authReady = readSession().then(data => {
     applyPublicAuth(data);
     return data;
   }).catch(error => {
     clearPublicAuth();
-    if (protectedPages.has(currentPage())) location.replace("login.html");
+    if (protectedPages.has(currentPage())) {
+      const reason = error?.authFailure ? "session-expired" : "service";
+      location.replace(`login.html?reason=${reason}`);
+    }
     throw error;
   });
 })();

@@ -57,6 +57,7 @@ test("service worker static cache only references existing non-application asset
   }
   assert.doesNotMatch(block, /login\.html|dashboard\.html|logs\.html|settings\.html|ai\.html/);
   assert.match(source, /url\.pathname\.startsWith\("\/api\/"\)/);
+  assert.doesNotMatch(block, /auth-bootstrap\.js|login\.js/);
 });
 
 test("login page uses the unified two-step login script", () => {
@@ -132,4 +133,19 @@ test("backup, monitoring and data retention files exist", () => {
   assert.equal(exists(".github/workflows/mongodb-backup.yml"), true);
   assert.equal(exists("docs/BACKUP_MONITORING.md"), true);
   assert.match(fs.readFileSync(path.join(root, "server.cjs"), "utf8"), /DEFECT_RETENTION_DAYS/);
+});
+
+
+test("login redirect fix validates the cookie before opening dashboard", () => {
+  const login = fs.readFileSync(path.join(publicDir, "login.js"), "utf8");
+  const bootstrap = fs.readFileSync(path.join(publicDir, "auth-bootstrap.js"), "utf8");
+  const server = fs.readFileSync(path.join(root, "server.cjs"), "utf8");
+  assert.match(login, /\/api\/session/);
+  assert.match(login, /credentials:\s*["']include["']/);
+  assert.match(bootstrap, /credentials:\s*["']include["']/);
+  assert.match(bootstrap, /maxAttempts\s*=\s*3/);
+  assert.match(server, /AUTH_COOKIE_SAME_SITE/);
+  assert.match(server, /sameSite:\s*AUTH_COOKIE_SAME_SITE/);
+  assert.match(server, /subject:\s*String\(user\._id\)/);
+  assert.doesNotMatch(server, /const payload = \{[^}]*systems/s);
 });

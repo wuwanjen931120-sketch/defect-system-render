@@ -42,7 +42,7 @@
   async function apiRequest(path, options = {}) {
     const response = await fetch(path, {
       cache: "no-store",
-      credentials: "same-origin",
+      credentials: "include",
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -144,8 +144,14 @@
         body: JSON.stringify({ email, code })
       });
 
-      const user = data.user || {};
-      const systems = Array.isArray(data.systems) ? data.systems : [];
+      // 驗證碼成功後立刻確認 HttpOnly Cookie 已被瀏覽器保存。
+      // 這可避免畫面先顯示登入成功，進入儀表板後才被導回登入頁。
+      const session = await apiRequest("/api/session", {
+        method: "GET",
+        headers: { "Accept": "application/json" }
+      });
+      const user = session.user || data.user || {};
+      const systems = Array.isArray(session.systems) ? session.systems : (Array.isArray(data.systems) ? data.systems : []);
       const publicAuth = { user: {
         id: user.id || "",
         email: user.email || email,
@@ -167,7 +173,7 @@
       sessionStorage.setItem("allowed_systems", JSON.stringify(systems));
 
       showOk("登入成功，正在前往儀表板");
-      window.setTimeout(() => location.replace("dashboard.html"), 450);
+      window.setTimeout(() => location.replace("dashboard.html?v=20260723-2"), 350);
     } catch (error) {
       showErr(error.message);
     } finally {
@@ -208,6 +214,11 @@
     if (codeInput.value.trim()) verifyAndLogin();
     else sendCode();
   });
+
+  const reason = new URLSearchParams(location.search).get("reason");
+  if (reason === "session-expired") showErr("登入狀態已過期，請重新登入");
+  if (reason === "cookie") showErr("瀏覽器沒有保存登入狀態，請允許此網站使用 Cookie，並按下方修復按鈕後重試");
+  if (reason === "service") showErr("登入狀態檢查暫時失敗，請稍後再試");
 
   loadLoginStatus();
 })();

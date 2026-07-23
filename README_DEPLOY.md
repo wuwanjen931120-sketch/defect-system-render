@@ -45,6 +45,8 @@ Manual Deploy → Clear build cache & deploy
 NODE_ENV=production
 MONGODB_URI=你的 MongoDB Atlas 連線字串
 JWT_SECRET=至少 32 個隨機字元
+AUTH_COOKIE_SAME_SITE=Lax
+AUTH_COOKIE_SECURE=true
 APP_BASE_URL=https://你的服務名稱.onrender.com
 ALLOWED_ORIGINS=https://你的服務名稱.onrender.com
 ```
@@ -120,6 +122,19 @@ https://你的服務名稱.onrender.com/api/login/status
 - `email_login_enabled=false`：檢查 SMTP 環境變數
 - 登入頁仍顯示舊畫面：按「修復灰底/警告（清快取）」或使用 `Ctrl + F5`
 
+
+## 5-1. 登入成功後又跳回登入頁
+
+本版已處理登入迴圈：
+
+- 登入成功後，先向 `/api/session` 確認 Cookie 有效，再進入儀表板。
+- Cookie 使用 `SameSite=Lax`，並在 Render HTTPS 環境使用 `Secure`。
+- `auth-bootstrap.js` 不再被 Service Worker 快取。
+- JWT 只保存最小識別資料，避免機台數量多時 Cookie 過大。
+- Render 剛喚醒或網路短暫失敗時，登入狀態會自動重試三次。
+
+第一次部署本版後，請按登入頁的「修復灰底/警告（清快取）」一次，再按 `Ctrl + F5`。
+
 ## 6. 公開註冊
 
 ```text
@@ -138,7 +153,7 @@ ALLOW_PUBLIC_REGISTRATION=false
 1. `/health` 回傳 `status: ok`。
 2. `/api/login/status` 的資料庫與 Email 登入皆為 `true`。
 3. 可寄送 OTP 並成功登入。
-4. 一般使用者只能查看登入 Cookie 內授權的 `systems` 機台。
+4. 一般使用者只能查看資料庫中被授權的 `systems` 機台；Cookie 不保存完整機台清單。
 5. `/api/predict`、`/api/ai/chat`、`/api/current-product` 皆要求有效登入 Cookie。
 6. 急停只允許 `tenant_admin`、`super_admin`，並回傳 `command_id`。
 7. 事件紀錄可匯出 CSV。

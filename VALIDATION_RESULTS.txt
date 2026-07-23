@@ -1,46 +1,27 @@
-完整修正版驗證結果（2026-07-23）
+瑕疵辨識與分流系統－登入迴圈修正版驗證結果
+日期：2026-07-23
 
-一、自動檢查
-- npm run check：成功
-- JavaScript 語法與專案結構：36 個 JavaScript、10 個 HTML 全部通過
+一、修正目標
+- 修正輸入正確 OTP 後短暫顯示登入成功，接著又回到登入頁的問題。
+
+二、主要修正
+- 登入完成後先呼叫 /api/session 確認 HttpOnly Cookie 已保存。
+- Cookie 預設 SameSite=Lax，Render HTTPS 使用 Secure。
+- JWT 改為最小內容，不再放完整機台清單。
+- 每次 API 驗證都從 MongoDB 讀取目前角色、租戶和機台權限。
+- auth-bootstrap.js 取消 Service Worker 快取並加入版本參數。
+- /api/session 遇到暫時性網路錯誤時自動重試三次。
+- 登入頁可顯示登入過期、Cookie 或服務狀態錯誤原因。
+
+三、自動檢查結果
+- JavaScript 語法與專案檢查：通過（36 個 JavaScript、10 個 HTML）
 - 格式檢查：通過
-- Node 自動測試：28/28 通過，0 失敗
+- Node 自動測試：29 / 29 通過
+- 登入 Cookie 回歸測試：通過
+- Service Worker 不快取 auth-bootstrap.js：通過
+- ZIP 不包含 node_modules、.env 或真實密碼/API Key
 
-二、審查報告重點
-- 正式頁面檔名、Manifest、圖示、Service Worker 路徑已統一
-- public/server.js、重複資料夾、舊版檔案已移除
-- defects、current-product、AI、設定、E-stop 皆有登入、角色、租戶與機台權限
-- E-stop 具 system_id、command_id、ACK 與 AuditLog
-- OTP 存 MongoDB TTL，具過期、重寄冷卻與輸錯次數限制
-- JWT 改存 HttpOnly、Secure、SameSite=Strict Cookie；前端不保存 JWT
-- CSP 不含 unsafe-inline，HTML 無 inline script、inline style 或 onclick
-- 管理 API 排除 password、passwordHash、password_hash、OTP、token、secret
-- 查詢分頁、MongoDB aggregate、索引、MQTT schema、CSV 匯出已完成
-- GitHub Actions CI、健康監控、加密 MongoDB 備份與資料保留設定已加入
-
-三、Gemini API 免費層
-- AI 提供者只使用 Gemini API，不使用 OpenAI API
-- 預設模型：gemini-3.6-flash
-- GEMINI_API_KEY 僅從 Render Environment 讀取，不會寫入前端或 GitHub
-- 每分鐘與每日使用限制已加入
-- Gemini 額度用完、429 或連線失敗時，自動改成本機統計回答
-
-四、部署與安裝
-- .npmrc、render-build.sh、package-lock.json 均使用公開 npm Registry
-- package-lock.json 不含 applied-caas、internal.api.openai.org 或內部 Artifactory 網址
-- .env.example、render.yaml、README_DEPLOY.md 與程式使用的變數名稱一致
-
-五、敏感資訊檢查
-- ZIP 不含 node_modules、.env、MongoDB 真實連線字串、SMTP 密碼、JWT Secret 或 Gemini API Key
-
-六、尚需部署後驗證的外部服務
-以下不是程式缺漏，必須由使用者在 Render 填入私人環境變數後測試：
-- MongoDB Atlas 實際連線與 OTP collection 讀寫
-- Brevo/Gmail 寄送驗證碼
-- HiveMQ 訊息收發與實體 E-stop ACK
-- Gemini API 實際回答與帳號實際免費額度
-- super_admin、tenant_admin、user 三種展示帳號與測試資料
-
-七、npm audit 說明
-本次環境的 npm audit 請求被執行環境內部代理回傳 503，因此無法在此重新取得線上漏洞資料。
-GitHub Actions CI 已設定 npm audit --omit=dev --audit-level=high，部署提交後會在可連線環境重新檢查。
+四、部署後仍需操作
+- Render 使用 Clear build cache & deploy。
+- 瀏覽器按一次「修復灰底/警告（清快取）」並 Ctrl+F5。
+- 使用真實 MongoDB、SMTP 和帳號執行一次完整登入測試。
