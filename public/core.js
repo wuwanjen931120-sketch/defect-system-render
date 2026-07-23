@@ -20,6 +20,7 @@
   function getLoginInfo(){
     const loginUser = safeJsonParse(sessionStorage.getItem("loginUser"), {}) || {};
     return {
+      authenticated: sessionStorage.getItem("isLogin") === "true",
       email: sessionStorage.getItem("email") || sessionStorage.getItem("loginEmail") || loginUser.email || loginUser.username || "",
       role: sessionStorage.getItem("role") || loginUser.role || "",
       tenant_id: sessionStorage.getItem("tenant_id") || loginUser.tenant_id || ""
@@ -237,7 +238,7 @@
 
   function ensureAiFloatingButton(){
     const info = getLoginInfo();
-    if(!info.token) return;
+    if(!info.authenticated) return;
     if(document.getElementById("aiFloatBtn")) return;
     if(currentFile() === "ai.html") return;
     const btn = document.createElement("a");
@@ -248,13 +249,16 @@
     document.body.appendChild(btn);
   }
 
-  document.addEventListener("DOMContentLoaded", ()=>{
+  document.addEventListener("DOMContentLoaded", async ()=>{
     try{
-      const info = getLoginInfo();
-      if(isProtectedPage() && !info.token){
-        location.replace("login.html");
-        return;
+      // 登入狀態以伺服器的 HttpOnly Cookie 為準。
+      // 先等待 auth-bootstrap 完成 /api/session 檢查，避免頁面還沒讀到 Cookie
+      // 就因為舊版的 sessionStorage 檢查而被送回登入頁。
+      if(isProtectedPage()){
+        const session = window.authReady ? await window.authReady : null;
+        if(!session) return;
       }
+
       document.body.classList.add("unified-sidebar-ready");
       injectUnifiedSidebarCss();
       standardizeSidebar();
@@ -272,7 +276,8 @@
       }catch(_){}
     }catch(e){
       console.warn("core init failed", e);
-      if(isProtectedPage()) location.replace("login.html");
+      // auth-bootstrap 會依真正的 /api/session 結果處理轉址，
+      // 此處不再用前端暫存資料重複判斷，避免誤判登入失敗。
     }
   });
 })();

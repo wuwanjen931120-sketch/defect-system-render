@@ -710,14 +710,11 @@ function normalizeProductName(name) {
 }
 
 async function apiFetch(url, options = {}) {
-  const token = sessionStorage.getItem("isLogin");
-
- // console.log("目前 token:", token);
-
-  if (!token) {
-    alert("⚠️ 請重新登入");
-    window.location.replace("login.html");
-    return null;
+  // 不再把 sessionStorage 當成登入依據；真正登入狀態由 HttpOnly Cookie
+  // 與 /api/session 決定，避免驗證成功後因前端暫存尚未同步而跳回登入頁。
+  if (window.authReady) {
+    const session = await window.authReady;
+    if (!session) return null;
   }
 
   const fullUrl = url.startsWith("http")
@@ -726,6 +723,8 @@ async function apiFetch(url, options = {}) {
 
   const res = await fetch(fullUrl, {
     ...options,
+    cache: options.cache || "no-store",
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
       "ngrok-skip-browser-warning": "true",
@@ -734,9 +733,8 @@ async function apiFetch(url, options = {}) {
   });
 
   if (res.status === 401) {
-    alert("登入過期，請重新登入");
-    sessionStorage.clear();
-    window.location.replace("login.html");
+    window.clearPublicAuth?.();
+    window.location.replace("login.html?reason=session-expired");
     return null;
   }
 

@@ -144,6 +144,12 @@ test("login redirect fix validates the cookie before opening dashboard", () => {
   assert.match(login, /credentials:\s*["']include["']/);
   assert.match(bootstrap, /credentials:\s*["']include["']/);
   assert.match(bootstrap, /maxAttempts\s*=\s*3/);
+  const core = fs.readFileSync(path.join(publicDir, "core.js"), "utf8");
+  const dashboard = fs.readFileSync(path.join(publicDir, "dashboard.inline-2.js"), "utf8");
+  assert.match(core, /await window\.authReady/);
+  assert.doesNotMatch(core, /!info\.token/);
+  assert.match(dashboard, /await window\.authReady/);
+  assert.match(dashboard, /credentials:\s*["']same-origin["']/);
   assert.match(server, /AUTH_COOKIE_SAME_SITE/);
   assert.match(server, /sameSite:\s*AUTH_COOKIE_SAME_SITE/);
   assert.match(server, /subject:\s*String\(user\._id\)/);

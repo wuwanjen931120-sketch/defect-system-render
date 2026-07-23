@@ -1,27 +1,12 @@
-瑕疵辨識與分流系統－登入迴圈修正版驗證結果
-日期：2026-07-23
+驗證日期：2026-07-23
+版本：登入後跳回登入頁修正版
 
-一、修正目標
-- 修正輸入正確 OTP 後短暫顯示登入成功，接著又回到登入頁的問題。
-
-二、主要修正
-- 登入完成後先呼叫 /api/session 確認 HttpOnly Cookie 已保存。
-- Cookie 預設 SameSite=Lax，Render HTTPS 使用 Secure。
-- JWT 改為最小內容，不再放完整機台清單。
-- 每次 API 驗證都從 MongoDB 讀取目前角色、租戶和機台權限。
-- auth-bootstrap.js 取消 Service Worker 快取並加入版本參數。
-- /api/session 遇到暫時性網路錯誤時自動重試三次。
-- 登入頁可顯示登入過期、Cookie 或服務狀態錯誤原因。
-
-三、自動檢查結果
-- JavaScript 語法與專案檢查：通過（36 個 JavaScript、10 個 HTML）
-- 格式檢查：通過
-- Node 自動測試：29 / 29 通過
-- 登入 Cookie 回歸測試：通過
-- Service Worker 不快取 auth-bootstrap.js：通過
-- ZIP 不包含 node_modules、.env 或真實密碼/API Key
-
-四、部署後仍需操作
-- Render 使用 Clear build cache & deploy。
-- 瀏覽器按一次「修復灰底/警告（清快取）」並 Ctrl+F5。
-- 使用真實 MongoDB、SMTP 和帳號執行一次完整登入測試。
+檢查結果：
+- npm run check：29 / 29 通過
+- JavaScript / CommonJS 語法檢查：通過
+- 登入 Cookie：HttpOnly、SameSite、Secure 設定檢查通過
+- 前端登入保護：等待 /api/session，不再檢查不存在的 token
+- Dashboard / Logs API：使用 same-origin Cookie
+- Service Worker：快取版本已更新
+- GitHub Actions：ci.yml 路徑已修正
+- 壓縮檔：不含 node_modules、真實密碼或 API Key

@@ -85,13 +85,17 @@
   window.applyPublicAuth = applyPublicAuth;
   window.authReady = readSession().then(data => {
     applyPublicAuth(data);
+    window.authState = data;
     return data;
   }).catch(error => {
     clearPublicAuth();
+    window.authState = null;
     if (protectedPages.has(currentPage())) {
       const reason = error?.authFailure ? "session-expired" : "service";
       location.replace(`login.html?reason=${reason}`);
     }
-    throw error;
+    // 不再重新拋出錯誤，避免其他頁面腳本收到未處理的 Promise rejection
+    // 並再次把使用者導回登入頁。
+    return null;
   });
 })();

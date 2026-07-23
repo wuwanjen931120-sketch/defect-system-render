@@ -1,13 +1,3 @@
-(function(){
-
-  const token = sessionStorage.getItem("isLogin");
-
-  if (!token) {
-    window.location.replace("login.html");
-  }
-
-})();
-
 const API_BASE = window.location.origin;
 
 
@@ -36,11 +26,12 @@ function buildDefectsUrl(){
 }
 
 async function exportDefectsCsv(){
-  const token = sessionStorage.getItem("isLogin");
-  if (!token) return;
+  if (window.authReady && !(await window.authReady)) return;
   try {
     const res = await fetch(`${API_BASE}/api/defects/export.csv?${buildDefectsParams().toString()}`, {
-      headers: { }
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { "Accept": "text/csv" }
     });
     if (res.status === 401) {
       sessionStorage.clear();
@@ -64,37 +55,35 @@ async function exportDefectsCsv(){
 }
 
 async function apiFetch(url, options = {}) {
+  if (window.authReady) {
+    const session = await window.authReady;
+    if (!session) return [];
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5000);
 
-  const token = sessionStorage.getItem("isLogin");  // ✅ 正確位置
-
   try {
-    const res = await fetch(url, { credentials: "same-origin",
+    const res = await fetch(url, {
       ...options,
+      cache: options.cache || "no-store",
+      credentials: "same-origin",
       headers: {
         "Content-Type": "application/json",
-        "ngrok-skip-browser-warning": "true"
+        "ngrok-skip-browser-warning": "true",
+        ...(options.headers || {})
       },
       signal: controller.signal
     });
 
-
     if (res.status === 401) {
-  sessionStorage.removeItem("isLogin");
-  sessionStorage.removeItem("isLogin");
-  sessionStorage.removeItem("loginUser");
-  sessionStorage.removeItem("loginName");
-  sessionStorage.removeItem("role");
-  sessionStorage.removeItem("tenant_id");
-  sessionStorage.removeItem("system_id");
-  alert("登入已過期，請重新登入");
-  window.location.replace("login.html");
-  return [];
-}
+      window.clearPublicAuth?.();
+      window.location.replace("login.html?reason=session-expired");
+      return [];
+    }
 
     if (!res.ok) {
-      console.warn("API壞掉");
+      console.warn("API 錯誤：", res.status);
       return [];
     }
 
