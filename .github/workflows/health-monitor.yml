@@ -1,0 +1,17 @@
+name: Render health monitor
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check deployed health endpoint
+        env:
+          HEALTH_URL: ${{ secrets.HEALTH_URL }}
+        run: |
+          URL="${HEALTH_URL:-https://defect-system-render.onrender.com/health}"
+          curl --fail --show-error --silent --retry 5 --retry-delay 15 --max-time 120 "$URL"
