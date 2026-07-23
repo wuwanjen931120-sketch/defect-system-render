@@ -1,23 +1,29 @@
-# Gemini AI 助理設定
+# Gemini API 免費層設定
 
-本專案使用 Gemini API。沒有設定 API Key 時，AI 頁面仍會使用本機統計備援模式。
+本專案 AI 使用 Gemini API，預設模型為：
 
-## Render 環境變數
+```text
+GEMINI_MODEL=gemini-3.6-flash
+```
+
+Render → Environment 新增：
 
 ```text
 GEMINI_API_KEY=你的 Google AI Studio API Key
-GEMINI_MODEL=gemini-3.1-flash-lite
-AI_REQUESTS_PER_MINUTE=10
+GEMINI_MODEL=gemini-3.6-flash
+AI_REQUESTS_PER_MINUTE=5
+AI_REQUESTS_PER_DAY=100
 ```
 
-API Key 必須放在 Render 後端環境變數，不可寫進 `public/ai.js`、HTML 或公開 GitHub。
+注意：
 
-## 呼叫流程
+- API Key 只能放在 Render Environment，不可貼進 `public` 或上傳 GitHub。
+- 免費層的模型、配額與限制可能由 Google 調整。
+- 免費層送出的內容可能用於改善 Google 產品，請勿傳送機密資料。
+- 額度用完、模型不可用或 API 暫時失敗時，網站會自動切換成本機統計模式。
 
-```text
-AI 頁面 → POST /api/ai/chat → JWT 與機台權限檢查
-→ 取得最多 500 筆授權範圍內的瑕疵資料
-→ Gemini API → 回傳繁體中文分析
-```
+官方資料：
 
-若 Gemini 遇到免費額度限制或連線失敗，後端會自動回傳本機統計結果。AI 路由另有每分鐘速率限制，避免 API Key 被濫用。
+- https://ai.google.dev/gemini-api/docs/pricing
+- https://ai.google.dev/gemini-api/docs/models
+- https://ai.google.dev/gemini-api/docs/rate-limits

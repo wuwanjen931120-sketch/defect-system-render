@@ -5,8 +5,10 @@
   "main": "server.cjs",
   "scripts": {
     "start": "node server.cjs",
+    "lint": "node scripts/check-project.cjs",
+    "format:check": "node scripts/format-check.cjs",
     "test": "node --test",
-    "check": "node --check server.cjs && node --check lib/security.cjs && node --check lib/origin-policy.cjs && node --check public/core.js && node --check public/login.js && node --check public/ai.js && node --test"
+    "check": "npm run lint && npm run format:check && npm test"
   },
   "keywords": [],
   "author": "",

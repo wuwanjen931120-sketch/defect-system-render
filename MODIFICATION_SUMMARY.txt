@@ -1,33 +1,52 @@
-1150713 系統專題審查報告－登入與部署修正版
-完成日期：2026-07-22
-依據：1150713_系統專題審查報告 (1)(1).docx
+1150713 系統專題審查報告－全部未完成項目修正版
+完成日期：2026-07-23
+AI 方案：Gemini API 免費層
 
-本次針對「此來源不允許呼叫 API」與登入無法使用完成：
-1. 新增 lib/origin-policy.cjs，統一正規化 APP_BASE_URL、ALLOWED_ORIGINS 與 Render 網址。
-2. CORS 會辨識 X-Forwarded-Host / X-Forwarded-Proto，與目前網站同來源的 API 不再被誤擋。
-3. 保留白名單限制，未授權外部網站仍回傳 403。
-4. 登入程式移至 public/login.js，使用 /api/... 相對路徑，避免前端拼錯 API 網址。
-5. 新增 GET /api/login/status，登入頁可顯示 MongoDB 與 Email OTP 是否設定完成。
-6. Email OTP 改支援通用 SMTP_*，並相容既有 Brevo、Gmail、EMAIL_* Render 環境變數。
-7. 支援 users collection 中 password、passwordHash、password_hash 三種 bcrypt 欄位。
-8. SMTP 寄送失敗時刪除未送達 OTP，避免等待重寄冷卻。
-9. OTP 驗證限制為 6 位數，前端輸入框自動排除非數字。
-10. login.html、login.js、sw.js 與 manifest 設定為不快取；Service Worker 更新為 aiot-static-v10。
-11. 新增 CORS 同來源測試、登入結構測試與 GitHub Actions CI。
-12. 新增 docs/LOGIN_TROUBLESHOOTING.md，更新部署、API 與審查要求完成狀態。
-13. 清除 gitignore.txt、lib/validators.cjs、public/script.js 與舊修正文件等未使用檔案。
-14. 加入 .npmrc，Render 固定由 https://registry.npmjs.org/ 安裝套件。
+本版以 0723 專案為基礎，補完先前仍未完成或只完成一部分的項目。
 
-原審查報告既有完成項目仍保留：
-- PWA 路徑與圖示、public/server.js 移除
-- JWT/RBAC/tenant/system scope
-- OTP MongoDB TTL、速率限制與密碼政策
-- Helmet/CSP/HSTS、統一錯誤處理
-- MQTT schema、E-stop ACK、AuditLog
-- Summary aggregate、索引、CSV 匯出、Gemini fallback
+一、登入與權限
+1. 登入統一為帳號密碼 → Email OTP → 登入 Cookie。
+2. JWT 改存 HttpOnly、Secure、SameSite=Strict Cookie，前端不再保存 token。
+3. 新增 /api/session 與 /api/logout。
+4. defects、current-product、AI、設定、系統與 E-stop 依角色、租戶、機台限制。
+5. 管理資料排除 password、passwordHash、password_hash、OTP、token、secret。
 
-Render 建議：
+二、網站安全
+1. Helmet CSP 移除 unsafe-inline。
+2. 所有 HTML 的 inline script、inline style、onclick 等內容改成外部檔案。
+3. 動態 HTML 統一使用 DOMPurify 或 DOM API。
+4. 保留 CORS 白名單並支援 Render 反向代理同來源判斷。
+5. 加入登入、OTP、註冊與 AI 速率限制、密碼政策及統一錯誤處理。
+
+三、Gemini API 免費層
+1. AI 只使用 Gemini API，預設模型 gemini-3.6-flash。
+2. Gemini API Key 僅存於 Render Environment。
+3. 加入每分鐘 AI_REQUESTS_PER_MINUTE 與每日 AI_REQUESTS_PER_DAY 限制。
+4. 額度不足、429 或 Gemini 暫時無法使用時，自動回傳本機統計分析。
+5. AI 回覆使用 DOMPurify 清理，降低 XSS 風險。
+
+四、資料、IoT 與維運
+1. Summary 使用 MongoDB aggregate；NG 警報使用資料庫時間窗。
+2. 瑕疵查詢與管理查詢加入分頁、排序及最大筆數。
+3. 加入常用索引、MQTT payload 驗證、E-stop ACK、AuditLog 與 CSV 匯出。
+4. 加入 DEFECT_RETENTION_DAYS、AUDIT_RETENTION_DAYS 資料保留清理。
+5. 加入 GitHub Actions CI、健康監控及加密 MongoDB 備份流程。
+
+五、部署與文件
+1. 補上 .npmrc 與公開 npm Registry，避免 Render 連到內部套件網址。
+2. .env.example、render.yaml、README_DEPLOY.md 的環境變數已統一。
+3. 補齊 API 權限、登入排錯、備份監控與審查要求完成狀態文件。
+4. Service Worker 不快取 API 或登入頁，並加入離線頁面。
+
+驗證結果
+- npm run check：成功
+- 自動測試：28/28 通過
+- HTML：10 個全部符合嚴格 CSP
+- JavaScript：36 個全部通過語法檢查
+- ZIP 不含 node_modules、.env、密碼或 API Key
+
+Render 設定
 - Build Command：bash render-build.sh
 - Start Command：npm start
-- Health Check：/health
-- 更新後執行 Manual Deploy → Clear build cache & deploy
+- Health Check Path：/health
+- 上傳後請使用 Manual Deploy → Clear build cache & deploy

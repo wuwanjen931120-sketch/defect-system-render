@@ -16,31 +16,13 @@
     return PROTECTED_PAGES.includes(currentFile());
   }
 
-  function parseJwtPayload(token){
-    try{
-      if(!token || !token.includes(".")) return null;
-      const payload = token.split(".")[1];
-      const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
-      return JSON.parse(decodeURIComponent(Array.prototype.map.call(json, c => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)).join("")));
-    }catch{
-      try{
-        const payload = token.split(".")[1];
-        return JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
-      }catch{
-        return null;
-      }
-    }
-  }
 
   function getLoginInfo(){
-    const token = sessionStorage.getItem("token") || "";
-    const payload = parseJwtPayload(token) || {};
     const loginUser = safeJsonParse(sessionStorage.getItem("loginUser"), {}) || {};
     return {
-      token,
-      email: sessionStorage.getItem("email") || sessionStorage.getItem("loginEmail") || payload.email || loginUser.email || loginUser.username || "",
-      role: sessionStorage.getItem("role") || payload.role || loginUser.role || "",
-      tenant_id: sessionStorage.getItem("tenant_id") || payload.tenant_id || loginUser.tenant_id || ""
+      email: sessionStorage.getItem("email") || sessionStorage.getItem("loginEmail") || loginUser.email || loginUser.username || "",
+      role: sessionStorage.getItem("role") || loginUser.role || "",
+      tenant_id: sessionStorage.getItem("tenant_id") || loginUser.tenant_id || ""
     };
   }
 
@@ -200,59 +182,25 @@
   }
   window.swHardReset = swHardReset;
 
-  function logout(){
+  function clearClientSession(){
     try{
-      sessionStorage.removeItem("token");
-      sessionStorage.removeItem("isLogin");
-      sessionStorage.removeItem("loginUser");
-      sessionStorage.removeItem("role");
-      sessionStorage.removeItem("tenant_id");
-      sessionStorage.removeItem("system_id");
+      localStorage.removeItem("defect_public_auth_v1");
+      ["isLogin", "email", "loginEmail", "loginUser", "loginName", "role", "tenant_id", "system_id", "allowed_systems"].forEach(key => sessionStorage.removeItem(key));
     }catch{}
-    location.replace("login.html");
+  }
+  window.clearClientSession = clearClientSession;
+
+  function logout(){
+    fetch("/api/logout", { method:"POST", credentials:"same-origin", cache:"no-store" })
+      .catch(()=>{})
+      .finally(()=>{
+        clearClientSession();
+        location.replace("login.html");
+      });
   }
   window.logout = logout;
 
-  function injectUnifiedSidebarCss(){
-    if(document.getElementById("unifiedSidebarCss")) return;
-    const style = document.createElement("style");
-    style.id = "unifiedSidebarCss";
-    style.textContent = `
-      .app{ grid-template-columns:240px 1fr !important; }
-      .sidebar{
-        width:240px !important; min-width:240px !important; max-width:240px !important;
-        background:linear-gradient(180deg, rgba(15,27,45,.96), rgba(15,27,45,.82)) !important;
-        border-right:1px solid rgba(255,255,255,.10) !important;
-        padding:18px 16px !important;
-        position:sticky !important; top:0 !important; height:100vh !important;
-        overflow:auto !important; display:flex !important; flex-direction:column !important;
-      }
-      .drawer .sidebar{ position:static !important; display:flex !important; height:100vh !important; }
-      .sidebar .logo{ flex-shrink:0 !important; }
-      .brand{ display:flex !important; align-items:center !important; gap:12px !important; min-height:82px !important; padding:10px 10px 16px !important; margin-bottom:14px !important; }
-      .brand h1{ font-size:14px !important; line-height:1.35 !important; margin:0 !important; white-space:normal !important; }
-      .brand p{ display:block !important; font-size:12px !important; color:var(--muted) !important; margin:3px 0 0 !important; }
-      .nav{ display:flex !important; flex-direction:column !important; gap:12px !important; }
-      .nav a{
-        width:100% !important; min-height:56px !important; padding:0 18px !important; margin:0 !important;
-        display:flex !important; align-items:center !important; justify-content:flex-start !important; gap:8px !important;
-        border-radius:20px !important; background:linear-gradient(180deg, rgba(40,78,130,.95), rgba(30,58,95,.95)) !important;
-        color:#fff !important; border:1px solid rgba(255,255,255,.16) !important;
-        font-size:16px !important; font-weight:800 !important; line-height:1.2 !important;
-        text-decoration:none !important; box-sizing:border-box !important; overflow:hidden !important; white-space:nowrap !important;
-      }
-      .nav a:hover{ background:linear-gradient(180deg, rgba(52,100,165,.98), rgba(37,72,118,.98)) !important; }
-      .nav a.active{ background:linear-gradient(180deg, rgba(58,106,172,1), rgba(44,83,136,1)) !important; border-color:rgba(160,205,255,.45) !important; }
-      .nav-label{ display:inline-flex !important; align-items:center !important; gap:10px !important; min-width:0 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; word-break:keep-all !important; }
-      .nav .pill{ margin-left:auto !important; flex-shrink:0 !important; font-size:12px !important; padding:4px 10px !important; border-radius:999px !important; color:rgba(231,238,252,.80) !important; background:rgba(0,0,0,.18) !important; border:1px solid rgba(255,255,255,.12) !important; }
-      .side-footer{ margin-top:16px !important; padding:10px !important; border-top:1px solid rgba(255,255,255,.10) !important; display:grid !important; gap:10px !important; }
-      .side-footer .btn{ width:100% !important; min-height:52px !important; display:flex !important; align-items:center !important; justify-content:center !important; border-radius:18px !important; font-size:15px !important; font-weight:800 !important; white-space:nowrap !important; text-decoration:none !important; }
-      #aiFloatBtn{ position:fixed; right:18px; bottom:18px; z-index:9998; padding:12px 18px; border-radius:999px; background:linear-gradient(90deg,#38bdf8,#22c55e); color:white; font-weight:900; box-shadow:0 14px 34px rgba(0,0,0,.35); border:1px solid rgba(255,255,255,.18); text-decoration:none !important; }
-      #aiFloatBtn:hover{ filter:brightness(1.08); }
-      @media(max-width:980px){ .app{ grid-template-columns:1fr !important; } .sidebar{ display:none !important; } .drawer .sidebar{ display:flex !important; } .hamburger{ display:inline-flex !important; } }
-    `;
-    document.head.appendChild(style);
-  }
+  function injectUnifiedSidebarCss(){ /* 已改為外部 unified-sidebar.css */ }
 
   function navLink(file, label, pill){
     const active = currentFile() === file ? " active" : "";
@@ -284,7 +232,7 @@
         <button class="btn" type="button" onclick="swHardReset()">修復灰底/警告（清快取）</button>
         <button class="btn" type="button" onclick="logout()">登出</button>
       </div>`;
-    sidebars.forEach(side => { side.innerHTML = html; });
+    sidebars.forEach(side => { setSafeHtml(side, html); });
   }
 
   function ensureAiFloatingButton(){

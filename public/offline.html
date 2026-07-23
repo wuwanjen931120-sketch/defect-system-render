@@ -1,22 +1,17 @@
-<!doctype html>
+<!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="theme-color" content="#0b1220" />
-  <title>目前離線｜瑕疵辨識與分流系統</title>
-  <style>
-    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0b1220;color:#eaf2ff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
-    main{width:min(560px,calc(100% - 40px));padding:32px;border:1px solid rgba(255,255,255,.15);border-radius:20px;background:#12233b;text-align:center;box-sizing:border-box}
-    p{color:#a9bad3;line-height:1.7}
-    button{border:0;border-radius:12px;padding:12px 18px;font-weight:700;cursor:pointer}
-  </style>
-</head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<meta content="#0b1220" name="theme-color"/>
+<title>目前離線｜瑕疵辨識與分流系統</title>
+<link href="offline.page.css" rel="stylesheet"/><script src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script></head>
 <body>
-  <main>
-    <h1>目前沒有網路連線</h1>
-    <p>登入、儀表板與 API 資料不會離線快取。恢復網路後請重新整理頁面。</p>
-    <button type="button" onclick="location.reload()">重新整理</button>
-  </main>
-</body>
+<main>
+<h1>目前沒有網路連線</h1>
+<p>登入、儀表板與 API 資料不會離線快取。恢復網路後請重新整理頁面。</p>
+<button id="offline-handler-1" type="button">重新整理</button>
+</main>
+<script src="offline.handlers.js"></script></body>
 </html>

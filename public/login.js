@@ -146,14 +146,23 @@
 
       const user = data.user || {};
       const systems = Array.isArray(data.systems) ? data.systems : [];
-      sessionStorage.setItem("token", data.token || "");
+      const publicAuth = { user: {
+        id: user.id || "",
+        email: user.email || email,
+        name: user.name || "",
+        company: user.company || "",
+        tenant_id: user.tenant_id || "",
+        role: user.role || "user"
+      }, systems, updatedAt: Date.now() };
+      localStorage.setItem("defect_public_auth_v1", JSON.stringify(publicAuth));
+      // JWT 已放入 HttpOnly Cookie；sessionStorage 只保留非敏感的顯示資料。
       sessionStorage.setItem("isLogin", "true");
-      sessionStorage.setItem("email", user.email || email);
-      sessionStorage.setItem("loginEmail", user.email || email);
-      sessionStorage.setItem("loginUser", JSON.stringify(user));
-      sessionStorage.setItem("loginName", user.name || "");
-      sessionStorage.setItem("tenant_id", user.tenant_id || "");
-      sessionStorage.setItem("role", user.role || "user");
+      sessionStorage.setItem("email", publicAuth.user.email);
+      sessionStorage.setItem("loginEmail", publicAuth.user.email);
+      sessionStorage.setItem("loginUser", JSON.stringify(publicAuth.user));
+      sessionStorage.setItem("loginName", publicAuth.user.name);
+      sessionStorage.setItem("tenant_id", publicAuth.user.tenant_id);
+      sessionStorage.setItem("role", publicAuth.user.role);
       sessionStorage.setItem("system_id", systems[0] || "");
       sessionStorage.setItem("allowed_systems", JSON.stringify(systems));
 

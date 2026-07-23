@@ -133,7 +133,7 @@
       const hidden = item.adminOnly && !adminVisible ? "display:none;" : "";
 
       return `
-        <a href="${item.href}" class="${isActive ? "active" : ""}" ${adminId ? `id="${adminId}"` : ""} style="${hidden}">
+        <a href="${item.href}" class="${[isActive ? "active" : "", hidden ? "nav-hidden" : ""].filter(Boolean).join(" ")}" ${adminId ? `id="${adminId}"` : ""}>
           <span class="nav-label">${item.icon} ${item.label}</span>
           <span class="pill">${item.pill}</span>
         </a>
@@ -155,7 +155,7 @@
 
     document.querySelectorAll(".nav").forEach(nav => {
       const isDrawer = !!nav.closest("#drawer");
-      nav.innerHTML = buildNavHtml(isDrawer);
+      setSafeHtml(nav, buildNavHtml(isDrawer));
     });
   }
 

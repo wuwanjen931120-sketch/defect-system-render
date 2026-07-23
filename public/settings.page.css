@@ -1,0 +1,249 @@
+input{
+      width:100%;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.12);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      outline:none;
+      margin-top:10px;
+    }
+
+    .btnDanger{
+  background: #ef4444;
+  color: white;
+  font-size: 16px;   /* ⭐ 放大 */
+  font-weight: 800;
+  padding: 10px 18px;
+  border-radius: 10px;
+}
+body{
+  font-size: 16px;  /* 原本通常是 14 */
+}
+
+.pageTitle b{
+  font-size: 38px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.pageTitle span{
+  font-size: 14px;
+}
+
+.btn{
+  font-size: 15px;
+}
+body{
+  font-size: 18px;
+}
+
+.pageTitle b{
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.pageTitle span{
+  font-size: 18px;
+}
+
+.card h3{
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.card div{
+  font-size: 17px;
+}
+
+input{
+  font-size: 18px;
+  padding: 14px 14px;
+}
+
+input::placeholder{
+  font-size: 17px;
+}
+
+.btn{
+  font-size: 17px;
+  padding: 12px 18px;
+}
+
+#previewBox{
+  font-size: 18px !important;
+  line-height: 2;
+}
+
+.pill{
+  font-size: 14px;
+}
+
+
+
+/* =========================
+   側邊欄最終版 Professional UI
+   ========================= */
+
+/* 側邊欄選單區 */
+.nav{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+/* 側邊欄按鈕統一 */
+.nav a{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+
+  min-height:56px;
+  padding:0 18px;
+  margin:0;
+
+  border-radius:20px;
+  background: linear-gradient(180deg, rgba(40,78,130,.95), rgba(30,58,95,.95));
+  color:#ffffff;
+  border:1px solid rgba(255,255,255,.16);
+
+  font-size:16px;
+  font-weight:800;
+  line-height:1.2;
+  text-decoration:none;
+
+  box-sizing:border-box;
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+/* 移除所有底線 */
+.nav a,
+.nav a:hover,
+.nav a:focus,
+.nav a:active,
+.nav a *,
+.nav a *:hover,
+.nav a *:focus,
+.nav a *:active,
+.pill{
+  text-decoration:none !important;
+}
+
+/* hover 不放大，只變亮 */
+.nav a:hover{
+  background: linear-gradient(180deg, rgba(52,100,165,.98), rgba(37,72,118,.98));
+  border-color: rgba(255,255,255,.22);
+  box-shadow: 0 8px 18px rgba(0,0,0,.18);
+}
+
+/* 目前所在頁 */
+.nav a.active{
+  background: linear-gradient(180deg, rgba(58,106,172,1), rgba(44,83,136,1));
+  border-color: rgba(160,205,255,.45);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 8px 18px rgba(0,0,0,.22);
+  color:#ffffff;
+}
+
+/* 左側文字區 */
+.nav a .nav-label{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+  flex:1;
+}
+
+/* 英文小膠囊 */
+.pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+
+  min-width:74px;
+  height:32px;
+  padding:0 14px;
+
+  border-radius:999px;
+  background: rgba(8,20,40,.28);
+  border:1px solid rgba(255,255,255,.14);
+  color:rgba(231,238,252,.92);
+
+  font-size:14px;
+  font-weight:500;
+  line-height:1;
+  white-space:nowrap;
+  flex-shrink:0;
+}
+
+/* active 時小膠囊 */
+.nav a.active .pill{
+  background: rgba(9,25,48,.22);
+  border-color: rgba(255,255,255,.18);
+  color:#eaf2ff;
+}
+
+/* 修復灰底按鈕也統一成同寬風格 */
+.side-footer .btn{
+  width:100%;
+  min-height:56px;
+  padding:0 18px;
+
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+
+  border-radius:20px;
+  font-size:16px;
+  font-weight:800;
+  line-height:1.35;
+
+  background: rgba(14,31,53,.88);
+  color:#ffffff;
+  border:1px solid rgba(255,255,255,.12);
+
+  box-sizing:border-box;
+  text-decoration:none;
+}
+
+.side-footer .btn:hover{
+  background: rgba(22,44,74,.96);
+  border-color: rgba(255,255,255,.18);
+}
+
+/* 手機版避免擠壓 */
+@media (max-width: 768px){
+  .nav a{
+    min-height:54px;
+    padding:0 16px;
+    font-size:15px;
+  }
+
+  .pill{
+    min-width:68px;
+    height:30px;
+    font-size:13px;
+    padding:0 12px;
+  }
+
+  .side-footer .btn{
+    min-height:54px;
+    font-size:15px;
+    padding:0 16px;
+  }
+}
+
+.settings-inline-style-1 { display: none; }
+
+.settings-inline-style-2 { display:block; position:static; height:100vh; }
+
+.settings-inline-style-3 { display:none; }
+
+.settings-inline-style-4 { display:flex; gap:10px; }
+
+.settings-inline-style-5 { color:var(--muted); font-size:13px; line-height:1.7; }
+
+.settings-inline-style-6 { color:var(--muted); font-size:12px; }
+
+.settings-inline-style-7 { color:var(--muted); line-height:1.8; font-size:13px; white-space:pre-line; }

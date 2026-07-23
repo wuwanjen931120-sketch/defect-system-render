@@ -1,0 +1,178 @@
+body{
+      margin:0;
+      background:linear-gradient(135deg,#08111f,#10233b);
+      color:#eaf2ff;
+      font-family:"Microsoft JhengHei", Arial, sans-serif;
+      font-size:18px;
+    }
+
+    .adminPage{
+      padding:0;
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      margin-bottom:24px;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+
+    .leftTop{
+      display:flex;
+      align-items:flex-start;
+      gap:14px;
+      min-width:0;
+      flex:1;
+    }
+
+    .titleBox h1{
+      margin:0;
+      font-size:34px;
+      font-weight:900;
+      letter-spacing:1px;
+    }
+
+    .titleBox p{
+      margin:8px 0 0;
+      color:#9bb0cf;
+      font-size:17px;
+      line-height:1.55;
+    }
+
+    .actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      border:none;
+      border-radius:14px;
+      padding:12px 18px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+      color:white;
+      background:#244b7a;
+      border:1px solid rgba(255,255,255,.15);
+      text-decoration:none;
+    }
+
+    .btn:hover{ background:#31639e; }
+    .btnPrimary{ background:#2563eb; }
+    .btn:disabled{ opacity:.55; cursor:not-allowed; }
+
+    .infoCards{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:16px;
+      margin-bottom:22px;
+    }
+
+    .card{
+      background:rgba(18,35,59,.82);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:18px;
+      padding:18px;
+      box-shadow:0 12px 30px rgba(0,0,0,.25);
+    }
+
+    .card .label{
+      color:#9bb0cf;
+      font-size:16px;
+      margin-bottom:8px;
+    }
+
+    .card .value{
+      font-size:30px;
+      font-weight:900;
+    }
+
+    .tableCard{
+      background:rgba(18,35,59,.82);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius:18px;
+      overflow:hidden;
+      box-shadow:0 12px 30px rgba(0,0,0,.25);
+    }
+
+    .tableHeader{
+      padding:18px 20px;
+      border-bottom:1px solid rgba(255,255,255,.1);
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+    }
+
+    .tableHeader h2{
+      margin:0;
+      font-size:26px;
+    }
+
+    .tableScroll{
+      max-height:520px;
+      overflow-y:auto;
+      overflow-x:auto;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:760px;
+    }
+
+    th{
+      position:sticky;
+      top:0;
+      z-index:2;
+      background:#132844;
+      color:#b9d6ff;
+      text-align:left;
+      padding:18px;
+      font-size:17px;
+    }
+
+    td{
+      padding:18px;
+      border-top:1px solid rgba(255,255,255,.08);
+      font-size:17px;
+    }
+
+    tr:hover{ background:rgba(255,255,255,.05); }
+
+    .badge{
+      display:inline-block;
+      padding:7px 14px;
+      border-radius:999px;
+      background:rgba(59,130,246,.18);
+      border:1px solid rgba(96,165,250,.35);
+      color:#dbeafe;
+      font-size:15px;
+      font-weight:800;
+    }
+
+    .empty{
+      text-align:center;
+      color:#9bb0cf;
+      padding:30px;
+    }
+
+    @media(max-width:768px){
+      .infoCards{ grid-template-columns:1fr; }
+      .actions{ justify-content:flex-start; }
+      .titleBox h1{ font-size:28px; }
+      table{ font-size:12px; }
+      th,td{ padding:10px; }
+    }
+
+.admin-inline-style-1 { display:block; position:static; height:100vh; }
+
+.admin-inline-style-2 { margin-top:10px; }
+
+.admin-inline-style-3 { color:#22c55e; }
+
+.admin-inline-style-4 { display:none; }

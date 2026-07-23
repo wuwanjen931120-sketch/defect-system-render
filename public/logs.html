@@ -1,1062 +1,124 @@
 <!DOCTYPE html>
+
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>事件紀錄 - 瑕疵辨識與分流系統</title>
-
-  <link rel="stylesheet" href="style.css" />
-
-  <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#0b1220">
-<meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-  <script defer src="core.js">
-
-  </script>
-
-  <style>
-    .status-ok{
-      color:#3ddc84;
-      background: rgba(34,197,94,.12);
-      border:1px solid rgba(34,197,94,.25);
-      padding:6px 12px;
-      border-radius:999px;
-      font-weight:800;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:60px;
-    }
-
-    .status-ng{
-      color:#ff8080;
-      background: rgba(239,68,68,.12);
-      border:1px solid rgba(239,68,68,.25);
-      padding:6px 12px;
-      border-radius:999px;
-      font-weight:800;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:60px;
-    }
-
-    .status-warn{
-      color:#f59e0b;
-      background: rgba(245,158,11,.12);
-      border:1px solid rgba(245,158,11,.25);
-      padding:6px 12px;
-      border-radius:999px;
-      font-weight:800;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:60px;
-    }
-
-    .empty-row{
-      text-align:center;
-      color:rgba(155,176,207,.9);
-      padding:18px 10px;
-    }
-
-.filterBar{
-  display:flex;
-  gap:10px;
-  margin:12px 0 6px;
-}
-
-.filterBtn{
-  font-size: 15px;
-  padding: 8px 16px;
-  border-radius: 999px;
-
-  background: #1e3a5f;   /* ⭐ 和重新整理按鈕同風格 */
-  color: #ffffff;        /* ⭐ 白字 */
-
-  border: 1px solid rgba(255,255,255,.2);
-  font-weight: 700;
-  cursor: pointer;
-
-  transition: all .2s;
-}
-
-
-.filterBtn.active{
-  font-size: 16px;
-}
-
-.filterBtn:hover{
-  transform: scale(1.08);   /* ⭐ 放大有感 */
-}
-
-
-.filterBtn.active{
-  background: #ffffff;   /* ⭐ 白底 */
-  color: #111;           /* ⭐ 黑字 */
-  font-weight: 900;
-
-  box-shadow: 0 2px 8px rgba(0,0,0,.25);
-}
-
-/* 標題 */
-.card h3{
-  font-size: 22px;
-}
-
-/* 表格 */
-table{
-  font-size: 18px;
-}
-
-/* 表頭 */
-th{
-  font-size: 17px;
-}
-
-/* 內容 */
-td{
-  font-size: 17px;
-}
-
-/* 重新整理按鈕 */
-.btnPrimary{
-  font-size: 18px;
-  padding: 10px 18px;
-}
-
-td:first-child{
-  white-space: nowrap;
-
-}
-
-.pageTitle span{
-  font-size: 18px;   /* 原本大概14 → 放大 */
-  color: var(--muted);
-}
-.logsScrollBox{
-  max-height: 620px;      /* 你可以改 500 / 600 / 700 */
-  overflow-y: auto;
-  overflow-x: auto;
-  border-radius: 16px;
-}
-
-/* 讓表頭捲動時固定在上面 */
-.logsScrollBox thead th{
-  position: sticky;
-  top: 0;
-  background: #132844;    /* 跟你現在深藍底接近 */
-  z-index: 2;
-}
-
-/* =========================
-   側邊欄最終版 Professional UI
-   ========================= */
-
-/* 側邊欄選單區 */
-.nav{
-  display:flex;
-  flex-direction:column;
-  gap:12px;
-}
-
-/* 側邊欄按鈕統一 */
-.nav a{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-
-  min-height:56px;
-  padding:0 18px;
-  margin:0;
-
-  border-radius:20px;
-  background: linear-gradient(180deg, rgba(40,78,130,.95), rgba(30,58,95,.95));
-  color:#ffffff;
-  border:1px solid rgba(255,255,255,.16);
-
-  font-size:16px;
-  font-weight:800;
-  line-height:1.2;
-  text-decoration:none;
-
-  box-sizing:border-box;
-  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
-}
-
-/* 移除所有底線 */
-.nav a,
-.nav a:hover,
-.nav a:focus,
-.nav a:active,
-.nav a *,
-.nav a *:hover,
-.nav a *:focus,
-.nav a *:active,
-.pill{
-  text-decoration:none !important;
-}
-
-/* hover 不放大，只變亮 */
-.nav a:hover{
-  background: linear-gradient(180deg, rgba(52,100,165,.98), rgba(37,72,118,.98));
-  border-color: rgba(255,255,255,.22);
-  box-shadow: 0 8px 18px rgba(0,0,0,.18);
-}
-
-/* 目前所在頁 */
-.nav a.active{
-  background: linear-gradient(180deg, rgba(58,106,172,1), rgba(44,83,136,1));
-  border-color: rgba(160,205,255,.45);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.08), 0 8px 18px rgba(0,0,0,.22);
-  color:#ffffff;
-}
-
-/* 左側文字區 */
-.nav a .nav-label{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:0;
-  flex:1;
-}
-
-/* 英文小膠囊 */
-.pill{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-
-  min-width:74px;
-  height:32px;
-  padding:0 14px;
-
-  border-radius:999px;
-  background: rgba(8,20,40,.28);
-  border:1px solid rgba(255,255,255,.14);
-  color:rgba(231,238,252,.92);
-
-  font-size:14px;
-  font-weight:500;
-  line-height:1;
-  white-space:nowrap;
-  flex-shrink:0;
-}
-
-/* active 時小膠囊 */
-.nav a.active .pill{
-  background: rgba(9,25,48,.22);
-  border-color: rgba(255,255,255,.18);
-  color:#eaf2ff;
-}
-
-/* 修復灰底按鈕也統一成同寬風格 */
-.side-footer .btn{
-  width:100%;
-  min-height:56px;
-  padding:0 18px;
-
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-
-  border-radius:20px;
-  font-size:16px;
-  font-weight:800;
-  line-height:1.35;
-
-  background: rgba(14,31,53,.88);
-  color:#ffffff;
-  border:1px solid rgba(255,255,255,.12);
-
-  box-sizing:border-box;
-  text-decoration:none;
-}
-
-.side-footer .btn:hover{
-  background: rgba(22,44,74,.96);
-  border-color: rgba(255,255,255,.18);
-}
-
-/* 手機版避免擠壓 */
-@media (max-width: 768px){
-  .nav a{
-    min-height:54px;
-    padding:0 16px;
-    font-size:15px;
-  }
-
-  .pill{
-    min-width:68px;
-    height:30px;
-    font-size:13px;
-    padding:0 12px;
-  }
-
-  .side-footer .btn{
-    min-height:54px;
-    font-size:15px;
-    padding:0 16px;
-  }
-}
-
-.leftTop{
-  display:flex;
-  align-items:center;
-  gap:14px;
-  flex-wrap:wrap;
-}
-
-.systemSwitchWrap{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:8px 12px;
-  border-radius:14px;
-  background: rgba(255,255,255,.05);
-  border:1px solid rgba(255,255,255,.10);
-}
-
-.systemLabel{
-  color: rgba(231,238,252,.9);
-  font-size:14px;
-  font-weight:800;
-  white-space:nowrap;
-}
-
-.systemSelect{
-  min-width:230px;
-  height:42px;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,.16);
-  background: rgba(11,18,32,.95);
-  color:#ffffff;
-  padding:0 14px;
-  font-size:15px;
-  font-weight:800;
-  outline:none;
-  cursor:pointer;
-}
-
-.systemSelect:focus{
-  border-color: rgba(96,165,250,.75);
-  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
-}
-
-.systemSelect option{
-  background:#111827;
-  color:#ffffff;
-}
-
-/* ================= NG 圖片縮圖 / 放大預覽 ================= */
-.imageCell{
-  text-align:center;
-  min-width:130px;
-}
-
-.thumbBtn{
-  border:none;
-  background:transparent;
-  padding:0;
-  cursor:pointer;
-}
-
-.logThumb{
-  width:92px;
-  height:62px;
-  object-fit:cover;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,.18);
-  box-shadow:0 8px 18px rgba(0,0,0,.28);
-  transition:transform .18s ease, border-color .18s ease;
-}
-
-.logThumb:hover{
-  transform:scale(1.08);
-  border-color:rgba(96,165,250,.75);
-}
-
-.noImage{
-  color:rgba(155,176,207,.85);
-  font-size:14px;
-  font-weight:700;
-}
-
-.imageModal{
-  position:fixed;
-  inset:0;
-  display:none;
-  align-items:center;
-  justify-content:center;
-  background:rgba(0,0,0,.72);
-  backdrop-filter:blur(6px);
-  z-index:9999;
-  padding:24px;
-}
-
-.imageModal.active{
-  display:flex;
-}
-
-.imageModalBox{
-  position:relative;
-  width:min(920px, 96vw);
-  max-height:92vh;
-  border-radius:20px;
-  background:#0b1220;
-  border:1px solid rgba(255,255,255,.16);
-  box-shadow:0 28px 80px rgba(0,0,0,.45);
-  padding:18px;
-}
-
-.imageModalBox img{
-  width:100%;
-  max-height:78vh;
-  object-fit:contain;
-  border-radius:14px;
-  background:#050816;
-}
-
-.imageModalClose{
-  position:absolute;
-  top:10px;
-  right:10px;
-  width:42px;
-  height:42px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.18);
-  background:rgba(15,23,42,.92);
-  color:#fff;
-  font-size:22px;
-  font-weight:900;
-  cursor:pointer;
-}
-
-.imageModalCaption{
-  margin-top:10px;
-  color:rgba(231,238,252,.82);
-  font-size:13px;
-  word-break:break-all;
-}
-
-  </style>
-</head>
-<body>
-  
-  <div id="overlay" class="drawerOverlay" onclick="toggleDrawer(false)"></div>
-
-  <aside id="drawer" class="drawer">
-    <div class="sidebar" style="display:block; position:static; height:100vh;">
-      <div class="brand">
-        <div class="logo"></div>
-        <div>
-          <h1>瑕疵辨識與分流系統</h1>
-        </div>
-      </div>
-
-      <div class="nav">
-  <a href="dashboard.html">
-    <span class="nav-label">🏠 首頁</span>
-  </a>
-
-  <a href="logs.html" class="active">
-    <span class="nav-label">🧾 事件紀錄</span>
-  </a>
-
-  <a href="settings.html">
-    <span class="nav-label">⚙️ 系統設定</span>
-  </a>
-
-  <a href="admin.html" id="adminNavLinkDrawer" style="display:none;">
-    <span class="nav-label">🧑‍💼 管理後台</span>
-  </a>
-</div>
-
-    </div>
-  </aside>
-
-  <div class="app">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="logo"></div>
-        <div>
-          <h1>瑕疵辨識與分流系統</h1>
-        </div>
-      </div>
-
-   <div class="nav">
-  <a href="dashboard.html">
-    <span class="nav-label">🏠 首頁</span>
-  </a>
-
-  <a href="logs.html" class="active">
-    <span class="nav-label">🧾 事件紀錄</span>
-  </a>
-
-  <a href="settings.html">
-    <span class="nav-label">⚙️ 系統設定</span>
-  </a>
-
-  <a href="admin.html" id="adminNavLink" style="display:none;">
-    <span class="nav-label">🧑‍💼 管理後台</span>
-  </a>
-</div>
-      <div class="side-footer">
-        <button class="btn" onclick="swHardReset()">修復灰底/警告（清快取）</button>
-      </div>
-    </aside>
-
-    <main class="main">
-      <div class="topbar">
-  <div class="leftTop">
-    <button class="hamburger" onclick="toggleDrawer(true)">☰</button>
-
-    <div class="systemSwitchWrap" id="tenantSwitchWrap" style="display:none;">
-      <label class="systemLabel">目前客戶</label>
-      <select id="tenantSelect" class="systemSelect"></select>
-    </div>
-
-    <div class="systemSwitchWrap" id="systemSwitchWrap" style="display:none;">
-      <label class="systemLabel">目前機台</label>
-      <select id="systemSelect" class="systemSelect"></select>
-    </div>
-  </div>
-
-  <div class="filterBar">
-    <button class="filterBtn active" data-filter="all">全部</button>
-    <button class="filterBtn" data-filter="立可帶">立可帶</button>
-    <button class="filterBtn" data-filter="橡皮擦">橡皮擦</button>
-    <button class="filterBtn" data-filter="螺帽">螺帽</button>
-  </div>
-
-  <div class="rightTop">
-    <button class="btn" type="button" onclick="exportDefectsCsv()">⬇ 匯出 CSV</button>
-    <button class="btn btnPrimary" type="button" onclick="window.location.reload()">⟳ 重新整理</button>
-  </div>
-</div>
-
-
-      <section class="grid">
-        <div class="card span-12">
-  <h3>🧾 事件紀錄</h3>
-
-  <div class="logsScrollBox">
-    <table>
-      <thead>
-        <tr>
-          <th style="width:190px;">時間</th>
-          <th style="width:100px;">狀態</th>
-          <th style="width:140px;">產品</th>
-          <th>備註</th>
-          <th style="width:150px;">NG圖片</th>
-        </tr>
-      </thead>
-      <tbody id="logBody"></tbody>
-    </table>
-  </div>
-</div>
-      </section>
-
-      <div id="errorBar"></div>
-    </main>
-  </div>
-
-
-<div id="imageModal" class="imageModal" onclick="closeImagePreview(event)">
-  <div class="imageModalBox">
-    <button type="button" class="imageModalClose" onclick="closeImagePreview(event)">×</button>
-    <img id="imageModalImg" src="" alt="NG 瑕疵圖片">
-    <div id="imageModalCaption" class="imageModalCaption"></div>
-  </div>
-</div>
-
-
-<script>
-  (function(){
- 
-  const token = sessionStorage.getItem("token");
-
-  if (!token) {
-    window.location.replace("login.html");
-  }
-
-})();
-
-const API_BASE = window.location.origin;
-
-
-function getCurrentTenantId(){
-  return sessionStorage.getItem("tenant_id") || "";
-}
-
-function getCurrentSystemId(){
-  return sessionStorage.getItem("system_id") || "";
-}
-
-function buildDefectsParams(){
-  const params = new URLSearchParams();
-
-  const tenantId = getCurrentTenantId();
-  const systemId = getCurrentSystemId();
-
-  if (tenantId) params.append("tenant_id", tenantId);
-  if (systemId) params.append("system_id", systemId);
-
-  return params;
-}
-
-function buildDefectsUrl(){
-  return `${API_BASE}/api/defects?${buildDefectsParams().toString()}`;
-}
-
-async function exportDefectsCsv(){
-  const token = sessionStorage.getItem("token");
-  if (!token) return;
-  try {
-    const res = await fetch(`${API_BASE}/api/defects/export.csv?${buildDefectsParams().toString()}`, {
-      headers: { "Authorization": `Bearer ${token}` }
-    });
-    if (res.status === 401) {
-      sessionStorage.clear();
-      window.location.replace("login.html");
-      return;
-    }
-    if (!res.ok) throw new Error("匯出失敗");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `defects-${new Date().toISOString().slice(0,10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error(error);
-    alert("CSV 匯出失敗，請稍後再試");
-  }
-}
-
-async function apiFetch(url, options = {}) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
-
-  const token = sessionStorage.getItem("token");  // ✅ 正確位置
-
-  try {
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-        "ngrok-skip-browser-warning": "true"
-      },
-      signal: controller.signal
-    });
-
-
-    if (res.status === 401) {
-  sessionStorage.removeItem("token");
-  sessionStorage.removeItem("isLogin");
-  sessionStorage.removeItem("loginUser");
-  sessionStorage.removeItem("loginName");
-  sessionStorage.removeItem("role");
-  sessionStorage.removeItem("tenant_id");
-  sessionStorage.removeItem("system_id");
-  alert("登入已過期，請重新登入");
-  window.location.replace("login.html");
-  return [];
-}
-
-    if (!res.ok) {
-      console.warn("API壞掉");
-      return [];
-    }
-
-    const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      console.warn("後端未回傳 JSON");
-      return [];
-    }
-
-    return await res.json();
-  } catch (e) {
-    console.error("apiFetch 失敗", e);
-    return [];
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function showError(msg) {
-  const el = document.getElementById("errorBar");
-  if (!el) return;
-  el.textContent = msg || "";
-}
-
-function getStatusClass(status) {
-  const s = String(status || "").toUpperCase();
-  if (s === "OK") return "status-ok";
-  if (s === "NG") return "status-ng";
-  return "status-warn";
-}
-
-function getRemark(item) {
-  const status = String(item.status || "").toUpperCase();
-  if (status === "NG") return "瑕疵分流";
-  if (status === "OK") return "正常檢測";
-  return "-";
-}
-
-
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
-
-function escapeAttr(value) {
-  return escapeHtml(value).replace(/`/g, "&#096;");
-}
-
-function getImageUrl(item) {
-  const raw =
-    item.image_url ||
-    item.imageUrl ||
-    item.snapshot_url ||
-    item.snapshotUrl ||
-    item.ng_image_url ||
-    item.ngImageUrl ||
-    "";
-
-  if (!raw) return "";
-  if (/^https:\/\//i.test(raw)) return raw;
-  if (raw.startsWith("/")) return API_BASE + raw;
-  return "";
-}
-
-function openImagePreview(url) {
-  const modal = document.getElementById("imageModal");
-  const img = document.getElementById("imageModalImg");
-  const caption = document.getElementById("imageModalCaption");
-
-  if (!modal || !img) return;
-
-  img.src = url;
-  if (caption) caption.textContent = url;
-  modal.classList.add("active");
-}
-
-function closeImagePreview(event) {
-  if (event) {
-    const target = event.target;
-    if (target?.id !== "imageModal" && !target?.classList?.contains("imageModalClose")) {
-      return;
-    }
-  }
-
-  const modal = document.getElementById("imageModal");
-  const img = document.getElementById("imageModalImg");
-
-  if (modal) modal.classList.remove("active");
-  if (img) img.src = "";
-}
-
-window.openImagePreview = openImagePreview;
-window.closeImagePreview = closeImagePreview;
-
-
-let currentFilter = "all";
-
-// ⭐ 補在這裡
-async function loadSystemOptionsByTenant(tenantId) {
-  const systemSelect = document.getElementById("systemSelect");
-  if (!systemSelect || !tenantId) return;
-
-  const systems = await apiFetch(
-  `${API_BASE}/api/systems?tenant_id=${encodeURIComponent(tenantId)}`
-);
-
-  systemSelect.innerHTML = "";
-
-const seenSystems = new Set();
-
-(Array.isArray(systems) ? systems : []).forEach(s => {
-  if (!s.system_id) return;
-
-  if (seenSystems.has(s.system_id)) return;
-  seenSystems.add(s.system_id);
-
-  const opt = document.createElement("option");
-  opt.value = s.system_id;
-
-  opt.textContent = s.system_name
-    ? `${s.system_id}｜${s.system_name}`
-    : s.name
-      ? `${s.system_id}｜${s.name}`
-      : `機台 ${s.system_id}`;
-
-  systemSelect.appendChild(opt);
-});
-
-// ⭐ 這段就是你問的「改這裡」
-const saved = sessionStorage.getItem("system_id");
-
-// 判斷之前選的還在不在
-const hasSaved = Array.isArray(systems) && systems.some(s => s.system_id === saved);
-
-// 如果有就用舊的，沒有就用第一台
-const chosen = hasSaved ? saved : (systems[0]?.system_id || "");
-
-sessionStorage.setItem("system_id", chosen);
-systemSelect.value = chosen;
-} 
-async function loadLogs() {
-  try {
-    const data = await apiFetch(buildDefectsUrl());
-    if (!Array.isArray(data)) return;
-
-    const body = document.getElementById("logBody");
-    if (!body) return;
-
-    body.innerHTML = "";
-
-    const filteredList = data
-      .filter(item => {
-        if (currentFilter === "all") return true;
-        return item.product === currentFilter;
-      })
-      .slice(0, 50);
-
-    if (filteredList.length === 0) {
-      body.innerHTML = `
-        <tr>
-          <td colspan="5" class="empty-row">目前沒有資料</td>
-        </tr>
-      `;
-      return;
-    }
-
-    filteredList.forEach(item => {
-      const tr = document.createElement("tr");
-      const status = String(item.status || "-").toUpperCase();
-      const product = String(item.product || "-");
-      const timeText = item.timestamp
-        ? new Date(item.timestamp).toLocaleString("zh-TW", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: false
-          })
-        : "-";
-
-      const timeCell = document.createElement("td");
-      timeCell.textContent = timeText;
-      tr.appendChild(timeCell);
-
-      const statusCell = document.createElement("td");
-      const statusBadge = document.createElement("span");
-      statusBadge.className = getStatusClass(status);
-      statusBadge.textContent = status;
-      statusCell.appendChild(statusBadge);
-      tr.appendChild(statusCell);
-
-      const productCell = document.createElement("td");
-      productCell.textContent = product;
-      tr.appendChild(productCell);
-
-      const remarkCell = document.createElement("td");
-      remarkCell.textContent = getRemark(item);
-      tr.appendChild(remarkCell);
-
-      const imageCell = document.createElement("td");
-      imageCell.className = "imageCell";
-      const imageUrl = getImageUrl(item);
-      if (imageUrl) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "thumbBtn";
-        button.addEventListener("click", () => openImagePreview(imageUrl));
-        const image = document.createElement("img");
-        image.className = "logThumb";
-        image.src = imageUrl;
-        image.alt = "NG圖片";
-        image.loading = "lazy";
-        button.appendChild(image);
-        imageCell.appendChild(button);
-      } else {
-        const noImage = document.createElement("span");
-        noImage.className = "noImage";
-        noImage.textContent = "無圖片";
-        imageCell.appendChild(noImage);
-      }
-      tr.appendChild(imageCell);
-      body.appendChild(tr);
-    });
-
-   } catch (e) {
-    console.warn("忽略錯誤（避免畫面跳錯）", e);
-  } finally {
-    forceCloseErrorOverlay();  // ⭐ 放這裡
-  }
-}
-
-document.addEventListener("DOMContentLoaded", async () => {
-
-  // ⭐⭐⭐ 在這裡加 ⭐⭐⭐
-  const role = sessionStorage.getItem("role") || "user";
-
-const isSuperAdmin = role === "super_admin";
-const isTenantAdmin = role === "tenant_admin";
-const canOpenAdmin = isSuperAdmin || isTenantAdmin;
-
-
-  const tenantSelect = document.getElementById("tenantSelect");
-
-if (isSuperAdmin && tenantSelect) {
-
-  document.getElementById("tenantSwitchWrap").style.display = "flex";
-const systemSwitchWrap = document.getElementById("systemSwitchWrap");
-if (systemSwitchWrap) {
-  systemSwitchWrap.style.display = "flex";
-}
-  const tenants = await apiFetch(`${API_BASE}/api/admin/tenants`);
-
-  tenantSelect.innerHTML = "";
-
-  tenants.forEach(t => {
-    const opt = document.createElement("option");
-    opt.value = t.tenant_id;
-    opt.textContent = t.company || t.tenant_name || t.tenant_id;
-    tenantSelect.appendChild(opt);
-  });
-
-  const savedTenant = sessionStorage.getItem("tenant_id");
-
-if (savedTenant) {
-  tenantSelect.value = savedTenant;
-} else if (tenants.length > 0) {
-  sessionStorage.setItem("tenant_id", tenants[0].tenant_id);
-  tenantSelect.value = tenants[0].tenant_id;
-}
-
-const tenantId = getCurrentTenantId();
-
-if (tenantId) {
-  await loadSystemOptionsByTenant(tenantId);
-}
-
-  tenantSelect.addEventListener("change", async (e) => {
-  const tenantId = e.target.value;
-
-  sessionStorage.setItem("tenant_id", tenantId);
-  sessionStorage.removeItem("system_id");
-
-  await loadSystemOptionsByTenant(tenantId);
-  await loadLogs();
-
-});
-
-
-
-}
-// ⭐⭐⭐ 正確位置（獨立事件）⭐⭐⭐
-const systemSelect = document.getElementById("systemSelect");
-
-if (systemSelect) {
-  systemSelect.addEventListener("change", async (e) => {
-    const systemId = e.target.value;
-
-    sessionStorage.setItem("system_id", systemId);
-
-    await loadLogs();
-  });
-}
-  const adminNavLink = document.getElementById("adminNavLink");
-  const adminNavLinkDrawer = document.getElementById("adminNavLinkDrawer");
-
-  if (adminNavLink) {
-   adminNavLink.style.display = canOpenAdmin ? "flex" : "none";
-
-  }
-  if (adminNavLinkDrawer) {
-   adminNavLinkDrawer.style.display = canOpenAdmin ? "flex" : "none";
-  }
-
-  // ⭐ 原本的程式從這裡開始 ↓↓↓
-
-  document.querySelectorAll(".filterBtn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".filterBtn").forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-
-      currentFilter = btn.dataset.filter;
-      loadLogs();
-    });
-  });
-
-  await loadLogs();
-  
-  });
-// 註解掉
-// setInterval(loadLogs, 3000);
-setInterval(() => {
-  try {
-    loadLogs();
-  } catch(e) {
-    console.warn("輪詢錯誤已忽略");
-  }
-}, 5000);
-window.addEventListener("load", () => {
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch(console.error);
-  }
-});
-window.addEventListener("error", e => {
-  console.error("錯誤:", e.message);
-});
-window.addEventListener("unhandledrejection", e => e.preventDefault());
-window.addEventListener("keydown", e => {
-  if (e.key === "Escape") closeImagePreview();
-});
-function forceCloseErrorOverlay() {
-  document.querySelectorAll(
-    ".runtime-error-modal, .error-overlay, .white-screen-guard"
-  ).forEach(el => el.remove());
-}
-function swHardReset() {
-  if ("caches" in window) {
-    caches.keys().then(keys => {
-      keys.forEach(k => caches.delete(k));
-    });
-  }
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.getRegistrations().then(regs => {
-      regs.forEach(r => r.unregister());
-    });
-  }
-
-  alert("已清除快取，重新載入");
-  location.reload();
-}
-function forceReload(e) {
-  if (e) e.preventDefault();
-  window.location.reload();
-}
-
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>事件紀錄 - 瑕疵辨識與分流系統</title>
+<link href="style.css" rel="stylesheet"/>
+<link href="manifest.webmanifest" rel="manifest"/>
+<meta content="#0b1220" name="theme-color"/>
+<meta content="yes" name="mobile-web-app-capable"/>
+<meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
+<script src="auth-bootstrap.js"></script><script defer="" src="core.js">
 </script>
-<div id="errorBar" style="display: none;"></div>
-</body>
-
+<link href="logs.page.css" rel="stylesheet"/><link href="unified-sidebar.css" rel="stylesheet"/><script src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script></head>
+<body>
+<div class="drawerOverlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+<div class="sidebar logs-inline-style-1">
+<div class="brand">
+<div class="logo"></div>
+<div>
+<h1>瑕疵辨識與分流系統</h1>
+</div>
+</div>
+<div class="nav">
+<a href="dashboard.html">
+<span class="nav-label">🏠 首頁</span>
+</a>
+<a class="active" href="logs.html">
+<span class="nav-label">🧾 事件紀錄</span>
+</a>
+<a href="settings.html">
+<span class="nav-label">⚙️ 系統設定</span>
+</a>
+<a class="logs-inline-style-2" href="admin.html" id="adminNavLinkDrawer">
+<span class="nav-label">🧑‍💼 管理後台</span>
+</a>
+</div>
+</div>
+</aside>
+<div class="app">
+<aside class="sidebar">
+<div class="brand">
+<div class="logo"></div>
+<div>
+<h1>瑕疵辨識與分流系統</h1>
+</div>
+</div>
+<div class="nav">
+<a href="dashboard.html">
+<span class="nav-label">🏠 首頁</span>
+</a>
+<a class="active" href="logs.html">
+<span class="nav-label">🧾 事件紀錄</span>
+</a>
+<a href="settings.html">
+<span class="nav-label">⚙️ 系統設定</span>
+</a>
+<a class="logs-inline-style-2" href="admin.html" id="adminNavLink">
+<span class="nav-label">🧑‍💼 管理後台</span>
+</a>
+</div>
+<div class="side-footer">
+<button class="btn" id="logs-handler-1">修復灰底/警告（清快取）</button>
+</div>
+</aside>
+<main class="main">
+<div class="topbar">
+<div class="leftTop">
+<button class="hamburger" id="logs-handler-2">☰</button>
+<div class="systemSwitchWrap logs-inline-style-2" id="tenantSwitchWrap">
+<label class="systemLabel">目前客戶</label>
+<select class="systemSelect" id="tenantSelect"></select>
+</div>
+<div class="systemSwitchWrap logs-inline-style-2" id="systemSwitchWrap">
+<label class="systemLabel">目前機台</label>
+<select class="systemSelect" id="systemSelect"></select>
+</div>
+</div>
+<div class="filterBar">
+<button class="filterBtn active" data-filter="all">全部</button>
+<button class="filterBtn" data-filter="立可帶">立可帶</button>
+<button class="filterBtn" data-filter="橡皮擦">橡皮擦</button>
+<button class="filterBtn" data-filter="螺帽">螺帽</button>
+</div>
+<div class="rightTop">
+<button class="btn" id="logs-handler-3" type="button">⬇ 匯出 CSV</button>
+<button class="btn btnPrimary" id="logs-handler-4" type="button">⟳ 重新整理</button>
+</div>
+</div>
+<section class="grid">
+<div class="card span-12">
+<h3>🧾 事件紀錄</h3>
+<div class="logsScrollBox">
+<table>
+<thead>
+<tr>
+<th class="logs-inline-style-3">時間</th>
+<th class="logs-inline-style-4">狀態</th>
+<th class="logs-inline-style-5">產品</th>
+<th>備註</th>
+<th class="logs-inline-style-6">NG圖片</th>
+</tr>
+</thead>
+<tbody id="logBody"></tbody>
+</table>
+</div>
+</div>
+</section>
+<div id="errorBar"></div>
+</main>
+</div>
+<div class="imageModal" id="imageModal">
+<div class="imageModalBox">
+<button class="imageModalClose" id="logs-handler-5" type="button">×</button>
+<img alt="NG 瑕疵圖片" id="imageModalImg" src=""/>
+<div class="imageModalCaption" id="imageModalCaption"></div>
+</div>
+</div>
+<script src="logs.inline-1.js"></script>
+<div class="logs-inline-style-7" id="errorBar"></div>
+<script src="logs.handlers.js"></script></body>
 </html>

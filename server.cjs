@@ -30,6 +30,12 @@ const {
   buildConfiguredOrigins,
   isOriginAllowed
 } = require("./lib/origin-policy.cjs");
+const {
+  DEFAULT_COOKIE_NAME,
+  getSessionToken,
+  buildSessionCookie,
+  buildClearCookie
+} = require("./lib/auth-cookie.cjs");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -45,11 +51,17 @@ const OTP_TTL_MINUTES = clampInt(process.env.OTP_TTL_MINUTES, 5, 2, 20);
 const OTP_RESEND_SECONDS = clampInt(process.env.OTP_RESEND_SECONDS, 60, 30, 600);
 const OTP_MAX_ATTEMPTS = clampInt(process.env.OTP_MAX_ATTEMPTS, 5, 3, 10);
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "4h";
+const JWT_COOKIE_MAX_AGE_SECONDS = clampInt(process.env.JWT_COOKIE_MAX_AGE_SECONDS, 14400, 300, 604800);
+const AUTH_COOKIE_NAME = cleanText(process.env.AUTH_COOKIE_NAME || DEFAULT_COOKIE_NAME, 80);
 const ALERT_THRESHOLD = clampInt(process.env.ALERT_THRESHOLD, 3, 2, 100);
 const ALERT_WINDOW_MINUTES = clampInt(process.env.ALERT_WINDOW_MINUTES, 10, 1, 1440);
 const ALERT_COOLDOWN_MINUTES = clampInt(process.env.ALERT_COOLDOWN_MINUTES, 30, 1, 1440);
 const ALLOW_PUBLIC_REGISTRATION = String(process.env.ALLOW_PUBLIC_REGISTRATION || (NODE_ENV === "production" ? "false" : "true")) === "true";
 const REGISTRATION_INVITE_CODE = String(process.env.REGISTRATION_INVITE_CODE || "");
+const DEFECT_RETENTION_DAYS = clampInt(process.env.DEFECT_RETENTION_DAYS, 0, 0, 3650);
+const AUDIT_RETENTION_DAYS = clampInt(process.env.AUDIT_RETENTION_DAYS, 0, 0, 3650);
+const AI_REQUESTS_PER_DAY = clampInt(process.env.AI_REQUESTS_PER_DAY, 100, 1, 10000);
+const GEMINI_DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 
 function validateEnvironment() {
   const missing = [];
@@ -74,6 +86,7 @@ app.use((req, res, next) => {
     },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
+    credentials: true,
     maxAge: 600
   });
   return corsMiddleware(req, res, next);
@@ -89,8 +102,10 @@ app.use(helmet({
       imgSrc: ["'self'", "data:", "blob:", "https:"],
       mediaSrc: ["'self'", "blob:"],
       connectSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'none'"],
+      styleSrc: ["'self'"],
+      styleSrcAttr: ["'none'"],
       fontSrc: ["'self'", "data:"]
     }
   },
@@ -175,8 +190,7 @@ const transporter = mailEnabled ? nodemailer.createTransport({
 
 function asyncHandler(fn) { return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next); }
 function auth(req, res, next) {
-  const header = String(req.headers.authorization || "");
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const token = getSessionToken(req, AUTH_COOKIE_NAME);
   if (!token) return res.status(401).json({ message: "未登入" });
   try {
     req.user = jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"], issuer: "defect-system" });
@@ -249,11 +263,18 @@ async function resolveSystemIdsForUserDocument(user) {
   return (await col.find({ tenant_id: user.tenant_id, system_id: { $in: assigned } }, { projection: { system_id: 1 } }).toArray()).map(v => v.system_id);
 }
 
-async function issueLoginResponse(user) {
+async function issueLoginResponse(user, res) {
   const systems = await resolveSystemIdsForUserDocument(user);
   const payload = { id: String(user._id), email: user.email || user.username, name: user.name || "", company: user.company || "", tenant_id: user.tenant_id || "", role: user.role || "user", systems };
   const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN, algorithm: "HS256", issuer: "defect-system" });
-  return { token, user: { id: payload.id, email: payload.email, name: payload.name, company: payload.company, tenant_id: payload.tenant_id, role: payload.role }, systems };
+  res.setHeader("Set-Cookie", buildSessionCookie(token, {
+    cookieName: AUTH_COOKIE_NAME,
+    secure: NODE_ENV === "production",
+    sameSite: "Strict",
+    maxAgeSeconds: JWT_COOKIE_MAX_AGE_SECONDS
+  }));
+  res.setHeader("Cache-Control", "no-store");
+  return { success: true, user: { id: payload.id, email: payload.email, name: payload.name, company: payload.company, tenant_id: payload.tenant_id, role: payload.role }, systems };
 }
 
 async function writeAudit(req, action, fields = {}) {
@@ -355,12 +376,38 @@ app.post("/api/login/verify-code", authLimiter, asyncHandler(async (req, res) =>
   await col.deleteOne({ email });
   const user = await mongoose.connection.collection("users").findOne({ $or: [{ email }, { username: email }] });
   if (!user) return res.status(401).json({ message: "帳號不存在" });
-  return res.json(await issueLoginResponse(user));
+  return res.json(await issueLoginResponse(user, res));
 }));
+
+app.get("/api/session", auth, (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({
+    authenticated: true,
+    user: {
+      id: req.user.id,
+      email: req.user.email,
+      name: req.user.name || "",
+      company: req.user.company || "",
+      tenant_id: req.user.tenant_id || "",
+      role: req.user.role || "user"
+    },
+    systems: Array.isArray(req.user.systems) ? req.user.systems : []
+  });
+});
+
+app.post("/api/logout", (req, res) => {
+  res.setHeader("Set-Cookie", buildClearCookie({
+    cookieName: AUTH_COOKIE_NAME,
+    secure: NODE_ENV === "production",
+    sameSite: "Strict"
+  }));
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ success: true });
+});
 
 app.get("/api/admin/users", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
   const query = req.user.role === "tenant_admin" ? { tenant_id: req.user.tenant_id } : {};
-  const users = await mongoose.connection.collection("users").find(query, { projection: { password: 0, passwordHash: 0, token: 0, secret: 0 } }).sort({ createdAt: -1 }).limit(500).toArray();
+  const users = await mongoose.connection.collection("users").find(query, { projection: { password: 0, passwordHash: 0, password_hash: 0, otp: 0, token: 0, secret: 0 } }).sort({ createdAt: -1 }).limit(500).toArray();
   const tenants = await mongoose.connection.collection("tenants").find({}, { projection: { tenant_id: 1, company: 1 } }).toArray();
   return res.json(users.map(u => ({ username: u.username || u.email, tenant_id: u.tenant_id, company: tenants.find(t => t.tenant_id === u.tenant_id)?.company || "未知", role: u.role, systems: Array.isArray(u.systems) ? u.systems : [] })));
 }));
@@ -393,7 +440,7 @@ app.get("/api/admin/collection/:name", auth, requireRole("super_admin"), asyncHa
   if (!new Set(["users", "tenants", "systems", "defects", "audit_logs"]).has(name)) return res.status(403).json({ message: "不允許讀取此 collection" });
   const page = clampInt(req.query.page, 1, 1, 100000);
   const limit = clampInt(req.query.limit, 100, 1, 200);
-  const projection = name === "users" ? { password: 0, passwordHash: 0, otp: 0, token: 0, secret: 0 } : name === "defects" ? { image_data: 0 } : {};
+  const projection = name === "users" ? { password: 0, passwordHash: 0, password_hash: 0, otp: 0, token: 0, secret: 0 } : name === "defects" ? { image_data: 0 } : {};
   const col = mongoose.connection.collection(name);
   res.setHeader("X-Total-Count", String(await col.countDocuments({})));
   return res.json(await col.find({}, { projection }).sort({ _id: -1 }).skip((page - 1) * limit).limit(limit).toArray());
@@ -545,7 +592,7 @@ function extractGeminiText(data) {
   const text = (data?.candidates || []).flatMap(c => c?.content?.parts || []).map(p => typeof p?.text === "string" ? p.text : "").filter(Boolean).join("\n").trim();
   return text || (data?.promptFeedback?.blockReason ? `Gemini 因安全限制未產生回答（${data.promptFeedback.blockReason}）。` : "Gemini 已回應，但沒有可顯示的文字內容。");
 }
-app.get("/api/ai/status", auth, (req, res) => { const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite"; return res.json({ enabled: Boolean(process.env.GEMINI_API_KEY), provider: "gemini", model, mode: process.env.GEMINI_API_KEY ? "gemini" : "local-summary" }); });
+app.get("/api/ai/status", auth, (req, res) => { const model = GEMINI_DEFAULT_MODEL; return res.json({ enabled: Boolean(process.env.GEMINI_API_KEY), provider: "gemini", model, tier: "free", mode: process.env.GEMINI_API_KEY ? "gemini" : "local-summary" }); });
 app.post("/api/ai/chat", auth, aiLimiter, asyncHandler(async (req, res) => {
   const message = cleanText(req.body.message, 2000);
   if (!message) return res.status(400).json({ message: "請輸入問題" });
@@ -553,14 +600,26 @@ app.post("/api/ai/chat", auth, aiLimiter, asyncHandler(async (req, res) => {
   const defects = await Defect.find(query).sort({ timestamp: -1 }).limit(500).lean();
   const summary = summarizeDefectsForAi(defects);
   if (!process.env.GEMINI_API_KEY) return res.json({ mode: "local-summary", provider: "local", reply: buildLocalAiReply(message, summary), summary });
-  const model = process.env.GEMINI_MODEL || "gemini-3.1-flash-lite";
+  const model = GEMINI_DEFAULT_MODEL;
+  const usageKey = `${new Date().toISOString().slice(0, 10)}:${req.user.id || req.user.email || req.ip}`;
+  const usage = await mongoose.connection.collection("ai_daily_usage").findOneAndUpdate(
+    { key: usageKey },
+    {
+      $setOnInsert: { key: usageKey, createdAt: new Date(), expiresAt: new Date(Date.now() + 2 * 86400000) },
+      $inc: { count: 1 }
+    },
+    { upsert: true, returnDocument: "after" }
+  );
+  if (Number(usage?.count || 0) > AI_REQUESTS_PER_DAY) {
+    return res.status(429).json({ message: `今日 AI 使用次數已達 ${AI_REQUESTS_PER_DAY} 次上限，請明天再試` });
+  }
   try {
     const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
       systemInstruction: { parts: [{ text: "你是瑕疵辨識與分流系統的 AI 助理。請使用繁體中文，先給結論，再提供最多 5 個可操作步驟。只能根據提供的統計資料回答；資料不足時必須說明只是可能原因。" }] },
       contents: [{ role: "user", parts: [{ text: `使用者問題：${message}\n\n目前統計資料：\n${JSON.stringify(summary).slice(0, 12000)}` }] }],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 700 }
+      generationConfig: { temperature: 0.2, maxOutputTokens: 500 }
     }, { headers: { "x-goog-api-key": process.env.GEMINI_API_KEY, "Content-Type": "application/json" }, timeout: 30000, maxContentLength: 1048576, maxBodyLength: 1048576, proxy: false });
-    return res.json({ mode: "gemini", provider: "gemini", model, reply: extractGeminiText(response.data), summary });
+    return res.json({ mode: "gemini", provider: "gemini", tier: "free", model, reply: extractGeminiText(response.data), summary });
   } catch (error) {
     const reason = error?.response?.status === 429 ? "Gemini 免費額度或速率限制已達上限" : "Gemini 暫時無法連線";
     return res.json({ mode: "local-summary-fallback", provider: "local", model, warning: `${reason}，已自動切換成本機統計模式。`, reply: `${reason}，已自動切換成本機統計模式。\n\n${buildLocalAiReply(message, summary)}`, summary });
@@ -667,6 +726,21 @@ app.get("/", (req, res) => res.sendFile(path.join(publicDir, "index.html")));
 app.use("/api", (req, res) => res.status(404).json({ message: "找不到此 API", request_id: req.requestId }));
 app.use((error, req, res, next) => { const status = Number(error.status || error.statusCode || 500); if (status >= 500) console.error(`[${req.requestId}]`, error); return res.status(status).json({ message: status >= 500 && NODE_ENV === "production" ? "伺服器暫時發生錯誤" : (error.message || "請求失敗"), request_id: req.requestId }); });
 
+async function runRetentionCleanup() {
+  const tasks = [];
+  if (DEFECT_RETENTION_DAYS > 0) {
+    tasks.push(Defect.deleteMany({ timestamp: { $lt: new Date(Date.now() - DEFECT_RETENTION_DAYS * 86400000) } }));
+  }
+  if (AUDIT_RETENTION_DAYS > 0) {
+    tasks.push(AuditLog.deleteMany({ createdAt: { $lt: new Date(Date.now() - AUDIT_RETENTION_DAYS * 86400000) } }));
+  }
+  if (!tasks.length) return;
+  const results = await Promise.allSettled(tasks);
+  results.forEach(result => {
+    if (result.status === "rejected") console.warn("資料保留清理警告：", result.reason?.message || result.reason);
+  });
+}
+
 async function ensureIndexes() {
   const tasks = [
     mongoose.connection.collection("login_otps").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
@@ -675,6 +749,8 @@ async function ensureIndexes() {
     mongoose.connection.collection("users").createIndex({ username: 1 }, { unique: true, sparse: true }),
     mongoose.connection.collection("systems").createIndex({ tenant_id: 1, system_id: 1 }, { unique: true }),
     mongoose.connection.collection("alert_states").createIndex({ key: 1 }, { unique: true }),
+    mongoose.connection.collection("ai_daily_usage").createIndex({ key: 1 }, { unique: true }),
+    mongoose.connection.collection("ai_daily_usage").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     Defect.createIndexes(),
     AuditLog.createIndexes()
   ];
@@ -683,6 +759,14 @@ async function ensureIndexes() {
     if (result.status === "rejected") console.warn("索引建立警告：", result.reason?.message || result.reason);
   });
 }
-async function start() { await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000, maxPoolSize: 10 }); console.log("✅ MongoDB 連線成功"); await ensureIndexes(); mqttClient = createMqttClient(); app.listen(PORT, "0.0.0.0", () => console.log(`🚀 server running on ${PORT}`)); }
+async function start() {
+  await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000, maxPoolSize: 10 });
+  console.log("✅ MongoDB 連線成功");
+  await ensureIndexes();
+  await runRetentionCleanup();
+  setInterval(() => runRetentionCleanup().catch(error => console.warn("資料保留清理失敗：", error.message)), 24 * 60 * 60 * 1000).unref();
+  mqttClient = createMqttClient();
+  app.listen(PORT, "0.0.0.0", () => console.log(`🚀 server running on ${PORT}`));
+}
 if (require.main === module) start().catch(error => { console.error("❌ 伺服器啟動失敗:", error); process.exit(1); });
 module.exports = { app, start };

@@ -18,6 +18,12 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: JWT_EXPIRES_IN
+        value: 4h
+      - key: JWT_COOKIE_MAX_AGE_SECONDS
+        value: "14400"
+      - key: AUTH_COOKIE_NAME
+        value: defect_session
       - key: MQTT_URL
         sync: false
       - key: MQTT_PORT
@@ -26,6 +32,12 @@ services:
         sync: false
       - key: HIVEMQ_PASS
         sync: false
+      - key: MQTT_REPORT_TOPIC
+        value: factory/defect/report
+      - key: MQTT_ESTOP_TOPIC_TEMPLATE
+        value: factory/control/estop/{system_id}
+      - key: MQTT_ESTOP_ACK_TOPIC
+        value: factory/control/estop/ack/+
       - key: SMTP_PROVIDER
         value: brevo
       - key: SMTP_HOST
@@ -42,28 +54,19 @@ services:
         sync: false
       - key: ALERT_EMAIL
         sync: false
-      # 以下保留舊 Render 環境變數相容性，新部署可不填
-      - key: BREVO_SMTP_LOGIN
-        sync: false
-      - key: BREVO_SMTP_KEY
-        sync: false
-      - key: BREVO_SENDER_EMAIL
-        sync: false
-      - key: GMAIL_USER
-        sync: false
-      - key: GMAIL_APP_PASSWORD
-        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
-        value: gemini-3.1-flash-lite
+        value: gemini-3.6-flash
+      - key: AI_REQUESTS_PER_MINUTE
+        value: "5"
+      - key: AI_REQUESTS_PER_DAY
+        value: "100"
       - key: ALLOW_PUBLIC_REGISTRATION
         value: "true"
       - key: REGISTRATION_INVITE_CODE
         sync: false
-      - key: MQTT_REPORT_TOPIC
-        value: factory/defect/report
-      - key: MQTT_ESTOP_TOPIC_TEMPLATE
-        value: factory/control/estop/{system_id}
-      - key: MQTT_ESTOP_ACK_TOPIC
-        value: factory/control/estop/ack/+
+      - key: DEFECT_RETENTION_DAYS
+        value: "0"
+      - key: AUDIT_RETENTION_DAYS
+        value: "0"

@@ -1,5 +1,5 @@
 (function(){
-  const token = sessionStorage.getItem("token");
+  const token = sessionStorage.getItem("isLogin");
   const role = sessionStorage.getItem("role") || "";
   const tenantId = sessionStorage.getItem("tenant_id") || "";
   const defaultSystemId = sessionStorage.getItem("system_id") || "";
@@ -21,7 +21,6 @@
 
   function authHeaders(extra){
     return Object.assign({
-      "Authorization": "Bearer " + token,
       "Content-Type": "application/json"
     }, extra || {});
   }
@@ -78,7 +77,7 @@
 
   async function checkAiStatus(){
     try{
-      const res = await fetch("/api/ai/status", { headers: { Authorization: "Bearer " + token } });
+      const res = await fetch("/api/ai/status", { credentials: "same-origin", headers: {} });
       const data = await res.json();
       aiDot.classList.toggle("on", !!data.enabled);
       aiMode.textContent = data.enabled ? `Gemini API 免費層｜${data.model}` : "本機統計模式｜未設定 GEMINI_API_KEY";
@@ -93,7 +92,7 @@
       const url = role === "super_admin" && tenantId
         ? `/api/systems?tenant_id=${encodeURIComponent(tenantId)}`
         : "/api/systems";
-      const res = await fetch(url, { headers: { Authorization: "Bearer " + token } });
+      const res = await fetch(url, { credentials: "same-origin", headers: {} });
       const systems = await res.json();
       if (!Array.isArray(systems)) return;
 
@@ -121,7 +120,7 @@
       if (role === "super_admin" && f.tenant_id) params.set("tenant_id", f.tenant_id);
 
       const res = await fetch(`/api/summary?${params.toString()}`, {
-        headers: { Authorization: "Bearer " + token }
+        headers: {}
       });
       const data = await res.json();
       document.getElementById("statTotal").textContent = data.total ?? "0";

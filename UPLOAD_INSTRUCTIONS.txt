@@ -1,20 +1,22 @@
-GitHub 上傳與 Render 重新部署
+GitHub 上傳方式
 
-1. 解壓縮本 ZIP。
-2. 打開解壓縮後的資料夾，將「裡面的所有檔案與資料夾」上傳到 GitHub 根目錄並覆蓋同名檔案。
-3. 確認隱藏項目也有上傳：
-   .github/
+1. 解壓縮 ZIP。
+2. 打開解壓縮後的資料夾。
+3. 將資料夾「裡面的全部檔案」上傳到 GitHub 專案最外層，不要再包一層資料夾。
+4. 必須一起上傳隱藏項目：
+   .github
    .env.example
    .gitignore
    .npmrc
-4. 請在 GitHub 手動刪除舊版殘留檔案：
-   README_FIX_0701.md
-   docs/SECURITY_FIXES_20260716.md
-   gitignore.txt
-   lib/validators.cjs
-   public/script.js
-5. Render 執行：Manual Deploy → Clear build cache & deploy。
-6. 部署成功後開啟：/api/login/status
-   database_connected 與 email_login_enabled 都應為 true。
-7. 若 email_login_enabled=false，依 README_DEPLOY.md 設定 SMTP_*。
-8. 登入頁仍顯示舊警告時，按「修復灰底/警告（清快取）」或 Ctrl+F5。
+5. GitHub 最外層應直接看到：server.cjs、package.json、package-lock.json、public、lib、test、scripts。
+6. 提交後到 Render：Manual Deploy → Clear build cache & deploy。
+
+Render 設定
+Build Command：bash render-build.sh
+Start Command：npm start
+Health Check Path：/health
+
+Gemini API 免費層
+- Render Environment 填 GEMINI_API_KEY。
+- GEMINI_MODEL 使用 gemini-3.6-flash。
+- 不要把 API Key 寫進 GitHub、前端檔案或截圖。

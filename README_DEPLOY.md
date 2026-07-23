@@ -63,7 +63,7 @@ CORS 已改為同時接受：
 登入流程固定為：
 
 ```text
-信箱與密碼 → 寄送 6 位數 OTP → 驗證 OTP → 簽發 JWT
+信箱與密碼 → 寄送 6 位數 OTP → 驗證 OTP → JWT 寫入 HttpOnly Cookie
 ```
 
 ### Brevo 建議設定
@@ -138,8 +138,8 @@ ALLOW_PUBLIC_REGISTRATION=false
 1. `/health` 回傳 `status: ok`。
 2. `/api/login/status` 的資料庫與 Email 登入皆為 `true`。
 3. 可寄送 OTP 並成功登入。
-4. 一般使用者只能查看 JWT `systems` 內被指派的機台。
-5. `/api/predict`、`/api/ai/chat`、`/api/current-product` 皆要求 JWT。
+4. 一般使用者只能查看登入 Cookie 內授權的 `systems` 機台。
+5. `/api/predict`、`/api/ai/chat`、`/api/current-product` 皆要求有效登入 Cookie。
 6. 急停只允許 `tenant_admin`、`super_admin`，並回傳 `command_id`。
 7. 事件紀錄可匯出 CSV。
 8. Service Worker 不快取登入頁、應用 HTML 與 API 回應。
@@ -151,3 +151,18 @@ npm ci --no-audit --no-fund
 npm run check
 npm audit --omit=dev
 ```
+
+## 9. Gemini API 免費層
+
+```text
+GEMINI_API_KEY=你的 Google AI Studio API Key
+GEMINI_MODEL=gemini-3.6-flash
+AI_REQUESTS_PER_MINUTE=5
+AI_REQUESTS_PER_DAY=100
+```
+
+網站只在後端呼叫 Gemini，API Key 不會傳到瀏覽器。免費額度或 API 暫時不可用時，系統會自動改用本機統計回答。
+
+## 10. 備份與監控
+
+請參考 `docs/BACKUP_MONITORING.md`。GitHub Actions 已包含每小時健康檢查與每日加密 MongoDB 備份工作流程。

@@ -1,12 +1,16 @@
 "use strict";
 
-const CACHE_NAME = "aiot-static-v10";
+const CACHE_NAME = "aiot-static-v11";
 const STATIC_ASSETS = [
   "./offline.html",
   "./style.css",
   "./core.js",
+  "./safe-dom.js",
+  "./auth-bootstrap.js",
   "./ai.js",
   "./sidebar-common.js",
+  "./offline.page.css",
+  "./offline.handlers.js",
   "./manifest.webmanifest",
   "./icon-192.png",
   "./icon-512.png",

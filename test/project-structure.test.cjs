@@ -94,3 +94,42 @@ test("npm installation uses the public registry only", () => {
   assert.match(build, /registry https:\/\/registry\.npmjs\.org\//);
   assert.doesNotMatch(lock, /applied-caas|internal\.api\.openai\.org|artifactory\/api\/npm/);
 });
+
+test("strict CSP has no unsafe-inline and HTML has no inline code", () => {
+  const server = fs.readFileSync(path.join(root, "server.cjs"), "utf8");
+  assert.doesNotMatch(server, /unsafe-inline/);
+  for (const name of fs.readdirSync(publicDir).filter(value => value.endsWith(".html"))) {
+    const html = fs.readFileSync(path.join(publicDir, name), "utf8");
+    assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/i, `${name} inline script`);
+    assert.doesNotMatch(html, /<style\b[^>]*>[\s\S]*?<\/style>/i, `${name} inline style`);
+    assert.doesNotMatch(html, /\sstyle\s*=|\son[a-z]+\s*=/i, `${name} inline attribute`);
+  }
+});
+
+test("JWT stays in HttpOnly cookie instead of browser storage", () => {
+  const server = fs.readFileSync(path.join(root, "server.cjs"), "utf8");
+  const login = fs.readFileSync(path.join(publicDir, "login.js"), "utf8");
+  const cookie = fs.readFileSync(path.join(root, "lib/auth-cookie.cjs"), "utf8");
+  assert.match(server, /buildSessionCookie/);
+  assert.match(cookie, /HttpOnly/);
+  assert.match(cookie, /SameSite/);
+  assert.doesNotMatch(login, /data\.token|setItem\(["']token["']/);
+  assert.match(server, /\/api\/logout/);
+  assert.match(server, /\/api\/session/);
+});
+
+test("Gemini free tier is the only configured AI provider", () => {
+  const server = fs.readFileSync(path.join(root, "server.cjs"), "utf8");
+  const env = fs.readFileSync(path.join(root, ".env.example"), "utf8");
+  assert.match(server, /gemini-3\.6-flash/);
+  assert.match(env, /GEMINI_MODEL=gemini-3\.6-flash/);
+  assert.match(env, /AI_REQUESTS_PER_DAY=/);
+  assert.doesNotMatch(`${server}\n${env}`, /OPENAI_API_KEY|api\.openai\.com/);
+});
+
+test("backup, monitoring and data retention files exist", () => {
+  assert.equal(exists(".github/workflows/health-monitor.yml"), true);
+  assert.equal(exists(".github/workflows/mongodb-backup.yml"), true);
+  assert.equal(exists("docs/BACKUP_MONITORING.md"), true);
+  assert.match(fs.readFileSync(path.join(root, "server.cjs"), "utf8"), /DEFECT_RETENTION_DAYS/);
+});
