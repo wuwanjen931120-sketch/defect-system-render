@@ -1,0 +1,34 @@
+name: Encrypted MongoDB backup
+
+on:
+  schedule:
+    - cron: "30 18 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.MONGODB_URI != '' && secrets.BACKUP_PASSPHRASE != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create encrypted backup
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          mkdir -p backup
+          docker run --rm \
+            -e MONGODB_URI \
+            -v "$PWD/backup:/backup" \
+            mongo:8 \
+            sh -lc 'mongodump --uri="$MONGODB_URI" --archive=/backup/mongodb.archive.gz --gzip'
+          openssl enc -aes-256-cbc -salt -pbkdf2 \
+            -in backup/mongodb.archive.gz \
+            -out backup/mongodb.archive.gz.enc \
+            -pass env:BACKUP_PASSPHRASE
+          rm backup/mongodb.archive.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mongodb-encrypted-backup
+          path: backup/mongodb.archive.gz.enc
+          retention-days: 7
