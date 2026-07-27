@@ -3,32 +3,79 @@ name: Encrypted MongoDB backup
 on:
   schedule:
     - cron: "30 18 * * *"
+      timezone: "Asia/Taipei"
   workflow_dispatch:
 
 jobs:
   backup:
     runs-on: ubuntu-latest
-    if: ${{ secrets.MONGODB_URI != '' && secrets.BACKUP_PASSPHRASE != '' }}
+
+    env:
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Create encrypted backup
-        env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check required secrets
         run: |
+          if [ -z "$MONGODB_URI" ]; then
+            echo "::error::尚未設定 GitHub Secret：MONGODB_URI"
+            exit 1
+          fi
+
+          if [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::尚未設定 GitHub Secret：BACKUP_PASSPHRASE"
+            exit 1
+          fi
+
+          if [ ${#BACKUP_PASSPHRASE} -lt 20 ]; then
+            echo "::error::BACKUP_PASSPHRASE 至少需要 20 個字元"
+            exit 1
+          fi
+
+      - name: Create encrypted backup
+        run: |
+          set -euo pipefail
+
           mkdir -p backup
+
           docker run --rm \
             -e MONGODB_URI \
             -v "$PWD/backup:/backup" \
             mongo:8 \
-            sh -lc 'mongodump --uri="$MONGODB_URI" --archive=/backup/mongodb.archive.gz --gzip'
+            sh -lc 'mongodump \
+              --uri="$MONGODB_URI" \
+              --archive=/backup/mongodb.archive.gz \
+              --gzip'
+
           openssl enc -aes-256-cbc -salt -pbkdf2 \
             -in backup/mongodb.archive.gz \
             -out backup/mongodb.archive.gz.enc \
             -pass env:BACKUP_PASSPHRASE
-          rm backup/mongodb.archive.gz
-      - uses: actions/upload-artifact@v4
+
+          sha256sum backup/mongodb.archive.gz.enc \
+            > backup/mongodb.archive.gz.enc.sha256
+
+          sha256sum -c backup/mongodb.archive.gz.enc.sha256
+
+          openssl enc -d -aes-256-cbc -pbkdf2 \
+            -in backup/mongodb.archive.gz.enc \
+            -out backup/restore-test.archive.gz \
+            -pass env:BACKUP_PASSPHRASE
+
+          gzip -t backup/restore-test.archive.gz
+
+          rm -f backup/mongodb.archive.gz
+          rm -f backup/restore-test.archive.gz
+
+      - name: Upload encrypted backup
+        uses: actions/upload-artifact@v4
         with:
-          name: mongodb-encrypted-backup
-          path: backup/mongodb.archive.gz.enc
-          retention-days: 7
+          name: mongodb-encrypted-backup-${{ github.run_number }}
+          path: |
+            backup/mongodb.archive.gz.enc
+            backup/mongodb.archive.gz.enc.sha256
+          retention-days: 14
+          if-no-files-found: error
