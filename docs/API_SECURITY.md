@@ -11,8 +11,8 @@
 | Method | Endpoint | 驗證 | 權限與說明 |
 |---|---|---|---|
 | GET | `/api/login/status` | 無 | 回傳資料庫、Email OTP、公開註冊是否可用，不回傳帳密或 Secret |
-| POST | `/api/login/send-code` | 帳密 | 驗證帳密後寄送 OTP；有寄送冷卻與 IP rate limit；相容 `password`、`passwordHash`、`password_hash` bcrypt 欄位 |
-| POST | `/api/login/verify-code` | OTP | OTP 成功後將 JWT 寫入 HttpOnly、Secure、SameSite=Strict Cookie；有到期與錯誤次數上限 |
+| POST | `/api/login/send-code` | 帳密 | 驗證帳密後寄送 OTP；有 IP rate limit、信箱+IP 持久化鎖定、寄送冷卻；回傳單次 `challenge_id` |
+| POST | `/api/login/verify-code` | OTP challenge | 必須帶入同一次寄送的 `challenge_id`；成功後將 JWT 寫入 HttpOnly、Secure、SameSite=Strict Cookie |
 | GET | `/api/session` | HttpOnly Cookie | 回傳非敏感登入資料，JWT 本身不會回傳前端 |
 | POST | `/api/logout` | Cookie | 清除登入 Cookie |
 | GET | `/api/defects` | Cookie / Bearer 相容 | 依 tenant/system 範圍限制；支援 `page`、`limit`、`system_id`、`products`、日期篩選 |
@@ -23,6 +23,7 @@
 | POST | `/api/current-product` | Cookie | `user` 只能改被指派機台；管理員依租戶範圍操作 |
 | POST | `/api/estop` | Cookie | 僅 `super_admin`、`tenant_admin`；必填 `system_id`，建立 `command_id` 與 AuditLog |
 | GET | `/api/estop/:command_id` | Cookie | 僅管理員查詢急停 ACK 狀態，租戶管理員只能查自己租戶 |
+| PATCH | `/api/admin/users/:id` | Cookie | 管理員更新使用者停用狀態、角色或機台；權限改動會遞增 `session_version`，使舊 JWT 失效 |
 | GET | `/api/admin/audit-logs` | Cookie | `super_admin` 可跨租戶；`tenant_admin` 只看自己租戶 |
 | GET | `/api/admin/collection/:name` | Cookie | 僅 `super_admin`；採白名單、分頁並排除敏感欄位 |
 
@@ -42,7 +43,7 @@ Topic: factory/control/estop/ack/<system_id>
 Payload: {"command_id":"後端送出的 UUID","status":"executed","system_id":"S..."}
 ```
 
-網站可用 `GET /api/estop/:command_id` 查詢 `pending_ack` 或設備回傳狀態。
+網站可用 `GET /api/estop/:command_id` 查詢 `pending_ack`、`timed_out` 或設備回傳狀態。ACK topic、payload 的 `system_id`、`command_id` 與 status 都會驗證。基於工業安全，逾時後不會自動重送。
 
 ## 使用者機台指派
 
@@ -80,3 +81,14 @@ JWT 預設放在 `HttpOnly + Secure + SameSite=Strict` Cookie，前端 JavaScrip
 ## Gemini 免費層保護
 
 AI API Key 只存在後端，預設 `gemini-3.6-flash`。每個登入使用者受到每分鐘與每日次數限制；Google 回傳 429 或連線失敗時，自動改用本機統計模式。
+
+## 登入錯誤鎖定
+
+`login_security` collection 以 HMAC 後的「信箱 + 來源 IP」作為 key。預設 15 分鐘內錯誤 5 次鎖定 15 分鐘，並以 TTL 自動清除。安全事件會寫入 AuditLog，但不記錄密碼、OTP 或 Cookie。
+
+## 健康端點
+
+- `/health`：Render 使用，只檢查 HTTP 與 MongoDB。
+- `/health/live`：程序存活。
+- `/health/ready`：資料庫、SMTP，以及設定為必要的 MQTT。
+- `/api/health`：前端狀態頁使用，只回傳布林狀態與版本。

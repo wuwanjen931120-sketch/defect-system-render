@@ -1,4 +1,3 @@
-console.log("JS 已啟動");
 
 const API_BASE = window.location.origin;
 let dashboardTimer = null;

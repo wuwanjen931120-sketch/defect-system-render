@@ -1,6 +1,6 @@
 {
   "name": "defect-system",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "AIoT 瑕疵辨識與分流系統（Node.js、MongoDB、MQTT、OTP、Gemini）",
   "main": "server.cjs",
   "scripts": {
@@ -8,7 +8,11 @@
     "lint": "node scripts/check-project.cjs",
     "format:check": "node scripts/format-check.cjs",
     "test": "node --test",
-    "check": "npm run lint && npm run format:check && npm test"
+    "check": "npm run lint && npm run format:check && npm test",
+    "test:coverage": "node --experimental-test-coverage --test",
+    "security:audit": "npm audit --omit=dev --audit-level=high",
+    "verify:deployment": "node scripts/verify-deployment.cjs",
+    "deduplicate:defects": "node scripts/deduplicate-defects.cjs"
   },
   "keywords": [],
   "author": "",

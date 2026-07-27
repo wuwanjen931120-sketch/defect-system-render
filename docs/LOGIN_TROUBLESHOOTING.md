@@ -57,7 +57,7 @@ password_hash
 本版已改為：
 
 - 驗證碼成功後立即呼叫 `/api/session`；確認成功才前往儀表板。
-- Cookie 使用 `SameSite=Lax` 與 HTTPS `Secure`。
+- Cookie 使用 `SameSite=Strict` 與 HTTPS `Secure`。
 - JWT 只放使用者 ID 與信箱，權限和機台清單改由資料庫讀取。
 - `auth-bootstrap.js` 不再加入 Service Worker 快取，且檔名帶版本參數。
 - 登入狀態檢查遇到短暫網路問題時重試三次。

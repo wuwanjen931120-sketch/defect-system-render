@@ -1,12 +1,24 @@
-驗證日期：2026-07-23
-版本：登入後跳回登入頁修正版
+驗證日期：2026-07-27
+版本：1.1.0（P1 安全與登入／P2 工程品質與維運補強版）
 
-檢查結果：
-- npm run check：29 / 29 通過
+本機靜態與單元測試結果：
+- npm run check：45 / 45 通過，0 失敗
 - JavaScript / CommonJS 語法檢查：通過
-- 登入 Cookie：HttpOnly、SameSite、Secure 設定檢查通過
-- 前端登入保護：等待 /api/session，不再檢查不存在的 token
-- Dashboard / Logs API：使用 same-origin Cookie
-- Service Worker：快取版本已更新
-- GitHub Actions：ci.yml 路徑已修正
-- 壓縮檔：不含 node_modules、真實密碼或 API Key
+- HTML 與專案結構檢查：通過
+- 格式檢查：通過
+- node --experimental-test-coverage --test：通過
+- 受測檔案整體覆蓋率：line 96.20%、branch 65.03%、functions 97.94%
+- render.yaml 與全部 GitHub Actions YAML：解析通過
+- 敏感憑證掃描：未發現真實 API Key、MongoDB 密碼或 SMTP 密碼
+- 壓縮檔會排除 node_modules、.env 與執行期暫存資料
+
+需部署後驗證：
+- Render 私人環境變數
+- MongoDB Atlas 連線與三種角色測試帳號
+- Brevo/Gmail OTP 實際寄送
+- HiveMQ 與實體設備 E-stop ACK
+- GitHub MongoDB 備份／還原流程
+
+限制：
+- 本環境 npm registry 的 audit 與套件下載端點回傳 HTTP 503，因此無法在此環境完成 npm audit 與乾淨 npm ci。
+- package-lock.json 保留完整；請在本機或 GitHub Actions 執行 npm ci 與 npm audit 驗證。

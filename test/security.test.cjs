@@ -51,3 +51,18 @@ test("CSV cell prevents formula injection", () => {
 test("clamp", () => {
   assert.equal(security.clampInt("999", 20, 1, 100), 100);
 });
+
+
+test("MQTT timestamp range can reject future and stale data", () => {
+  const now = new Date("2026-07-27T00:00:00Z");
+  assert.throws(() => security.normalizeDefectPayload(
+    { system_id: "S1", id: "future", status: "OK", timestamp: "2026-07-27T00:10:00Z" },
+    "未分類",
+    { now, maxFutureMs: 5 * 60 * 1000 }
+  ));
+  assert.throws(() => security.normalizeDefectPayload(
+    { system_id: "S1", id: "old", status: "OK", timestamp: "2026-06-01T00:00:00Z" },
+    "未分類",
+    { now, maxPastMs: 30 * 86400000 }
+  ));
+});

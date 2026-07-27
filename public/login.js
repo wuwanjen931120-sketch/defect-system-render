@@ -10,6 +10,7 @@
   const fixButton = $("btnFix");
   const registerButton = $("btnRegister");
   const serviceStatus = $("serviceStatus");
+  let loginChallengeId = "";
 
   function showErr(message) {
     $("okBox").style.display = "none";
@@ -95,6 +96,11 @@
       }
       serviceStatus.textContent = `登入服務正常（${status.smtp_provider || "SMTP"} 驗證信）`;
       serviceStatus.className = "serviceStatus ready";
+      if (!status.registration_enabled) {
+        registerButton.disabled = true;
+        registerButton.textContent = "註冊已關閉";
+        registerButton.title = "正式環境已關閉公開註冊，請聯絡管理員建立帳號";
+      }
     } catch (error) {
       serviceStatus.textContent = `無法讀取登入服務狀態：${error.message}`;
       serviceStatus.className = "serviceStatus warning";
@@ -116,9 +122,11 @@
         method: "POST",
         body: JSON.stringify({ email, password })
       });
+      loginChallengeId = data.challenge_id || "";
+      if (!loginChallengeId) throw new Error("後端未回傳登入驗證識別碼，請重新寄送驗證碼");
       showOk(data.message || "驗證碼已寄出，請到信箱查看");
       codeInput.focus();
-      startResendCountdown(60);
+      startResendCountdown(data.resend_after_seconds || 60);
     } catch (error) {
       showErr(error.message);
       sendButton.disabled = false;
@@ -131,8 +139,8 @@
     clearMessage();
     const email = emailInput.value.trim();
     const code = codeInput.value.trim();
-    if (!email || !/^\d{6}$/.test(code)) {
-      showErr("請輸入信箱與 6 位數驗證碼");
+    if (!email || !/^\d{6}$/.test(code) || !loginChallengeId) {
+      showErr("請先寄送驗證碼，再輸入信箱與 6 位數驗證碼");
       return;
     }
 
@@ -140,7 +148,7 @@
       setBusy(loginButton, "驗證中...", true);
       const data = await apiRequest("/api/login/verify-code", {
         method: "POST",
-        body: JSON.stringify({ email, code })
+        body: JSON.stringify({ email, code, challenge_id: loginChallengeId })
       });
 
       // 驗證碼成功後立刻確認 HttpOnly Cookie 已被瀏覽器保存。
@@ -203,7 +211,17 @@
   sendButton.addEventListener("click", sendCode);
   loginButton.addEventListener("click", verifyAndLogin);
   fixButton.addEventListener("click", fixCache);
-  registerButton.addEventListener("click", () => { location.href = "register.html"; });
+  registerButton.addEventListener("click", () => {
+    if (!registerButton.disabled) location.href = "register.html";
+  });
+  emailInput.addEventListener("input", () => {
+    loginChallengeId = "";
+    codeInput.value = "";
+  });
+  passwordInput.addEventListener("input", () => {
+    loginChallengeId = "";
+    codeInput.value = "";
+  });
   codeInput.addEventListener("input", () => {
     codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 6);
   });

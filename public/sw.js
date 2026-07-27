@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "aiot-static-v13-login-fix";
+const CACHE_NAME = "aiot-static-v14-p1p2-hardening";
 const STATIC_ASSETS = [
   "./offline.html",
   "./style.css",

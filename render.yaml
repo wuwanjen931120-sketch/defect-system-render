@@ -24,10 +24,30 @@ services:
         value: "14400"
       - key: AUTH_COOKIE_NAME
         value: defect_session
+      - key: AUTH_COOKIE_SAME_SITE
+        value: Strict
+      - key: AUTH_COOKIE_SECURE
+        value: "true"
+      - key: REQUIRE_EMAIL_LOGIN
+        value: "true"
+      - key: LOGIN_MAX_FAILURES
+        value: "5"
+      - key: LOGIN_FAILURE_WINDOW_MINUTES
+        value: "15"
+      - key: LOGIN_LOCK_MINUTES
+        value: "15"
+      - key: ALLOW_PUBLIC_REGISTRATION
+        value: "false"
+      - key: REGISTRATION_INVITE_CODE
+        sync: false
+      - key: REQUIRE_MQTT
+        value: "false"
       - key: MQTT_URL
         sync: false
       - key: MQTT_PORT
         value: "8883"
+      - key: MQTT_CLIENT_ID
+        value: defect-system-render
       - key: HIVEMQ_USER
         sync: false
       - key: HIVEMQ_PASS
@@ -38,6 +58,16 @@ services:
         value: factory/control/estop/{system_id}
       - key: MQTT_ESTOP_ACK_TOPIC
         value: factory/control/estop/ack/+
+      - key: MQTT_MAX_PAYLOAD_BYTES
+        value: "262144"
+      - key: MQTT_MAX_FUTURE_SECONDS
+        value: "300"
+      - key: MQTT_MAX_PAST_DAYS
+        value: "30"
+      - key: ESTOP_ACK_TIMEOUT_SECONDS
+        value: "30"
+      - key: ESTOP_COMMAND_RETENTION_DAYS
+        value: "365"
       - key: SMTP_PROVIDER
         value: brevo
       - key: SMTP_HOST
@@ -62,11 +92,7 @@ services:
         value: "5"
       - key: AI_REQUESTS_PER_DAY
         value: "100"
-      - key: ALLOW_PUBLIC_REGISTRATION
-        value: "true"
-      - key: REGISTRATION_INVITE_CODE
-        sync: false
       - key: DEFECT_RETENTION_DAYS
-        value: "0"
+        value: "365"
       - key: AUDIT_RETENTION_DAYS
-        value: "0"
+        value: "365"

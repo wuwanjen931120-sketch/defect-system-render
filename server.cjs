@@ -32,16 +32,23 @@ const {
 } = require("./lib/origin-policy.cjs");
 const {
   DEFAULT_COOKIE_NAME,
+  normalizeSameSite,
   getSessionToken,
   buildSessionCookie,
   buildClearCookie
 } = require("./lib/auth-cookie.cjs");
+const { validateEnvironment, isTrue } = require("./lib/env-validation.cjs");
+const { loginSecurityKey, getLockState, nextFailureState } = require("./lib/login-security.cjs");
+const { normalizeAckStatus, topicSystemId, commandStatus } = require("./lib/estop.cjs");
+const logger = require("./lib/logger.cjs");
+const packageInfo = require("./package.json");
 
 const app = express();
 app.set("trust proxy", 1);
 
 const PORT = Number(process.env.PORT || 5000);
 const NODE_ENV = process.env.NODE_ENV || "development";
+validateEnvironment(process.env);
 const JWT_SECRET = process.env.JWT_SECRET;
 const MONGODB_URI = process.env.MONGODB_URI;
 const MQTT_REPORT_TOPIC = process.env.MQTT_REPORT_TOPIC || "factory/defect/report";
@@ -53,27 +60,29 @@ const OTP_MAX_ATTEMPTS = clampInt(process.env.OTP_MAX_ATTEMPTS, 5, 3, 10);
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "4h";
 const JWT_COOKIE_MAX_AGE_SECONDS = clampInt(process.env.JWT_COOKIE_MAX_AGE_SECONDS, 14400, 300, 604800);
 const AUTH_COOKIE_NAME = cleanText(process.env.AUTH_COOKIE_NAME || DEFAULT_COOKIE_NAME, 80);
-const AUTH_COOKIE_SAME_SITE = ["Strict", "Lax", "None"].includes(String(process.env.AUTH_COOKIE_SAME_SITE || "Lax"))
-  ? String(process.env.AUTH_COOKIE_SAME_SITE || "Lax")
-  : "Lax";
+const AUTH_COOKIE_SAME_SITE = normalizeSameSite(
+  process.env.AUTH_COOKIE_SAME_SITE || (NODE_ENV === "production" ? "Strict" : "Lax")
+);
 const AUTH_COOKIE_FORCE_SECURE = String(process.env.AUTH_COOKIE_SECURE || "").toLowerCase() === "true";
 const ALERT_THRESHOLD = clampInt(process.env.ALERT_THRESHOLD, 3, 2, 100);
 const ALERT_WINDOW_MINUTES = clampInt(process.env.ALERT_WINDOW_MINUTES, 10, 1, 1440);
 const ALERT_COOLDOWN_MINUTES = clampInt(process.env.ALERT_COOLDOWN_MINUTES, 30, 1, 1440);
 const ALLOW_PUBLIC_REGISTRATION = String(process.env.ALLOW_PUBLIC_REGISTRATION || (NODE_ENV === "production" ? "false" : "true")) === "true";
 const REGISTRATION_INVITE_CODE = String(process.env.REGISTRATION_INVITE_CODE || "");
-const DEFECT_RETENTION_DAYS = clampInt(process.env.DEFECT_RETENTION_DAYS, 0, 0, 3650);
-const AUDIT_RETENTION_DAYS = clampInt(process.env.AUDIT_RETENTION_DAYS, 0, 0, 3650);
+const DEFECT_RETENTION_DAYS = clampInt(process.env.DEFECT_RETENTION_DAYS, 365, 0, 3650);
+const AUDIT_RETENTION_DAYS = clampInt(process.env.AUDIT_RETENTION_DAYS, 365, 0, 3650);
 const AI_REQUESTS_PER_DAY = clampInt(process.env.AI_REQUESTS_PER_DAY, 100, 1, 10000);
 const GEMINI_DEFAULT_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
-
-function validateEnvironment() {
-  const missing = [];
-  if (!MONGODB_URI) missing.push("MONGODB_URI");
-  if (!JWT_SECRET || JWT_SECRET.length < 32) missing.push("JWT_SECRET（至少 32 字元）");
-  if (missing.length) throw new Error(`缺少必要環境變數：${missing.join("、")}`);
-}
-validateEnvironment();
+const REQUIRE_EMAIL_LOGIN = isTrue(process.env.REQUIRE_EMAIL_LOGIN, NODE_ENV === "production");
+const LOGIN_MAX_FAILURES = clampInt(process.env.LOGIN_MAX_FAILURES, 5, 3, 20);
+const LOGIN_FAILURE_WINDOW_MINUTES = clampInt(process.env.LOGIN_FAILURE_WINDOW_MINUTES, 15, 1, 1440);
+const LOGIN_LOCK_MINUTES = clampInt(process.env.LOGIN_LOCK_MINUTES, 15, 1, 1440);
+const MQTT_MAX_PAYLOAD_BYTES = clampInt(process.env.MQTT_MAX_PAYLOAD_BYTES, 262144, 1024, 1048576);
+const MQTT_MAX_FUTURE_SECONDS = clampInt(process.env.MQTT_MAX_FUTURE_SECONDS, 300, 0, 86400);
+const MQTT_MAX_PAST_DAYS = clampInt(process.env.MQTT_MAX_PAST_DAYS, 30, 0, 3650);
+const ESTOP_ACK_TIMEOUT_SECONDS = clampInt(process.env.ESTOP_ACK_TIMEOUT_SECONDS, 30, 5, 600);
+const ESTOP_COMMAND_RETENTION_DAYS = clampInt(process.env.ESTOP_COMMAND_RETENTION_DAYS, 30, 1, 3650);
+const mqttRequired = isTrue(process.env.REQUIRE_MQTT, false);
 
 const allowedOrigins = buildConfiguredOrigins(process.env);
 
@@ -116,6 +125,11 @@ app.use(helmet({
   hsts: NODE_ENV === "production" ? { maxAge: 15552000, includeSubDomains: true } : false,
   referrerPolicy: { policy: "same-origin" }
 }));
+app.use((req, res, next) => {
+  res.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=(), payment=(), usb=()");
+  res.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  next();
+});
 app.use(express.json({ limit: "256kb", strict: true }));
 app.use(express.urlencoded({ extended: false, limit: "64kb" }));
 
@@ -150,6 +164,7 @@ const defectSchema = new mongoose.Schema({
 }, { versionKey: false });
 defectSchema.index({ tenant_id: 1, system_id: 1, timestamp: -1 });
 defectSchema.index({ tenant_id: 1, product: 1, timestamp: -1 });
+defectSchema.index({ tenant_id: 1, system_id: 1, id: 1 }, { unique: true });
 const Defect = mongoose.model("Defect", defectSchema);
 
 const auditLogSchema = new mongoose.Schema({
@@ -168,7 +183,9 @@ const auditLogSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 }, { collection: "audit_logs", versionKey: false });
 auditLogSchema.index({ tenant_id: 1, createdAt: -1 });
+auditLogSchema.index({ tenant_id: 1, action: 1, createdAt: -1 });
 auditLogSchema.index({ command_id: 1 }, { sparse: true });
+auditLogSchema.index({ status: 1, createdAt: -1 });
 const AuditLog = mongoose.model("AuditLog", auditLogSchema);
 
 const smtpProvider = cleanText(process.env.SMTP_PROVIDER || (process.env.BREVO_SMTP_LOGIN ? "brevo" : (process.env.GMAIL_USER ? "gmail" : "custom")), 30).toLowerCase();
@@ -191,6 +208,8 @@ const transporter = mailEnabled ? nodemailer.createTransport({
   disableFileAccess: true,
   disableUrlAccess: true
 }) : null;
+let isMailReady = !REQUIRE_EMAIL_LOGIN;
+let lastMailCheckAt = null;
 
 function asyncHandler(fn) { return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next); }
 function requestUsesHttps(req) {
@@ -217,6 +236,15 @@ async function auth(req, res, next) {
       user = await users.findOne({ $or: [{ email }, { username: email }] });
     }
     if (!user) return res.status(401).json({ message: "登入帳號已不存在，請重新登入" });
+    if (user.disabled === true || user.status === "disabled") {
+      return res.status(403).json({ message: "此帳號已停用，請聯絡管理員" });
+    }
+    if (Number(claims.session_version || 0) !== Number(user.session_version || 0)) {
+      return res.status(401).json({ message: "登入狀態已失效，請重新登入" });
+    }
+    if (user.passwordChangedAt && Number(claims.iat || 0) * 1000 < new Date(user.passwordChangedAt).getTime()) {
+      return res.status(401).json({ message: "密碼已更新，請重新登入" });
+    }
     req.authClaims = claims;
     req.user = {
       id: String(user._id),
@@ -258,6 +286,11 @@ async function buildScopedDefectQuery(user, params = {}) {
     const list = products.split(",").map(v => cleanText(v, 100)).filter(Boolean).slice(0, 30);
     if (list.length) query.product = { $in: list };
   }
+  const status = cleanText(params.status, 10).toUpperCase();
+  if (status) {
+    if (!new Set(["OK", "NG"]).has(status)) throw Object.assign(new Error("status 只能是 OK 或 NG"), { status: 400 });
+    query.status = status;
+  }
   const tenant = cleanText(params.tenant_id, 100);
   const system = cleanText(params.system_id, 100);
   if (user.role === "super_admin") {
@@ -282,10 +315,13 @@ async function buildScopedDefectQuery(user, params = {}) {
   }
   const from = params.date_from ? new Date(params.date_from) : null;
   const to = params.date_to ? new Date(params.date_to) : null;
-  if ((from && !Number.isNaN(from.valueOf())) || (to && !Number.isNaN(to.valueOf()))) {
+  if (params.date_from && Number.isNaN(from.valueOf())) throw Object.assign(new Error("date_from 格式不正確"), { status: 400 });
+  if (params.date_to && Number.isNaN(to.valueOf())) throw Object.assign(new Error("date_to 格式不正確"), { status: 400 });
+  if (from && to && from.getTime() > to.getTime()) throw Object.assign(new Error("date_from 不可晚於 date_to"), { status: 400 });
+  if (from || to) {
     query.timestamp = {};
-    if (from && !Number.isNaN(from.valueOf())) query.timestamp.$gte = from;
-    if (to && !Number.isNaN(to.valueOf())) query.timestamp.$lte = to;
+    if (from) query.timestamp.$gte = from;
+    if (to) query.timestamp.$lte = to;
   }
   return query;
 }
@@ -303,7 +339,11 @@ async function issueLoginResponse(user, req, res) {
   const systems = await resolveSystemIdsForUserDocument(user);
   // Cookie 只放最小必要資料，避免機台很多時 JWT 超過瀏覽器 Cookie 大小上限。
   const token = jwt.sign(
-    { email: user.email || user.username || "", session_type: "web" },
+    {
+      email: user.email || user.username || "",
+      session_type: "web",
+      session_version: Number(user.session_version || 0)
+    },
     JWT_SECRET,
     {
       subject: String(user._id),
@@ -335,8 +375,62 @@ async function issueLoginResponse(user, req, res) {
 
 async function writeAudit(req, action, fields = {}) {
   try {
-    await AuditLog.create({ request_id: req.requestId, actor_id: req.user?.id || "anonymous", actor_email: req.user?.email || "", role: req.user?.role || "anonymous", tenant_id: fields.tenant_id || req.user?.tenant_id || "", system_id: fields.system_id || "", action, target: fields.target || "", status: fields.status || "success", command_id: fields.command_id || "", details: fields.details || {}, ip: req.ip });
-  } catch (error) { console.warn("audit log failed:", error.message); }
+    await AuditLog.create({
+      request_id: req.requestId,
+      actor_id: fields.actor_id || req.user?.id || "anonymous",
+      actor_email: fields.actor_email || req.user?.email || "",
+      role: fields.role || req.user?.role || "anonymous",
+      tenant_id: fields.tenant_id || req.user?.tenant_id || "",
+      system_id: fields.system_id || "",
+      action,
+      target: fields.target || "",
+      status: fields.status || "success",
+      command_id: fields.command_id || "",
+      details: fields.details || {},
+      ip: req.ip
+    });
+  } catch (error) {
+    logger.warn("audit log failed", { request_id: req.requestId, action, error: error.message });
+  }
+}
+
+function loginSecurityCollection() {
+  return mongoose.connection.collection("login_security");
+}
+
+async function readLoginLock(email, req) {
+  const key = loginSecurityKey(email, req.ip, JWT_SECRET);
+  const record = await loginSecurityCollection().findOne({ key });
+  return { key, record, ...getLockState(record) };
+}
+
+async function recordLoginFailure(email, req) {
+  const key = loginSecurityKey(email, req.ip, JWT_SECRET);
+  const col = loginSecurityCollection();
+  const existing = await col.findOne({ key });
+  const state = nextFailureState(existing, {
+    maxFailures: LOGIN_MAX_FAILURES,
+    windowMs: LOGIN_FAILURE_WINDOW_MINUTES * 60_000,
+    lockMs: LOGIN_LOCK_MINUTES * 60_000
+  });
+  await col.updateOne({ key }, {
+    $set: {
+      key,
+      email,
+      ip: req.ip,
+      failures: state.failures,
+      firstFailedAt: state.firstFailedAt,
+      lastFailedAt: state.lastFailedAt,
+      lockUntil: state.lockUntil,
+      expiresAt: state.expiresAt
+    }
+  }, { upsert: true });
+  return state;
+}
+
+async function clearLoginFailures(email, req) {
+  const key = loginSecurityKey(email, req.ip, JWT_SECRET);
+  await loginSecurityCollection().deleteOne({ key });
 }
 
 app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
@@ -358,7 +452,17 @@ app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
   try {
     await session.withTransaction(async () => {
       await mongoose.connection.collection("tenants").insertOne({ tenant_id, company, createdAt: new Date() }, { session });
-      await users.insertOne({ username, email: username, password: await bcrypt.hash(password, 12), tenant_id, role: "tenant_admin", systems: [system_id], createdAt: new Date() }, { session });
+      await users.insertOne({
+        username,
+        email: username,
+        password: await bcrypt.hash(password, 12),
+        tenant_id,
+        role: "tenant_admin",
+        systems: [system_id],
+        session_version: 0,
+        disabled: false,
+        createdAt: new Date()
+      }, { session });
       await mongoose.connection.collection("systems").insertOne({ tenant_id, system_id, name: "預設機台", createdAt: new Date() }, { session });
     });
   } finally { await session.endSession(); }
@@ -369,10 +473,16 @@ app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
 app.get("/api/login/status", (req, res) => {
   return res.json({
     database_connected: mongoose.connection.readyState === 1,
-    email_login_enabled: mailEnabled,
+    email_login_enabled: mailEnabled && isMailReady,
     two_factor_required: true,
     registration_enabled: ALLOW_PUBLIC_REGISTRATION,
-    smtp_provider: mailEnabled ? smtpProvider : "not-configured"
+    registration_requires_invite: ALLOW_PUBLIC_REGISTRATION && Boolean(REGISTRATION_INVITE_CODE),
+    smtp_provider: mailEnabled ? smtpProvider : "not-configured",
+    login_lock_policy: {
+      max_failures: LOGIN_MAX_FAILURES,
+      window_minutes: LOGIN_FAILURE_WINDOW_MINUTES,
+      lock_minutes: LOGIN_LOCK_MINUTES
+    }
   });
 });
 
@@ -387,29 +497,79 @@ app.post("/api/login/send-code", otpSendLimiter, asyncHandler(async (req, res) =
   const email = normalizeEmail(req.body.email);
   const password = String(req.body.password || "");
   if (!email || !password) return res.status(400).json({ message: "請輸入信箱與密碼" });
+
+  const lock = await readLoginLock(email, req);
+  if (lock.locked) {
+    res.setHeader("Retry-After", String(lock.retryAfterSeconds));
+    await writeAudit(req, "security.login.locked", {
+      actor_email: email,
+      status: "blocked",
+      details: { retry_after_seconds: lock.retryAfterSeconds }
+    });
+    return res.status(429).json({ message: `登入失敗次數過多，請等待 ${lock.retryAfterSeconds} 秒後再試` });
+  }
+
   const user = await mongoose.connection.collection("users").findOne({ $or: [{ email }, { username: email }] });
   const storedPasswordHash = String(user?.password || user?.passwordHash || user?.password_hash || "");
-  const matched = user && /^\$2[aby]\$/.test(storedPasswordHash)
+  const matched = user && user.disabled !== true && user.status !== "disabled" && /^\$2[aby]\$/.test(storedPasswordHash)
     ? await bcrypt.compare(password, storedPasswordHash)
     : false;
-  if (!user || !matched) return res.status(401).json({ message: "信箱或密碼錯誤" });
+  if (!user || !matched) {
+    const failure = await recordLoginFailure(email, req);
+    await writeAudit(req, "security.login.password_failed", {
+      actor_email: email,
+      status: failure.shouldLock ? "locked" : "failed",
+      details: { failures: failure.failures, remaining_attempts: failure.remainingAttempts }
+    });
+    if (failure.shouldLock) {
+      res.setHeader("Retry-After", String(LOGIN_LOCK_MINUTES * 60));
+      return res.status(429).json({ message: `登入失敗次數過多，帳號與此裝置暫停登入 ${LOGIN_LOCK_MINUTES} 分鐘` });
+    }
+    return res.status(401).json({ message: "信箱或密碼錯誤" });
+  }
+
+  await clearLoginFailures(email, req);
   const col = mongoose.connection.collection("login_otps");
   const existing = await col.findOne({ email });
   if (existing?.lastSentAt && Date.now() - new Date(existing.lastSentAt).getTime() < OTP_RESEND_SECONDS * 1000) {
     const wait = Math.ceil((OTP_RESEND_SECONDS * 1000 - (Date.now() - new Date(existing.lastSentAt).getTime())) / 1000);
+    res.setHeader("Retry-After", String(wait));
     return res.status(429).json({ message: `請等待 ${wait} 秒後再寄送驗證碼` });
   }
+
   const code = String(crypto.randomInt(100000, 1000000));
+  const challengeId = crypto.randomUUID();
   const now = new Date();
-  await col.updateOne({ email }, { $set: { email, codeHash: hashOtp(email, code, JWT_SECRET), attempts: 0, createdAt: now, lastSentAt: now, expiresAt: new Date(now.getTime() + OTP_TTL_MINUTES * 60000) } }, { upsert: true });
+  await col.updateOne({ email }, { $set: {
+    email,
+    userId: String(user._id),
+    challengeId,
+    codeHash: hashOtp(email, code, JWT_SECRET),
+    attempts: 0,
+    createdAt: now,
+    lastSentAt: now,
+    expiresAt: new Date(now.getTime() + OTP_TTL_MINUTES * 60000)
+  } }, { upsert: true });
   try {
-    await transporter.sendMail({ from: MAIL_FROM, to: user.email || user.username, subject: "瑕疵辨識與分流系統登入驗證碼", text: `您的登入驗證碼是：${code}\n\n此驗證碼 ${OTP_TTL_MINUTES} 分鐘內有效。` });
+    await transporter.sendMail({
+      from: MAIL_FROM,
+      to: user.email || user.username,
+      subject: "瑕疵辨識與分流系統登入驗證碼",
+      text: `您的登入驗證碼是：${code}\n\n此驗證碼 ${OTP_TTL_MINUTES} 分鐘內有效。若不是您本人操作，請忽略此信。`
+    });
   } catch (error) {
-    await col.deleteOne({ email }).catch(() => {});
-    console.error("OTP 寄送失敗：", error.message);
+    await col.deleteOne({ email, challengeId }).catch(() => {});
+    logger.error("OTP send failed", { request_id: req.requestId, provider: smtpProvider, error: error.message });
     throw Object.assign(new Error("驗證碼寄送失敗，請檢查 Render 的 SMTP 設定後再試"), { status: 502 });
   }
-  const response = { success: true, message: "驗證碼已寄出，請到信箱查看" };
+  await writeAudit(req, "security.login.otp_sent", { actor_id: String(user._id), actor_email: email, tenant_id: user.tenant_id || "" });
+  const response = {
+    success: true,
+    challenge_id: challengeId,
+    expires_in_seconds: OTP_TTL_MINUTES * 60,
+    resend_after_seconds: OTP_RESEND_SECONDS,
+    message: "驗證碼已寄出，請到信箱查看"
+  };
   if (NODE_ENV === "development" && process.env.DEV_RETURN_OTP === "true") response.dev_code = code;
   return res.json(response);
 }));
@@ -417,21 +577,51 @@ app.post("/api/login/send-code", otpSendLimiter, asyncHandler(async (req, res) =
 app.post("/api/login/verify-code", authLimiter, asyncHandler(async (req, res) => {
   const email = normalizeEmail(req.body.email);
   const code = cleanText(req.body.code, 12);
-  if (!email || !/^\d{6}$/.test(code)) return res.status(400).json({ message: "請輸入信箱與 6 位數驗證碼" });
+  const challengeId = cleanText(req.body.challenge_id, 100);
+  if (!email || !/^\d{6}$/.test(code) || !/^[0-9a-f-]{36}$/i.test(challengeId)) {
+    return res.status(400).json({ message: "請先寄送驗證碼，再輸入信箱與 6 位數驗證碼" });
+  }
   const col = mongoose.connection.collection("login_otps");
-  const saved = await col.findOne({ email });
-  if (!saved) return res.status(400).json({ message: "請先寄送驗證碼" });
-  if (new Date(saved.expiresAt).getTime() < Date.now()) { await col.deleteOne({ email }); return res.status(400).json({ message: "驗證碼已過期，請重新寄送" }); }
-  if (Number(saved.attempts || 0) >= OTP_MAX_ATTEMPTS) { await col.deleteOne({ email }); return res.status(429).json({ message: "驗證碼錯誤次數過多，請重新寄送" }); }
+  const saved = await col.findOne({ email, challengeId });
+  if (!saved) return res.status(400).json({ message: "登入驗證已失效，請重新寄送驗證碼" });
+  if (new Date(saved.expiresAt).getTime() < Date.now()) {
+    await col.deleteOne({ email, challengeId });
+    return res.status(400).json({ message: "驗證碼已過期，請重新寄送" });
+  }
+  if (Number(saved.attempts || 0) >= OTP_MAX_ATTEMPTS) {
+    await col.deleteOne({ email, challengeId });
+    return res.status(429).json({ message: "驗證碼錯誤次數過多，請重新寄送" });
+  }
   const expected = Buffer.from(String(saved.codeHash || ""), "hex");
   const actual = Buffer.from(hashOtp(email, code, JWT_SECRET), "hex");
   if (!(expected.length === actual.length && crypto.timingSafeEqual(expected, actual))) {
-    const updated = await col.findOneAndUpdate({ email }, { $inc: { attempts: 1 } }, { returnDocument: "after" });
-    return res.status(400).json({ message: `驗證碼錯誤，剩餘 ${Math.max(0, OTP_MAX_ATTEMPTS - Number(updated?.attempts || 1))} 次機會` });
+    const updated = await col.findOneAndUpdate(
+      { email, challengeId, attempts: { $lt: OTP_MAX_ATTEMPTS } },
+      { $inc: { attempts: 1 }, $set: { lastAttemptAt: new Date() } },
+      { returnDocument: "after" }
+    );
+    const attempts = Number(updated?.attempts || OTP_MAX_ATTEMPTS);
+    await writeAudit(req, "security.login.otp_failed", {
+      actor_email: email,
+      status: attempts >= OTP_MAX_ATTEMPTS ? "locked" : "failed",
+      details: { attempts }
+    });
+    if (attempts >= OTP_MAX_ATTEMPTS) await col.deleteOne({ email, challengeId });
+    return res.status(400).json({ message: `驗證碼錯誤，剩餘 ${Math.max(0, OTP_MAX_ATTEMPTS - attempts)} 次機會` });
   }
-  await col.deleteOne({ email });
-  const user = await mongoose.connection.collection("users").findOne({ $or: [{ email }, { username: email }] });
-  if (!user) return res.status(401).json({ message: "帳號不存在" });
+
+  await col.deleteOne({ email, challengeId });
+  const userQuery = mongoose.Types.ObjectId.isValid(String(saved.userId || ""))
+    ? { _id: new mongoose.Types.ObjectId(String(saved.userId)) }
+    : { $or: [{ email }, { username: email }] };
+  const user = await mongoose.connection.collection("users").findOne(userQuery);
+  if (!user || user.disabled === true || user.status === "disabled") return res.status(401).json({ message: "帳號不存在或已停用" });
+  await writeAudit(req, "security.login.success", {
+    actor_id: String(user._id),
+    actor_email: email,
+    tenant_id: user.tenant_id || "",
+    role: user.role || "user"
+  });
   return res.json(await issueLoginResponse(user, req, res));
 }));
 
@@ -452,7 +642,16 @@ app.get("/api/session", auth, asyncHandler(async (req, res) => {
   });
 }));
 
-app.post("/api/logout", (req, res) => {
+app.post("/api/logout", asyncHandler(async (req, res) => {
+  const token = getSessionToken(req, AUTH_COOKIE_NAME);
+  const decoded = token ? jwt.decode(token) : null;
+  if (decoded?.sub || decoded?.email) {
+    await writeAudit(req, "security.logout", {
+      actor_id: cleanText(decoded.sub, 100) || "anonymous",
+      actor_email: normalizeEmail(decoded.email),
+      status: "success"
+    });
+  }
   res.setHeader("Set-Cookie", buildClearCookie({
     cookieName: AUTH_COOKIE_NAME,
     secure: secureCookieForRequest(req),
@@ -460,13 +659,32 @@ app.post("/api/logout", (req, res) => {
   }));
   res.setHeader("Cache-Control", "no-store");
   return res.json({ success: true });
-});
+}));
 
 app.get("/api/admin/users", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
+  const page = clampInt(req.query.page, 1, 1, 100000);
+  const limit = clampInt(req.query.limit, 100, 1, 200);
   const query = req.user.role === "tenant_admin" ? { tenant_id: req.user.tenant_id } : {};
-  const users = await mongoose.connection.collection("users").find(query, { projection: { password: 0, passwordHash: 0, password_hash: 0, otp: 0, token: 0, secret: 0 } }).sort({ createdAt: -1 }).limit(500).toArray();
-  const tenants = await mongoose.connection.collection("tenants").find({}, { projection: { tenant_id: 1, company: 1 } }).toArray();
-  return res.json(users.map(u => ({ username: u.username || u.email, tenant_id: u.tenant_id, company: tenants.find(t => t.tenant_id === u.tenant_id)?.company || "未知", role: u.role, systems: Array.isArray(u.systems) ? u.systems : [] })));
+  const usersCollection = mongoose.connection.collection("users");
+  const total = await usersCollection.countDocuments(query);
+  const users = await usersCollection.find(query, {
+    projection: { password: 0, passwordHash: 0, password_hash: 0, otp: 0, token: 0, secret: 0 }
+  }).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).toArray();
+  const tenantIds = [...new Set(users.map(user => user.tenant_id).filter(Boolean))];
+  const tenants = tenantIds.length
+    ? await mongoose.connection.collection("tenants").find({ tenant_id: { $in: tenantIds } }, { projection: { tenant_id: 1, company: 1 } }).toArray()
+    : [];
+  res.setHeader("X-Total-Count", String(total));
+  res.setHeader("X-Page", String(page));
+  return res.json(users.map(u => ({
+    id: String(u._id),
+    username: u.username || u.email,
+    tenant_id: u.tenant_id,
+    company: tenants.find(t => t.tenant_id === u.tenant_id)?.company || "未知",
+    role: u.role,
+    disabled: u.disabled === true || u.status === "disabled",
+    systems: Array.isArray(u.systems) ? u.systems : []
+  })));
 }));
 
 app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
@@ -486,9 +704,72 @@ app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admi
   if (!tenant_id) return res.status(400).json({ message: "缺少 tenant_id" });
   const validSystems = role === "user" && requestedSystems.length ? (await mongoose.connection.collection("systems").find({ tenant_id, system_id: { $in: requestedSystems } }, { projection: { system_id: 1 } }).toArray()).map(v => v.system_id) : [];
   if (role === "user" && requestedSystems.length !== validSystems.length) return res.status(400).json({ message: "包含不存在或不屬於此租戶的機台" });
-  await users.insertOne({ username, email: username, password: await bcrypt.hash(password, 12), tenant_id, role, systems: validSystems, createdAt: new Date() });
+  await users.insertOne({
+    username,
+    email: username,
+    password: await bcrypt.hash(password, 12),
+    tenant_id,
+    role,
+    systems: validSystems,
+    session_version: 0,
+    disabled: false,
+    createdAt: new Date()
+  });
   await writeAudit(req, "user.create", { tenant_id, target: username, details: { role, systems: validSystems } });
   return res.status(201).json({ success: true, message: "帳號建立成功" });
+}));
+
+app.patch("/api/admin/users/:id", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
+  const id = cleanText(req.params.id, 100);
+  if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "使用者 ID 格式不正確" });
+  const users = mongoose.connection.collection("users");
+  const target = await users.findOne({ _id: new mongoose.Types.ObjectId(id) });
+  if (!target) return res.status(404).json({ message: "找不到使用者" });
+  if (req.user.role === "tenant_admin" && target.tenant_id !== req.user.tenant_id) {
+    return res.status(403).json({ message: "無權管理其他租戶使用者" });
+  }
+  if (req.user.role === "tenant_admin" && target.role !== "user") {
+    return res.status(403).json({ message: "租戶管理員只能管理一般使用者" });
+  }
+  if (String(target._id) === req.user.id && req.body.disabled === true) {
+    return res.status(400).json({ message: "不可停用目前登入帳號" });
+  }
+
+  const update = {};
+  if (typeof req.body.disabled === "boolean") update.disabled = req.body.disabled;
+  if (req.body.role !== undefined) {
+    const role = cleanText(req.body.role, 30);
+    if (!new Set(["super_admin", "tenant_admin", "user"]).has(role)) return res.status(400).json({ message: "角色不正確" });
+    if (req.user.role !== "super_admin") return res.status(403).json({ message: "只有超級管理員可以修改角色" });
+    update.role = role;
+  }
+  if (req.body.systems !== undefined) {
+    const systems = Array.isArray(req.body.systems)
+      ? [...new Set(req.body.systems.map(value => cleanText(value, 100)).filter(Boolean))].slice(0, 200)
+      : null;
+    if (!systems) return res.status(400).json({ message: "systems 必須是陣列" });
+    const valid = systems.length
+      ? await mongoose.connection.collection("systems").find({ tenant_id: target.tenant_id, system_id: { $in: systems } }, { projection: { system_id: 1 } }).toArray()
+      : [];
+    if (valid.length !== systems.length) return res.status(400).json({ message: "包含不存在或不屬於此租戶的機台" });
+    update.systems = systems;
+  }
+  if (!Object.keys(update).length) return res.status(400).json({ message: "沒有可更新的欄位" });
+  if ((update.role || target.role) !== "user") update.systems = [];
+  update.updatedAt = new Date();
+
+  await users.updateOne({ _id: target._id }, { $set: update, $inc: { session_version: 1 } });
+  await writeAudit(req, "user.update", {
+    tenant_id: target.tenant_id,
+    target: target.email || target.username || id,
+    details: {
+      changed_fields: Object.keys(update).filter(key => key !== "updatedAt"),
+      disabled: update.disabled,
+      role: update.role,
+      systems: update.systems
+    }
+  });
+  return res.json({ success: true, message: "使用者設定已更新；該帳號既有登入狀態已失效" });
 }));
 
 app.get("/api/admin/collections", auth, requireRole("super_admin"), (req, res) => res.json(["users", "tenants", "systems", "defects", "audit_logs"]));
@@ -502,7 +783,14 @@ app.get("/api/admin/collection/:name", auth, requireRole("super_admin"), asyncHa
   res.setHeader("X-Total-Count", String(await col.countDocuments({})));
   return res.json(await col.find({}, { projection }).sort({ _id: -1 }).skip((page - 1) * limit).limit(limit).toArray());
 }));
-app.get("/api/admin/tenants", auth, requireRole("super_admin"), asyncHandler(async (req, res) => res.json(await mongoose.connection.collection("tenants").find({}).sort({ createdAt: -1 }).limit(500).toArray())));
+app.get("/api/admin/tenants", auth, requireRole("super_admin"), asyncHandler(async (req, res) => {
+  const page = clampInt(req.query.page, 1, 1, 100000);
+  const limit = clampInt(req.query.limit, 100, 1, 200);
+  const col = mongoose.connection.collection("tenants");
+  res.setHeader("X-Total-Count", String(await col.countDocuments({})));
+  res.setHeader("X-Page", String(page));
+  return res.json(await col.find({}).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).toArray());
+}));
 
 app.get("/api/admin/audit-logs", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
   const page = clampInt(req.query.page, 1, 1, 100000);
@@ -545,6 +833,8 @@ app.get("/api/site-config", auth, asyncHandler(async (req, res) => {
 
 app.get("/api/systems", auth, asyncHandler(async (req, res) => {
   const requested = cleanText(req.query.tenant_id, 100);
+  const page = clampInt(req.query.page, 1, 1, 100000);
+  const limit = clampInt(req.query.limit, 500, 1, 1000);
   const query = {};
   if (req.user.role === "super_admin") { if (requested) query.tenant_id = requested; }
   else {
@@ -552,14 +842,57 @@ app.get("/api/systems", auth, asyncHandler(async (req, res) => {
     query.tenant_id = req.user.tenant_id;
     if (req.user.role === "user") { const ids = userSystemIds(req.user); query.system_id = ids.length ? { $in: ids } : "__NO_AUTHORIZED_SYSTEM__"; }
   }
-  return res.json(await mongoose.connection.collection("systems").find(query, { projection: { secret: 0, token: 0 } }).sort({ name: 1 }).toArray());
+  const col = mongoose.connection.collection("systems");
+  res.setHeader("X-Total-Count", String(await col.countDocuments(query)));
+  res.setHeader("X-Page", String(page));
+  return res.json(await col.find(query, { projection: { secret: 0, token: 0 } }).sort({ name: 1 }).skip((page - 1) * limit).limit(limit).toArray());
 }));
 
 let isMqttConnected = false;
 let latestMqttMessage = null;
 let mqttClient = null;
-app.get("/api/health", (req, res) => res.json({ status: mongoose.connection.readyState === 1 ? "ok" : "degraded", databaseConnected: mongoose.connection.readyState === 1, mqttConnected: isMqttConnected, mailConfigured: mailEnabled, geminiConfigured: Boolean(process.env.GEMINI_API_KEY) }));
-app.get("/health", (req, res) => { const ok = mongoose.connection.readyState === 1; return res.status(ok ? 200 : 503).json({ status: ok ? "ok" : "degraded", databaseConnected: ok }); });
+const processStartedAt = new Date();
+
+function healthSnapshot() {
+  const databaseConnected = mongoose.connection.readyState === 1;
+  const mqttConfigured = Boolean(process.env.MQTT_URL && process.env.HIVEMQ_USER && process.env.HIVEMQ_PASS);
+  const mailReady = !REQUIRE_EMAIL_LOGIN || (mailEnabled && isMailReady);
+  const mqttReady = !mqttRequired || (mqttConfigured && isMqttConnected);
+  return {
+    status: databaseConnected && mailReady && mqttReady ? "ok" : "degraded",
+    version: packageInfo.version,
+    uptime_seconds: Math.floor(process.uptime()),
+    started_at: processStartedAt.toISOString(),
+    checked_at: new Date().toISOString(),
+    database_connected: databaseConnected,
+    mail_required: REQUIRE_EMAIL_LOGIN,
+    mail_configured: mailEnabled,
+    mail_ready: isMailReady,
+    last_mail_check_at: lastMailCheckAt,
+    mqtt_required: mqttRequired,
+    mqtt_configured: mqttConfigured,
+    mqtt_connected: isMqttConnected,
+    gemini_configured: Boolean(process.env.GEMINI_API_KEY)
+  };
+}
+
+app.get("/api/health", (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  return res.json(healthSnapshot());
+});
+app.get("/health/live", (req, res) => res.json({ status: "ok", version: packageInfo.version, uptime_seconds: Math.floor(process.uptime()) }));
+app.get("/health/ready", (req, res) => {
+  const snapshot = healthSnapshot();
+  return res.status(snapshot.status === "ok" ? 200 : 503).json(snapshot);
+});
+app.get("/health", (req, res) => {
+  const databaseConnected = mongoose.connection.readyState === 1;
+  return res.status(databaseConnected ? 200 : 503).json({
+    status: databaseConnected ? "ok" : "degraded",
+    version: packageInfo.version,
+    database_connected: databaseConnected
+  });
+});
 app.get("/api/mqtt/latest", auth, (req, res) => {
   if (!latestMqttMessage) return res.json({ data: null });
   if (req.user.role === "super_admin") return res.json({ data: latestMqttMessage });
@@ -698,8 +1031,18 @@ app.get("/api/estop/:command_id", auth, requireRole("super_admin", "tenant_admin
   if (!/^[0-9a-f-]{36}$/i.test(command_id)) return res.status(400).json({ message: "command_id 格式不正確" });
   const query = { command_id, action: "machine.estop" };
   if (req.user.role === "tenant_admin") query.tenant_id = req.user.tenant_id;
-  const log = await AuditLog.findOne(query).sort({ createdAt: -1 }).lean();
+  let log = await AuditLog.findOne(query).sort({ createdAt: -1 }).lean();
   if (!log) return res.status(404).json({ message: "找不到急停指令" });
+
+  const state = commandStatus(log, ESTOP_ACK_TIMEOUT_SECONDS);
+  if (state.timedOut) {
+    const timedOutAt = new Date();
+    await AuditLog.updateOne({ _id: log._id, status: "pending_ack" }, {
+      $set: { status: "timed_out", "details.timedOutAt": timedOutAt }
+    });
+    log = { ...log, status: "timed_out", details: { ...(log.details || {}), timedOutAt } };
+  }
+
   return res.json({
     command_id: log.command_id,
     status: log.status,
@@ -707,6 +1050,8 @@ app.get("/api/estop/:command_id", auth, requireRole("super_admin", "tenant_admin
     system_id: log.system_id,
     requested_at: log.createdAt,
     acknowledged_at: log.details?.acknowledgedAt || null,
+    timed_out_at: log.details?.timedOutAt || null,
+    ack_timeout_seconds: ESTOP_ACK_TIMEOUT_SECONDS,
     ack: log.details?.ack || null
   });
 }));
@@ -717,45 +1062,192 @@ app.post("/api/estop", auth, requireRole("super_admin", "tenant_admin"), asyncHa
   const access = await systemAccess(req.user, system_id, tenant_id || undefined);
   if (!access.allowed) return res.status(access.status).json({ message: access.message });
   if (!mqttClient || !isMqttConnected) return res.status(503).json({ message: "MQTT 尚未連線，無法發送急停指令" });
+
   const command_id = crypto.randomUUID();
+  const requestedAt = new Date();
   const topic = MQTT_ESTOP_TOPIC_TEMPLATE.replace("{system_id}", system_id);
-  const payload = JSON.stringify({ command: "STOP", command_id, tenant_id: access.system.tenant_id, system_id, requested_at: new Date().toISOString() });
-  await new Promise((resolve, reject) => mqttClient.publish(topic, payload, { qos: 1 }, e => e ? reject(e) : resolve()));
-  await writeAudit(req, "machine.estop", { tenant_id: access.system.tenant_id, system_id, command_id, status: "pending_ack", details: { topic } });
-  return res.status(202).json({ success: true, command_id, status: "pending_ack", message: "緊急停止指令已送出，等待設備確認。" });
+  const payload = JSON.stringify({
+    command: "STOP",
+    command_id,
+    tenant_id: access.system.tenant_id,
+    system_id,
+    requested_at: requestedAt.toISOString(),
+    ack_timeout_seconds: ESTOP_ACK_TIMEOUT_SECONDS
+  });
+  await new Promise((resolve, reject) => mqttClient.publish(topic, payload, { qos: 1 }, error => error ? reject(error) : resolve()));
+  await writeAudit(req, "machine.estop", {
+    tenant_id: access.system.tenant_id,
+    system_id,
+    command_id,
+    status: "pending_ack",
+    details: {
+      topic,
+      ack_timeout_seconds: ESTOP_ACK_TIMEOUT_SECONDS,
+      expiresAt: new Date(requestedAt.getTime() + ESTOP_COMMAND_RETENTION_DAYS * 86400000)
+    }
+  });
+  return res.status(202).json({
+    success: true,
+    command_id,
+    status: "pending_ack",
+    ack_timeout_seconds: ESTOP_ACK_TIMEOUT_SECONDS,
+    message: "緊急停止指令已送出，等待設備確認。若逾時，系統不會自動重送，請人工確認機台狀態。"
+  });
 }));
 
 async function evaluateNgAlert(tenant_id, system_id) {
-  if (!mailEnabled || !ALERT_EMAIL) return;
-  const now = new Date(), since = new Date(now.getTime() - ALERT_WINDOW_MINUTES * 60000);
+  if (!mailEnabled || !ALERT_EMAIL || !isMailReady) return;
+  const now = new Date();
+  const since = new Date(now.getTime() - ALERT_WINDOW_MINUTES * 60000);
   const count = await Defect.countDocuments({ tenant_id, system_id, status: "NG", timestamp: { $gte: since } });
   if (count < ALERT_THRESHOLD) return;
-  const col = mongoose.connection.collection("alert_states"), key = `${tenant_id}:${system_id}:ng-window`, state = await col.findOne({ key });
-  if (state?.lastSentAt && now.getTime() - new Date(state.lastSentAt).getTime() < ALERT_COOLDOWN_MINUTES * 60000) return;
-  await transporter.sendMail({ from: MAIL_FROM, to: ALERT_EMAIL, subject: "產線 NG 異常警報", text: `機台 ${system_id} 在最近 ${ALERT_WINDOW_MINUTES} 分鐘內有 ${count} 筆 NG，已達門檻 ${ALERT_THRESHOLD} 筆。` });
-  await col.updateOne({ key }, { $set: { key, tenant_id, system_id, lastSentAt: now, lastCount: count } }, { upsert: true });
+
+  const col = mongoose.connection.collection("alert_states");
+  const key = `${tenant_id}:${system_id}:ng-window`;
+  const cooldownUntil = new Date(now.getTime() + ALERT_COOLDOWN_MINUTES * 60000);
+  try {
+    const claim = await col.findOneAndUpdate({
+      key,
+      $and: [
+        { $or: [{ cooldownUntil: { $exists: false } }, { cooldownUntil: { $lte: now } }] },
+        { $or: [{ processingUntil: { $exists: false } }, { processingUntil: { $lte: now } }] }
+      ]
+    }, {
+      $set: {
+        key,
+        tenant_id,
+        system_id,
+        processingUntil: new Date(now.getTime() + 120000),
+        lastEvaluatedAt: now,
+        lastCount: count
+      }
+    }, { upsert: true, returnDocument: "after" });
+    if (!claim) return;
+  } catch (error) {
+    if (error?.code === 11000) return;
+    throw error;
+  }
+
+  try {
+    await transporter.sendMail({
+      from: MAIL_FROM,
+      to: ALERT_EMAIL,
+      subject: "產線 NG 異常警報",
+      text: `機台 ${system_id} 在最近 ${ALERT_WINDOW_MINUTES} 分鐘內有 ${count} 筆 NG，已達門檻 ${ALERT_THRESHOLD} 筆。`
+    });
+    await col.updateOne({ key }, {
+      $set: { lastSentAt: now, cooldownUntil, lastCount: count },
+      $unset: { processingUntil: "", lastError: "" }
+    });
+    await AuditLog.create({
+      actor_id: "system",
+      actor_email: "",
+      role: "system",
+      tenant_id,
+      system_id,
+      action: "alert.ng.email",
+      status: "sent",
+      details: { count, window_minutes: ALERT_WINDOW_MINUTES, threshold: ALERT_THRESHOLD },
+      createdAt: now
+    });
+  } catch (error) {
+    await col.updateOne({ key }, {
+      $set: { lastError: cleanText(error.message, 500), lastErrorAt: new Date() },
+      $unset: { processingUntil: "" }
+    }).catch(() => {});
+    logger.error("NG alert email failed", { tenant_id, system_id, error: error.message });
+  }
 }
 
 function createMqttClient() {
   const mqttUrl = cleanText(process.env.MQTT_URL, 500);
   const mqttUser = cleanText(process.env.HIVEMQ_USER, 200);
   const mqttPass = String(process.env.HIVEMQ_PASS || "");
-  if (!mqttUrl && !mqttUser && !mqttPass) { console.warn("⚠️ MQTT 尚未設定，跳過 MQTT 連線"); return null; }
-  if (!mqttUrl || !mqttUser || !mqttPass) { console.warn("⚠️ MQTT_URL、HIVEMQ_USER、HIVEMQ_PASS 必須一起設定，已跳過 MQTT 連線"); return null; }
-  const client = mqtt.connect(mqttUrl, { port: clampInt(process.env.MQTT_PORT, 8883, 1, 65535), username: mqttUser, password: mqttPass, reconnectPeriod: 5000, connectTimeout: 15000, clean: true });
-  client.on("connect", () => { isMqttConnected = true; client.subscribe([MQTT_REPORT_TOPIC, MQTT_ESTOP_ACK_TOPIC], { qos: 1 }); console.log("✅ MQTT 已連線"); });
-  client.on("offline", () => { isMqttConnected = false; }); client.on("close", () => { isMqttConnected = false; }); client.on("error", e => { isMqttConnected = false; console.error("MQTT 錯誤:", e.message); });
+  if (!mqttUrl && !mqttUser && !mqttPass) {
+    logger.warn("MQTT is not configured; device ingestion is disabled");
+    return null;
+  }
+
+  const configuredClientId = cleanText(process.env.MQTT_CLIENT_ID, 100);
+  const fallbackClientId = `defect-system-${crypto.createHash("sha256").update(String(process.env.APP_BASE_URL || "local")).digest("hex").slice(0, 12)}`;
+  const client = mqtt.connect(mqttUrl, {
+    port: clampInt(process.env.MQTT_PORT, 8883, 1, 65535),
+    username: mqttUser,
+    password: mqttPass,
+    clientId: configuredClientId || fallbackClientId,
+    reconnectPeriod: 5000,
+    connectTimeout: 15000,
+    clean: false,
+    rejectUnauthorized: true,
+    resubscribe: true
+  });
+
+  client.on("connect", () => {
+    isMqttConnected = true;
+    client.subscribe([MQTT_REPORT_TOPIC, MQTT_ESTOP_ACK_TOPIC], { qos: 1 }, error => {
+      if (error) logger.error("MQTT subscription failed", { error: error.message });
+      else logger.info("MQTT connected and subscribed", { report_topic: MQTT_REPORT_TOPIC, ack_topic: MQTT_ESTOP_ACK_TOPIC });
+    });
+  });
+  client.on("offline", () => { isMqttConnected = false; });
+  client.on("close", () => { isMqttConnected = false; });
+  client.on("error", error => {
+    isMqttConnected = false;
+    logger.error("MQTT connection error", { error: error.message });
+  });
+
   client.on("message", async (topic, buffer) => {
     try {
+      if (buffer.length > MQTT_MAX_PAYLOAD_BYTES) throw new Error(`MQTT payload 超過 ${MQTT_MAX_PAYLOAD_BYTES} bytes`);
       const raw = JSON.parse(buffer.toString("utf8"));
-      if (topic.startsWith(MQTT_ESTOP_ACK_TOPIC.replace("+", ""))) { const command_id = cleanText(raw.command_id, 100); if (command_id) await AuditLog.updateOne({ command_id }, { $set: { status: cleanText(raw.status || "acknowledged", 40), "details.ack": raw, "details.acknowledgedAt": new Date() } }); return; }
+
+      const ackSystemFromTopic = topicSystemId(topic, MQTT_ESTOP_ACK_TOPIC);
+      if (ackSystemFromTopic) {
+        const command_id = cleanText(raw.command_id, 100);
+        if (!/^[0-9a-f-]{36}$/i.test(command_id)) throw new Error("E-stop ACK 缺少有效 command_id");
+        const status = normalizeAckStatus(raw.status);
+        const payloadSystemId = cleanText(raw.system_id, 100);
+        if (payloadSystemId && payloadSystemId !== ackSystemFromTopic) throw new Error("E-stop ACK topic 與 system_id 不一致");
+        const log = await AuditLog.findOne({ command_id, action: "machine.estop" }).sort({ createdAt: -1 }).lean();
+        if (!log) {
+          logger.warn("Unknown E-stop ACK ignored", { command_id, topic });
+          return;
+        }
+        if (log.system_id !== ackSystemFromTopic) throw new Error("E-stop ACK 不屬於原始機台");
+        const receivedAt = new Date();
+        await AuditLog.updateOne({ _id: log._id }, { $set: {
+          status,
+          "details.ack": {
+            command_id,
+            status,
+            system_id: ackSystemFromTopic,
+            topic,
+            received_at: receivedAt.toISOString()
+          },
+          "details.acknowledgedAt": receivedAt,
+          "details.lateAck": log.status === "timed_out"
+        } });
+        logger.info("E-stop ACK received", { command_id, system_id: ackSystemFromTopic, status, late: log.status === "timed_out" });
+        return;
+      }
+
       if (topic !== MQTT_REPORT_TOPIC) return;
       const systemId = cleanText(raw.system_id, 100);
-      const systemDoc = await mongoose.connection.collection("systems").findOne({ system_id: systemId }, { projection: { tenant_id: 1, current_product: 1 } });
+      const systemDoc = await mongoose.connection.collection("systems").findOne(
+        { system_id: systemId },
+        { projection: { tenant_id: 1, current_product: 1 } }
+      );
       if (!systemDoc) throw new Error("找不到機台");
-      const normalized = normalizeDefectPayload(raw, systemDoc.current_product || "未分類");
-      const owner = await mongoose.connection.collection("users").findOne({ tenant_id: systemDoc.tenant_id }, { projection: { username: 1, email: 1 } });
       const receivedAt = new Date();
+      const normalized = normalizeDefectPayload(raw, systemDoc.current_product || "未分類", {
+        now: receivedAt,
+        maxFutureMs: MQTT_MAX_FUTURE_SECONDS * 1000,
+        maxPastMs: MQTT_MAX_PAST_DAYS * 86400000
+      });
+      const owner = await mongoose.connection.collection("users").findOne(
+        { tenant_id: systemDoc.tenant_id },
+        { projection: { username: 1, email: 1 } }
+      );
       const docs = normalized.items.map(item => ({
         tenant_id: systemDoc.tenant_id,
         user_id: owner?.username || owner?.email || "unknown",
@@ -766,22 +1258,54 @@ function createMqttClient() {
         image_url: item.image_url || "",
         timestamp: item.timestamp || receivedAt
       }));
-      await Defect.insertMany(docs, { ordered: true });
+      const operations = docs.map(doc => ({
+        updateOne: {
+          filter: { tenant_id: doc.tenant_id, system_id: doc.system_id, id: doc.id },
+          update: { $setOnInsert: doc },
+          upsert: true
+        }
+      }));
+      const result = await Defect.bulkWrite(operations, { ordered: false });
       const last = docs[docs.length - 1];
       latestMqttMessage = {
         payload: { id: last.id, status: last.status, product: last.product, system_id: last.system_id, image_url: last.image_url },
         tenant_id: last.tenant_id,
-        timestamp: receivedAt
+        timestamp: receivedAt,
+        inserted_count: Number(result.upsertedCount || 0),
+        duplicate_count: Math.max(0, docs.length - Number(result.upsertedCount || 0))
       };
-      if (docs.some(v => v.status === "NG")) await evaluateNgAlert(systemDoc.tenant_id, normalized.system_id);
-    } catch (error) { console.error("MQTT 訊息拒絕:", error.message); }
+      if (Number(result.upsertedCount || 0) > 0 && docs.some(value => value.status === "NG")) {
+        await evaluateNgAlert(systemDoc.tenant_id, normalized.system_id);
+      }
+    } catch (error) {
+      logger.warn("MQTT message rejected", { topic, error: error.message, payload_bytes: buffer.length });
+    }
   });
   return client;
 }
 
 app.get("/", (req, res) => res.redirect(302, "/login.html"));
 app.use("/api", (req, res) => res.status(404).json({ message: "找不到此 API", request_id: req.requestId }));
-app.use((error, req, res, next) => { const status = Number(error.status || error.statusCode || 500); if (status >= 500) console.error(`[${req.requestId}]`, error); return res.status(status).json({ message: status >= 500 && NODE_ENV === "production" ? "伺服器暫時發生錯誤" : (error.message || "請求失敗"), request_id: req.requestId }); });
+app.use((error, req, res, next) => {
+  const rawStatus = Number(error.status || error.statusCode || 500);
+  const status = rawStatus >= 400 && rawStatus <= 599 ? rawStatus : 500;
+  if (status >= 500) {
+    logger.error("HTTP request failed", {
+      request_id: req.requestId,
+      method: req.method,
+      path: req.originalUrl,
+      status,
+      error: error.message,
+      stack: NODE_ENV === "development" ? error.stack : undefined
+    });
+  } else {
+    logger.warn("HTTP request rejected", { request_id: req.requestId, method: req.method, path: req.originalUrl, status, error: error.message });
+  }
+  return res.status(status).json({
+    message: status >= 500 && NODE_ENV === "production" ? "伺服器暫時發生錯誤" : (error.message || "請求失敗"),
+    request_id: req.requestId
+  });
+});
 
 async function runRetentionCleanup() {
   const tasks = [];
@@ -794,7 +1318,7 @@ async function runRetentionCleanup() {
   if (!tasks.length) return;
   const results = await Promise.allSettled(tasks);
   results.forEach(result => {
-    if (result.status === "rejected") console.warn("資料保留清理警告：", result.reason?.message || result.reason);
+    if (result.status === "rejected") logger.warn("Retention cleanup failed", { error: result.reason?.message || String(result.reason) });
   });
 }
 
@@ -802,8 +1326,12 @@ async function ensureIndexes() {
   const tasks = [
     mongoose.connection.collection("login_otps").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     mongoose.connection.collection("login_otps").createIndex({ email: 1 }, { unique: true }),
+    mongoose.connection.collection("login_otps").createIndex({ challengeId: 1 }, { unique: true, sparse: true }),
+    mongoose.connection.collection("login_security").createIndex({ key: 1 }, { unique: true }),
+    mongoose.connection.collection("login_security").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     mongoose.connection.collection("users").createIndex({ email: 1 }, { unique: true, sparse: true }),
     mongoose.connection.collection("users").createIndex({ username: 1 }, { unique: true, sparse: true }),
+    mongoose.connection.collection("users").createIndex({ tenant_id: 1, role: 1, createdAt: -1 }),
     mongoose.connection.collection("systems").createIndex({ tenant_id: 1, system_id: 1 }, { unique: true }),
     mongoose.connection.collection("alert_states").createIndex({ key: 1 }, { unique: true }),
     mongoose.connection.collection("ai_daily_usage").createIndex({ key: 1 }, { unique: true }),
@@ -813,17 +1341,56 @@ async function ensureIndexes() {
   ];
   const results = await Promise.allSettled(tasks);
   results.forEach(result => {
-    if (result.status === "rejected") console.warn("索引建立警告：", result.reason?.message || result.reason);
+    if (result.status === "rejected") logger.warn("Index creation warning", { error: result.reason?.message || String(result.reason) });
   });
 }
+
+async function verifyMailTransport() {
+  lastMailCheckAt = new Date().toISOString();
+  if (!mailEnabled || !transporter) {
+    isMailReady = !REQUIRE_EMAIL_LOGIN;
+    return isMailReady;
+  }
+  try {
+    await transporter.verify();
+    isMailReady = true;
+    logger.info("SMTP verification succeeded", { provider: smtpProvider, host: smtpHost, port: smtpPort });
+  } catch (error) {
+    isMailReady = false;
+    logger.error("SMTP verification failed", { provider: smtpProvider, host: smtpHost, port: smtpPort, error: error.message });
+  }
+  return isMailReady;
+}
+
 async function start() {
-  await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000, maxPoolSize: 10 });
-  console.log("✅ MongoDB 連線成功");
+  await mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 10000,
+    maxPoolSize: 10,
+    minPoolSize: 1,
+    maxIdleTimeMS: 60000,
+    retryWrites: true
+  });
+  logger.info("MongoDB connected");
   await ensureIndexes();
   await runRetentionCleanup();
-  setInterval(() => runRetentionCleanup().catch(error => console.warn("資料保留清理失敗：", error.message)), 24 * 60 * 60 * 1000).unref();
+  await verifyMailTransport();
+  setInterval(() => runRetentionCleanup().catch(error => logger.warn("Retention cleanup failed", { error: error.message })), 24 * 60 * 60 * 1000).unref();
+  setInterval(() => verifyMailTransport().catch(error => logger.warn("SMTP periodic check failed", { error: error.message })), 15 * 60 * 1000).unref();
   mqttClient = createMqttClient();
-  app.listen(PORT, "0.0.0.0", () => console.log(`🚀 server running on ${PORT}`));
+  const server = app.listen(PORT, "0.0.0.0", () => logger.info("HTTP server started", { port: PORT, version: packageInfo.version }));
+  const shutdown = async signal => {
+    logger.info("Graceful shutdown started", { signal });
+    server.close();
+    try { mqttClient?.end(true); } catch (_) {}
+    await mongoose.disconnect().catch(() => {});
+    process.exit(0);
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
+  return server;
 }
-if (require.main === module) start().catch(error => { console.error("❌ 伺服器啟動失敗:", error); process.exit(1); });
+if (require.main === module) start().catch(error => {
+  logger.error("Server startup failed", { error: error.message, stack: error.stack });
+  process.exit(1);
+});
 module.exports = { app, start };

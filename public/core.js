@@ -42,7 +42,7 @@
     if(window.DOMPurify){
       return window.DOMPurify.sanitize(text, {
         ALLOWED_TAGS:["div","span","b","strong","br","button","img","table","thead","tbody","tr","th","td","a","p"],
-        ALLOWED_ATTR:["class","href","src","alt","title","type","loading","style","aria-label"]
+        ALLOWED_ATTR:["class","href","src","alt","title","type","loading","aria-label"]
       });
     }
     return escapeHtml(text);
@@ -115,11 +115,10 @@
       document.body.appendChild(el);
     }
     el.textContent = msg || "";
-    el.style.display = "block";
-    el.style.backgroundColor = state === "OK" ? "rgba(34,197,94,.20)" : state === "WARN" ? "rgba(245,158,11,.22)" : "rgba(239,68,68,.22)";
-    el.style.borderColor = state === "OK" ? "rgba(34,197,94,.35)" : state === "WARN" ? "rgba(245,158,11,.35)" : "rgba(239,68,68,.35)";
-    el.style.color = "rgba(231,238,252,.95)";
-    setTimeout(()=>{ el.style.display = "none"; }, 3800);
+    el.classList.remove("toast-ok", "toast-warn", "toast-error");
+    el.classList.add(state === "OK" ? "toast-ok" : state === "WARN" ? "toast-warn" : "toast-error");
+    el.hidden = false;
+    setTimeout(()=>{ el.hidden = true; }, 3800);
   }
   window.toast = toast;
 
@@ -203,9 +202,18 @@
 
   function injectUnifiedSidebarCss(){ /* 已改為外部 unified-sidebar.css */ }
 
-  function navLink(file, label, pill){
-    const active = currentFile() === file ? " active" : "";
-    return `<a href="${file}" class="${active.trim()}"><span class="nav-label">${label}</span><span class="pill">${pill}</span></a>`;
+  function createNavLink(file, label, pill){
+    const link = document.createElement("a");
+    link.href = file;
+    if(currentFile() === file) link.classList.add("active");
+    const labelElement = document.createElement("span");
+    labelElement.className = "nav-label";
+    labelElement.textContent = label;
+    const pillElement = document.createElement("span");
+    pillElement.className = "pill";
+    pillElement.textContent = pill;
+    link.append(labelElement, pillElement);
+    return link;
   }
 
   function standardizeSidebar(){
@@ -213,27 +221,46 @@
     if(!sidebars.length) return;
     const info = getLoginInfo();
     const canAdmin = info.role === "super_admin" || info.role === "tenant_admin";
-    const adminHtml = canAdmin ? navLink("admin.html", "🧑‍💼 管理後台", "Admin") : "";
-    const html = `
-      <div class="brand">
-        <div class="logo"></div>
-        <div>
-          <h1>瑕疵辨識與分流系統</h1>
-          <p>Defect System</p>
-        </div>
-      </div>
-      <div class="nav">
-        ${navLink("dashboard.html", "🏠 首頁", "Dashboard")}
-        ${navLink("logs.html", "🧾 事件紀錄", "Logs")}
-        ${navLink("settings.html", "⚙️ 系統設定", "Settings")}
-        ${navLink("ai.html", "🤖 AI 助理", "AI")}
-        ${adminHtml}
-      </div>
-      <div class="side-footer">
-        <button class="btn" type="button" onclick="swHardReset()">修復灰底/警告（清快取）</button>
-        <button class="btn" type="button" onclick="logout()">登出</button>
-      </div>`;
-    sidebars.forEach(side => { setSafeHtml(side, html); });
+
+    sidebars.forEach(side => {
+      const brand = document.createElement("div");
+      brand.className = "brand";
+      const logo = document.createElement("div");
+      logo.className = "logo";
+      const brandText = document.createElement("div");
+      const title = document.createElement("h1");
+      title.textContent = "瑕疵辨識與分流系統";
+      const subtitle = document.createElement("p");
+      subtitle.textContent = "Defect System";
+      brandText.append(title, subtitle);
+      brand.append(logo, brandText);
+
+      const nav = document.createElement("div");
+      nav.className = "nav";
+      nav.append(
+        createNavLink("dashboard.html", "🏠 首頁", "Dashboard"),
+        createNavLink("logs.html", "🧾 事件紀錄", "Logs"),
+        createNavLink("settings.html", "⚙️ 系統設定", "Settings"),
+        createNavLink("ai.html", "🤖 AI 助理", "AI")
+      );
+      if(canAdmin) nav.append(createNavLink("admin.html", "🧑‍💼 管理後台", "Admin"));
+
+      const footer = document.createElement("div");
+      footer.className = "side-footer";
+      const resetButton = document.createElement("button");
+      resetButton.className = "btn";
+      resetButton.type = "button";
+      resetButton.textContent = "修復灰底/警告（清快取）";
+      resetButton.addEventListener("click", swHardReset);
+      const logoutButton = document.createElement("button");
+      logoutButton.className = "btn";
+      logoutButton.type = "button";
+      logoutButton.textContent = "登出";
+      logoutButton.addEventListener("click", logout);
+      footer.append(resetButton, logoutButton);
+
+      side.replaceChildren(brand, nav, footer);
+    });
   }
 
   function ensureAiFloatingButton(){

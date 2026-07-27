@@ -11,7 +11,7 @@
 ## 本次修正
 
 - 登入成功後先呼叫 `/api/session`，確認 Cookie 可用後才進入儀表板。
-- Cookie 改為 `SameSite=Lax`，並依 HTTPS/Render 代理資訊加入 `Secure`。
+- Cookie 改為 `SameSite=Strict`，並依 HTTPS/Render 代理資訊加入 `Secure`。
 - JWT 只保存使用者識別資料；角色、租戶與機台權限每次由資料庫重新讀取。
 - `auth-bootstrap.js` 不再加入 Service Worker 快取，所有受保護頁面加入版本參數。
 - `/api/session` 暫時失敗時會重試三次，避免 Render 剛喚醒時直接跳回登入頁。
