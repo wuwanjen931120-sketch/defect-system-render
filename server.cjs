@@ -123,7 +123,7 @@ const publicDir = path.join(__dirname, "public");
 app.use(express.static(publicDir, {
   dotfiles: "deny",
   etag: true,
-  index: "index.html",
+  index: false,
   maxAge: NODE_ENV === "production" ? "1h" : 0,
   setHeaders(res, filePath) {
     const name = path.basename(filePath).toLowerCase();
@@ -779,7 +779,7 @@ function createMqttClient() {
   return client;
 }
 
-app.get("/", (req, res) => res.sendFile(path.join(publicDir, "index.html")));
+app.get("/", (req, res) => res.redirect(302, "/login.html"));
 app.use("/api", (req, res) => res.status(404).json({ message: "找不到此 API", request_id: req.requestId }));
 app.use((error, req, res, next) => { const status = Number(error.status || error.statusCode || 500); if (status >= 500) console.error(`[${req.requestId}]`, error); return res.status(status).json({ message: status >= 500 && NODE_ENV === "production" ? "伺服器暫時發生錯誤" : (error.message || "請求失敗"), request_id: req.requestId }); });
 

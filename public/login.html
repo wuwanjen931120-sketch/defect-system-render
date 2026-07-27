@@ -1,56 +1,64 @@
 <!DOCTYPE html>
-
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
 <title>登入 - 瑕疵辨識與分流系統</title>
-<link href="style.css" rel="stylesheet"/>
+<link href="style.css?v=20260727-1" rel="stylesheet"/>
 <link href="manifest.webmanifest" rel="manifest"/>
 <meta content="#0b1220" name="theme-color"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
-<link href="login.page.css" rel="stylesheet"/><script src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script></head>
+<link href="login.page.css?v=20260727-1" rel="stylesheet"/>
+<script src="vendor/dompurify.min.js"></script>
+<script src="safe-dom.js"></script>
+</head>
 <body>
 <div class="wrap">
-<div class="loginCard">
-<div class="login-inline-style-1">
+<main class="loginCard">
+<header class="loginHeader">
 <div class="logo"></div>
 <div>
 <h1 class="title">登入</h1>
-<div class="sub">請輸入帳號與密碼進入系統（JWT 登入驗證版）</div>
+<p class="sub">請輸入信箱、密碼與信箱驗證碼進入系統。</p>
 </div>
-</div>
+</header>
+
 <div class="err" id="errBox"></div>
 <div class="ok" id="okBox"></div>
 <div aria-live="polite" class="serviceStatus" id="serviceStatus" role="status">正在檢查登入服務...</div>
+
+<section class="loginFields" aria-label="登入資料">
 <label for="email">信箱</label>
 <input autocomplete="email" id="email" placeholder="請輸入信箱" type="email"/>
+
 <label for="pass">密碼</label>
 <input autocomplete="current-password" id="pass" placeholder="請輸入密碼" type="password"/>
+
 <label for="code">信箱驗證碼</label>
 <input autocomplete="one-time-code" id="code" inputmode="numeric" maxlength="6" placeholder="請輸入信箱收到的 6 位數驗證碼"/>
-<div class="row">
+</section>
+
+<div class="primaryActions">
 <button class="btn" id="btnSendCode" type="button">寄送驗證碼</button>
 <button class="btn btnPrimary" id="btnLogin" type="button">驗證並登入</button>
-<button class="btn" id="btnHome" type="button">回首頁</button>
-<button class="btn" id="btnFix" type="button">修復灰底/警告（清快取）</button>
 </div>
-<div class="hint">
-<div>📌 登入流程：帳號密碼驗證 → 寄送一次性驗證碼 → 驗證成功後建立安全登入 Cookie。</div>
-<div>✅ 登入成功後會儲存 token、角色、使用者與可使用的機台。</div>
-<div>✅ 若遇到灰底或快取問題，可使用下方修復功能。</div>
-<div class="login-inline-style-2">
-          🔐 本系統需先註冊帳號後才能登入<br/>
-          請點擊下方「前往註冊」建立帳號
-        </div>
-<div class="login-inline-style-3">
+
+<div class="loginHelp">
+<p>登入流程：先輸入信箱與密碼寄送驗證碼，再輸入信箱收到的 6 位數驗證碼登入。</p>
+<button class="textAction" id="btnFix" type="button">遇到登入或快取問題？按此修復</button>
+</div>
+
+<div class="registerBox">
+<div>
+<strong>尚未註冊帳號？</strong>
+<span>先建立客戶帳號後即可登入。</span>
+</div>
 <button class="btn" id="btnRegister" type="button">前往註冊</button>
 </div>
-</div>
-</div>
+</main>
 </div>
 <div id="errorBar"></div>
-<script defer="" src="login.js?v=20260723-3"></script>
+<script defer src="login.js?v=20260727-1"></script>
 </body>
 </html>

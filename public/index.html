@@ -1,46 +1,22 @@
 <!DOCTYPE html>
-
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
-<title>瑕疵辨識與分流系統</title>
-<link href="style.css" rel="stylesheet"/>
-<link href="manifest.webmanifest" rel="manifest"/>
+<title>正在前往登入 - 瑕疵辨識與分流系統</title>
+<link href="style.css?v=20260727-1" rel="stylesheet"/>
+<link href="index.page.css?v=20260727-1" rel="stylesheet"/>
 <meta content="#0b1220" name="theme-color"/>
-<meta content="yes" name="apple-mobile-web-app-capable"/>
-<meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
-<script defer="" src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script>
-<script defer="" src="core.js?v=20260723-3"></script>
-<link href="index.page.css" rel="stylesheet"/></head>
+</head>
 <body>
-<div class="centerWrap">
-<main class="panel">
-<section class="hero">
+<div class="redirectWrap">
+<main class="redirectCard">
 <div class="heroIcon"></div>
-<div>
-<h1 class="heroTitle">瑕疵辨識與分流系統</h1>
-<p class="heroSub">WebCam 即時預覽、MQTT 訊息接收、MongoDB 紀錄與後台管理。</p>
-</div>
-</section>
-<section class="liveFrame">
-<video autoplay="" id="camera" muted="" playsinline=""></video>
-<div class="liveHint">WebCam 即時預覽｜請允許瀏覽器使用鏡頭</div>
-</section>
-<div class="btnRow">
-<button class="btn btnPrimary" id="btnGo">進入系統</button>
-<button class="btn" id="index-handler-1">前往登入</button>
-<button class="btn" id="index-handler-2">前往首頁</button>
-<button class="btn btnDanger" id="btnEstop">緊急停止</button>
-<button class="btn" id="btnFix">修復灰底／警告（清快取）</button>
-</div>
-<div class="note">
-<div>✅ 未登入時，會自動導向登入頁。</div>
-<div>✅ 若畫面仍顯示舊版，請按 Ctrl + F5 強制重新整理。</div>
-</div>
+<h1>瑕疵辨識與分流系統</h1>
+<p>正在前往登入頁面。若沒有自動跳轉，請按下方按鈕。</p>
+<a class="redirectButton" href="login.html">前往登入</a>
 </main>
 </div>
-<div id="errorBar"></div>
-<script src="index.inline-1.js"></script>
-<script src="index.handlers.js"></script></body>
+<script defer src="index.inline-1.js?v=20260727-1"></script>
+</body>
 </html>

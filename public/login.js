@@ -8,7 +8,6 @@
   const sendButton = $("btnSendCode");
   const loginButton = $("btnLogin");
   const fixButton = $("btnFix");
-  const homeButton = $("btnHome");
   const registerButton = $("btnRegister");
   const serviceStatus = $("serviceStatus");
 
@@ -204,7 +203,6 @@
   sendButton.addEventListener("click", sendCode);
   loginButton.addEventListener("click", verifyAndLogin);
   fixButton.addEventListener("click", fixCache);
-  homeButton.addEventListener("click", () => { location.href = "index.html"; });
   registerButton.addEventListener("click", () => { location.href = "register.html"; });
   codeInput.addEventListener("input", () => {
     codeInput.value = codeInput.value.replace(/\D/g, "").slice(0, 6);
