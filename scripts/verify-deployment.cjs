@@ -47,6 +47,10 @@ async function main() {
 
   const login = await request("/login.html");
   check(login.response.ok && /瑕疵辨識與分流系統/.test(login.text), "登入頁可開啟");
+
+  const register = await request("/register.html");
+  check(register.response.ok, "註冊頁可開啟");
+  check(/type="email"/.test(register.text) && /登入 Email/.test(register.text), "註冊欄位明確要求可收 OTP 的 Email");
   check(Boolean(login.response.headers.get("content-security-policy")), "CSP 安全標頭存在");
   check(Boolean(login.response.headers.get("strict-transport-security")), "HSTS 安全標頭存在");
   check(login.response.headers.get("x-content-type-options") === "nosniff", "X-Content-Type-Options=nosniff");

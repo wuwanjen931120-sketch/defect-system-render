@@ -44,6 +44,11 @@ const logger = require("./lib/logger.cjs");
 const packageInfo = require("./package.json");
 
 const app = express();
+
+function isValidEmail(value) {
+  const email = String(value || "").trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
+}
 app.set("trust proxy", 1);
 
 const PORT = Number(process.env.PORT || 5000);
@@ -442,6 +447,7 @@ app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
   const username = normalizeEmail(req.body.username);
   const password = String(req.body.password || "");
   if (!company || !username || !password) return res.status(400).json({ message: "資料不完整" });
+  if (!isValidEmail(username)) return res.status(400).json({ message: "請輸入有效的 Email 信箱，登入驗證碼會寄到此信箱" });
   const pw = validatePassword(password);
   if (!pw.valid) return res.status(400).json({ message: pw.errors.join("；") });
   const users = mongoose.connection.collection("users");
@@ -497,6 +503,7 @@ app.post("/api/login/send-code", otpSendLimiter, asyncHandler(async (req, res) =
   const email = normalizeEmail(req.body.email);
   const password = String(req.body.password || "");
   if (!email || !password) return res.status(400).json({ message: "請輸入信箱與密碼" });
+  if (!isValidEmail(email)) return res.status(400).json({ message: "Email 格式不正確" });
 
   const lock = await readLoginLock(email, req);
   if (lock.locked) {
@@ -578,7 +585,7 @@ app.post("/api/login/verify-code", authLimiter, asyncHandler(async (req, res) =>
   const email = normalizeEmail(req.body.email);
   const code = cleanText(req.body.code, 12);
   const challengeId = cleanText(req.body.challenge_id, 100);
-  if (!email || !/^\d{6}$/.test(code) || !/^[0-9a-f-]{36}$/i.test(challengeId)) {
+  if (!isValidEmail(email) || !/^\d{6}$/.test(code) || !/^[0-9a-f-]{36}$/i.test(challengeId)) {
     return res.status(400).json({ message: "請先寄送驗證碼，再輸入信箱與 6 位數驗證碼" });
   }
   const col = mongoose.connection.collection("login_otps");
