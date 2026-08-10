@@ -10,6 +10,7 @@
   { href: "settings.html", icon: "⚙️", label: "系統設定", pill: "Settings" },
   { href: "ai.html", icon: "🤖", label: "AI 助理", pill: "AI" },
   { href: "health.html", icon: "🩺", label: "系統健康", pill: "Health" },
+  { href: "user-manage.html", icon: "👥", label: "角色機台管理", pill: "Users", adminOnly: true },
   { href: "admin.html", icon: "🧑‍💼", label: "管理後台", pill: "Admin", adminOnly: true }
 ];
 
