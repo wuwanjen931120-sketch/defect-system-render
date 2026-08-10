@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>操作稽核紀錄</title>
+  <link rel="stylesheet" href="audit.css" />
+</head>
+
+<body>
+  <main class="page">
+    <section class="card">
+      <div class="header">
+        <div>
+          <h1>操作稽核紀錄</h1>
+          <p>查看管理操作、E-stop、登入與資料修改紀錄</p>
+        </div>
+
+        <div class="actions">
+          <button id="refreshBtn" type="button">重新整理</button>
+          <a href="admin.html">返回管理後台</a>
+        </div>
+      </div>
+
+      <div class="filters">
+        <input
+          id="searchInput"
+          type="search"
+          placeholder="搜尋使用者、動作、機台..."
+        />
+
+        <select id="actionFilter">
+          <option value="">全部操作</option>
+          <option value="LOGIN">登入</option>
+          <option value="ESTOP">E-stop</option>
+          <option value="USER">使用者管理</option>
+          <option value="SETTING">設定修改</option>
+        </select>
+      </div>
+
+      <div id="status" class="status">
+        正在載入操作紀錄...
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>時間</th>
+              <th>使用者</th>
+              <th>角色</th>
+              <th>操作</th>
+              <th>目標</th>
+              <th>機台</th>
+              <th>IP</th>
+              <th>結果</th>
+            </tr>
+          </thead>
+          <tbody id="auditBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="audit.js"></script>
+</body>
+</html>
