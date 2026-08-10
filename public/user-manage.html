@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>角色與機台管理</title>
+  <link rel="stylesheet" href="user-manage.css" />
+</head>
+
+<body>
+  <main class="page">
+    <section class="card">
+      <div class="header">
+        <div>
+          <h1>角色與機台指派管理</h1>
+          <p>管理使用者角色、授權機台與帳號狀態</p>
+        </div>
+
+        <div class="header-actions">
+          <button id="refreshBtn" type="button">重新整理</button>
+          <a href="admin.html">返回管理後台</a>
+        </div>
+      </div>
+
+      <div id="status" class="status">正在讀取使用者...</div>
+
+      <div class="layout">
+        <section class="users-panel">
+          <h2>使用者</h2>
+          <div id="userList" class="user-list"></div>
+        </section>
+
+        <section class="editor-panel">
+          <h2>帳號設定</h2>
+
+          <div id="emptyState" class="empty-state">
+            請先從左側選擇使用者
+          </div>
+
+          <form id="editForm" class="edit-form" hidden>
+            <label>
+              帳號
+              <input id="username" type="text" readonly />
+            </label>
+
+            <label>
+              公司
+              <input id="company" type="text" readonly />
+            </label>
+
+            <label>
+              Tenant ID
+              <input id="tenantId" type="text" readonly />
+            </label>
+
+            <label>
+              角色
+              <select id="role">
+                <option value="user">user</option>
+                <option value="tenant_admin">tenant_admin</option>
+                <option value="super_admin">super_admin</option>
+              </select>
+            </label>
+
+            <div class="field-block">
+              <div class="field-title">授權機台</div>
+              <div id="systemsList" class="systems-list">
+                尚未讀取機台
+              </div>
+              <p class="hint">
+                只有 user 角色需要指定機台；管理員角色會由後端自動清空 systems。
+              </p>
+            </div>
+
+            <label class="toggle-row">
+              <input id="enabled" type="checkbox" />
+              <span>帳號啟用</span>
+            </label>
+
+            <div class="save-row">
+              <button id="saveBtn" type="submit">儲存修改</button>
+              <span id="saveStatus"></span>
+            </div>
+          </form>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script src="user-manage.js"></script>
+</body>
+</html>
