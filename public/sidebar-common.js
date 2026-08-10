@@ -5,12 +5,13 @@
 // =====================================================
 (function () {
   const NAV_ITEMS = [
-    { href: "dashboard.html", icon: "🏠", label: "首頁", pill: "Dashboard" },
-    { href: "logs.html", icon: "📋", label: "事件紀錄", pill: "Logs" },
-    { href: "settings.html", icon: "⚙️", label: "系統設定", pill: "Settings" },
-    { href: "ai.html", icon: "🤖", label: "AI 助理", pill: "AI" },
-    { href: "admin.html", icon: "🧑‍💼", label: "管理後台", pill: "Admin", adminOnly: true }
-  ];
+  { href: "dashboard.html", icon: "🏠", label: "首頁", pill: "Dashboard" },
+  { href: "logs.html", icon: "📋", label: "事件紀錄", pill: "Logs" },
+  { href: "settings.html", icon: "⚙️", label: "系統設定", pill: "Settings" },
+  { href: "ai.html", icon: "🤖", label: "AI 助理", pill: "AI" },
+  { href: "health.html", icon: "🩺", label: "系統健康", pill: "Health" },
+  { href: "admin.html", icon: "🧑‍💼", label: "管理後台", pill: "Admin", adminOnly: true }
+];
 
   function getCurrentPage() {
     const name = location.pathname.split("/").pop() || "dashboard.html";

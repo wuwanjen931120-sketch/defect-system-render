@@ -238,11 +238,12 @@
       const nav = document.createElement("div");
       nav.className = "nav";
       nav.append(
-        createNavLink("dashboard.html", "🏠 首頁", "Dashboard"),
-        createNavLink("logs.html", "🧾 事件紀錄", "Logs"),
-        createNavLink("settings.html", "⚙️ 系統設定", "Settings"),
-        createNavLink("ai.html", "🤖 AI 助理", "AI")
-      );
+  createNavLink("dashboard.html", "🏠 首頁", "Dashboard"),
+  createNavLink("logs.html", "🧾 事件紀錄", "Logs"),
+  createNavLink("settings.html", "⚙️ 系統設定", "Settings"),
+  createNavLink("ai.html", "🤖 AI 助理", "AI"),
+  createNavLink("health.html", "🩺 系統健康", "Health")
+);
       if(canAdmin) nav.append(createNavLink("admin.html", "🧑‍💼 管理後台", "Admin"));
 
       const footer = document.createElement("div");
