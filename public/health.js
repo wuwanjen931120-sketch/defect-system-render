@@ -42,43 +42,29 @@ async function loadHealth() {
 
     const data = await response.json();
 
-    const databaseOk =
-      data.database === "connected" ||
-      data.database === "ok" ||
-      data.database === true;
-
-    const emailOk =
-      data.email === "verified" ||
-      data.email === "ok" ||
-      data.email === true;
-
-    const mqttOk =
-      data.mqtt === "connected" ||
-      data.mqtt === "ok" ||
-      data.mqtt === true;
+    const databaseOk = data.database_connected === true;
+const emailOk = data.mail_ready === true;
+const mqttOk = data.mqtt_connected === true;
 
     setStatus(
-      "database",
-      databaseOk ? "正常" : String(data.database ?? "異常"),
-      databaseOk ? "ok" : "error"
-    );
+  "database",
+  databaseOk ? "正常" : "資料庫未連線",
+  databaseOk ? "ok" : "error"
+);
+
+   setStatus(
+  "email",
+  emailOk ? "正常" : "Email 服務未就緒",
+  emailOk ? "ok" : "error"
+);
 
     setStatus(
-      "email",
-      emailOk ? "正常" : String(data.email ?? "異常"),
-      emailOk ? "ok" : "error"
-    );
+  "mqtt",
+  mqttOk ? "已連線" : "未連線",
+  mqttOk ? "ok" : "error"
+);
 
-    setStatus(
-      "mqtt",
-      mqttOk ? "已連線" : String(data.mqtt ?? "未連線"),
-      mqttOk ? "ok" : "error"
-    );
-
-    const geminiEnabled =
-      data.gemini === true ||
-      data.gemini === "configured" ||
-      data.ai === "configured";
+    const geminiEnabled = data.gemini_configured === true;
 
     setStatus(
       "gemini",
@@ -90,7 +76,7 @@ async function loadHealth() {
       data.version ?? "-";
 
     document.getElementById("uptime").textContent =
-      formatUptime(data.uptime);
+      formatUptime(data.uptime_seconds);
 
     overall.textContent =
       databaseOk && emailOk && mqttOk
