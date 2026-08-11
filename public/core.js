@@ -243,7 +243,8 @@
   createNavLink("settings.html", "⚙️ 系統設定", "Settings"),
   createNavLink("ai.html", "🤖 AI 助理", "AI"),
   createNavLink("health.html", "🩺 系統健康", "Health"),
-  createNavLink("alerts.html", "🚨 告警中心", "Alerts")
+  createNavLink("alerts.html", "🚨 告警中心", "Alerts"),
+  createNavLink("machine-status.html", "🖥️ 機台狀態", "Machines")
 );
 if (canAdmin) {
   nav.append(

@@ -1,0 +1,280 @@
+.machinePage {
+  width: 100%;
+  padding: 28px;
+}
+
+.machineHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.machineHeader h2 {
+  margin: 0 0 6px;
+  font-size: 28px;
+}
+
+.machineHeader p {
+  margin: 0;
+  opacity: 0.72;
+  line-height: 1.6;
+}
+
+.machineSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.machineSummaryCard {
+  background: rgba(16, 31, 54, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.machineSummaryCard span {
+  display: block;
+  font-size: 14px;
+  opacity: 0.72;
+  margin-bottom: 10px;
+}
+
+.machineSummaryCard strong {
+  font-size: 28px;
+}
+
+.machineSummaryOnline {
+  border-color: rgba(72, 211, 139, 0.38);
+}
+
+.machineSummaryOffline {
+  border-color: rgba(255, 92, 92, 0.38);
+}
+
+.machinePanel {
+  background: rgba(16, 31, 54, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.machineToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.machineTabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.machineTab {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  border-radius: 9px;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+
+.machineTab.active {
+  background: rgba(56, 132, 255, 0.22);
+  border-color: rgba(56, 132, 255, 0.7);
+}
+
+.machineAutoRefresh {
+  font-size: 14px;
+  opacity: 0.82;
+}
+
+.machineStatusMessage {
+  min-height: 22px;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.machineStatusMessage.success {
+  color: #79d9a7;
+}
+
+.machineStatusMessage.error {
+  color: #ff8c8c;
+}
+
+.machineCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.machineCard {
+  background: rgba(9, 21, 39, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.machineCardOnline {
+  border-color: rgba(72, 211, 139, 0.4);
+}
+
+.machineCardOffline {
+  border-color: rgba(255, 92, 92, 0.38);
+}
+
+.machineCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.machineName {
+  font-size: 19px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.machineId {
+  font-size: 13px;
+  opacity: 0.68;
+  word-break: break-all;
+}
+
+.machineStatusBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.machineStatusOnline {
+  background: rgba(72, 211, 139, 0.18);
+}
+
+.machineStatusOffline {
+  background: rgba(255, 92, 92, 0.18);
+}
+
+.machineInfo {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 16px;
+}
+
+.machineInfoRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 14px;
+}
+
+.machineInfoLabel {
+  opacity: 0.68;
+}
+
+.machineInfoValue {
+  text-align: right;
+  word-break: break-word;
+}
+
+.machineStats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.machineStat {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.machineStat span {
+  display: block;
+  font-size: 12px;
+  opacity: 0.68;
+  margin-bottom: 5px;
+}
+
+.machineStat strong {
+  font-size: 18px;
+}
+
+.machineEstop {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.machineEstopLabel {
+  opacity: 0.7;
+}
+
+.machineEstopValue {
+  font-weight: 700;
+}
+
+.machineEmpty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 20px;
+  opacity: 0.68;
+}
+
+@media (max-width: 1200px) {
+  .machineCards {
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .machineSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .machineToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 700px) {
+  .machinePage {
+    padding: 16px;
+  }
+
+  .machineHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .machineSummary {
+    grid-template-columns: 1fr;
+  }
+
+  .machineCards {
+    grid-template-columns: 1fr;
+  }
+
+  .machineStats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

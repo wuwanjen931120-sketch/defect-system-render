@@ -1014,7 +1014,143 @@ function healthSnapshot() {
     gemini_configured: Boolean(process.env.GEMINI_API_KEY)
   };
 }
+app.get("/api/machine-status", auth, asyncHandler(async (req, res) => {
+  const requestedTenant = cleanText(req.query.tenant_id, 100);
 
+  const systemQuery = {};
+
+  if (req.user.role === "super_admin") {
+    if (requestedTenant) {
+      systemQuery.tenant_id = requestedTenant;
+    }
+  } else {
+    if (
+      requestedTenant &&
+      requestedTenant !== req.user.tenant_id
+    ) {
+      return res.status(403).json({
+        message: "無權存取其他租戶"
+      });
+    }
+
+    systemQuery.tenant_id = req.user.tenant_id;
+
+    if (req.user.role === "user") {
+      const ids = userSystemIds(req.user);
+
+      systemQuery.system_id = ids.length
+        ? { $in: ids }
+        : "__NO_AUTHORIZED_SYSTEM__";
+    }
+  }
+
+  const systems = await mongoose.connection
+    .collection("systems")
+    .find(systemQuery, {
+      projection: {
+        secret: 0,
+        token: 0
+      }
+    })
+    .sort({ name: 1 })
+    .toArray();
+
+  const now = Date.now();
+  const onlineWindowMs = 2 * 60 * 1000;
+
+  const result = await Promise.all(
+    systems.map(async system => {
+      const defectQuery = {
+        tenant_id: system.tenant_id,
+        system_id: system.system_id
+      };
+
+      const [summary] = await Defect.aggregate([
+        {
+          $match: defectQuery
+        },
+        {
+          $group: {
+            _id: null,
+            total: {
+              $sum: 1
+            },
+            ok: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$status", "OK"] },
+                  1,
+                  0
+                ]
+              }
+            },
+            ng: {
+              $sum: {
+                $cond: [
+                  { $eq: ["$status", "NG"] },
+                  1,
+                  0
+                ]
+              }
+            }
+          }
+        }
+      ]);
+
+      const total = Number(summary?.total || 0);
+      const ok = Number(summary?.ok || 0);
+      const ng = Number(summary?.ng || 0);
+
+      const lastReportAt = system.last_report_at
+        ? new Date(system.last_report_at)
+        : null;
+
+      const online =
+        lastReportAt &&
+        !Number.isNaN(lastReportAt.getTime()) &&
+        now - lastReportAt.getTime() <= onlineWindowMs;
+
+      const latestEstop = await AuditLog.findOne({
+        tenant_id: system.tenant_id,
+        system_id: system.system_id,
+        action: "machine.estop"
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      return {
+        tenant_id: system.tenant_id,
+        system_id: system.system_id,
+        name: system.name || "未命名機台",
+        current_product:
+          system.current_product || "未設定",
+        online: Boolean(online),
+        last_report_at:
+          system.last_report_at || null,
+        total,
+        ok,
+        ng,
+        yield_rate:
+          total > 0
+            ? Number(
+                ((ok / total) * 100).toFixed(1)
+              )
+            : 0,
+        estop_status:
+          latestEstop?.status || "none",
+        estop_command_id:
+          latestEstop?.command_id || null,
+        estop_requested_at:
+          latestEstop?.createdAt || null
+      };
+    })
+  );
+
+  return res.json({
+    online_window_seconds: 120,
+    machines: result
+  });
+}));
 app.get("/api/health", (req, res) => {
   res.setHeader("Cache-Control", "no-store");
   return res.json(healthSnapshot());
@@ -1468,16 +1604,36 @@ function createMqttClient() {
       if (topic !== MQTT_REPORT_TOPIC) return;
       const systemId = cleanText(raw.system_id, 100);
       const systemDoc = await mongoose.connection.collection("systems").findOne(
-        { system_id: systemId },
-        { projection: { tenant_id: 1, current_product: 1 } }
-      );
-      if (!systemDoc) throw new Error("找不到機台");
-      const receivedAt = new Date();
-      const normalized = normalizeDefectPayload(raw, systemDoc.current_product || "未分類", {
-        now: receivedAt,
-        maxFutureMs: MQTT_MAX_FUTURE_SECONDS * 1000,
-        maxPastMs: MQTT_MAX_PAST_DAYS * 86400000
-      });
+  { system_id: systemId },
+  { projection: { tenant_id: 1, current_product: 1 } }
+);
+
+if (!systemDoc) throw new Error("找不到機台");
+
+const receivedAt = new Date();
+
+await mongoose.connection.collection("systems").updateOne(
+  {
+    tenant_id: systemDoc.tenant_id,
+    system_id: systemId
+  },
+  {
+    $set: {
+      last_report_at: receivedAt,
+      last_report_status: "online"
+    }
+  }
+);
+
+const normalized = normalizeDefectPayload(
+  raw,
+  systemDoc.current_product || "未分類",
+  {
+    now: receivedAt,
+    maxFutureMs: MQTT_MAX_FUTURE_SECONDS * 1000,
+    maxPastMs: MQTT_MAX_PAST_DAYS * 86400000
+  }
+);
       const owner = await mongoose.connection.collection("users").findOne(
         { tenant_id: systemDoc.tenant_id },
         { projection: { username: 1, email: 1 } }

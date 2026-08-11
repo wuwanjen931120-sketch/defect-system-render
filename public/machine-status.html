@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>機台狀態 - 瑕疵辨識與分流系統</title>
+
+  <script src="auth-bootstrap.js?v=20260811-1"></script>
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="unified-sidebar.css" />
+  <link rel="stylesheet" href="machine-status.css?v=20260811-1" />
+
+  <script defer src="core.js?v=20260811-1"></script>
+  <script defer src="machine-status.js?v=20260811-1"></script>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo"></div>
+
+        <div>
+          <h1>瑕疵辨識與分流系統</h1>
+          <p>Defect System</p>
+        </div>
+      </div>
+
+      <div class="nav">
+        <a href="dashboard.html">
+          <span class="nav-label">🏠 首頁</span>
+          <span class="pill">Dashboard</span>
+        </a>
+
+        <a href="logs.html">
+          <span class="nav-label">🧾 事件紀錄</span>
+          <span class="pill">Logs</span>
+        </a>
+
+        <a href="settings.html">
+          <span class="nav-label">⚙️ 系統設定</span>
+          <span class="pill">Settings</span>
+        </a>
+
+        <a href="ai.html">
+          <span class="nav-label">🤖 AI 助理</span>
+          <span class="pill">AI</span>
+        </a>
+
+        <a href="health.html">
+          <span class="nav-label">🩺 系統健康</span>
+          <span class="pill">Health</span>
+        </a>
+
+        <a href="alerts.html">
+          <span class="nav-label">🚨 告警中心</span>
+          <span class="pill">Alerts</span>
+        </a>
+
+        <a class="active" href="machine-status.html">
+          <span class="nav-label">🖥️ 機台狀態</span>
+          <span class="pill">Machines</span>
+        </a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="machinePage">
+
+        <div class="machineHeader">
+          <div>
+            <h2>🖥️ 即時機台狀態</h2>
+            <p>
+              查看各機台連線狀態、最後回報時間、目前產品、
+              良率與最新緊急停止狀態。
+            </p>
+          </div>
+
+          <button
+            class="btn btnPrimary"
+            id="refreshMachinesBtn"
+            type="button"
+          >
+            ⟳ 重新整理
+          </button>
+        </div>
+
+        <section class="machineSummary">
+
+          <div class="machineSummaryCard">
+            <span>全部機台</span>
+            <strong id="machineCountAll">0</strong>
+          </div>
+
+          <div class="machineSummaryCard machineSummaryOnline">
+            <span>Online</span>
+            <strong id="machineCountOnline">0</strong>
+          </div>
+
+          <div class="machineSummaryCard machineSummaryOffline">
+            <span>Offline</span>
+            <strong id="machineCountOffline">0</strong>
+          </div>
+
+          <div class="machineSummaryCard">
+            <span>Online 判斷時間</span>
+            <strong id="machineOnlineWindow">120 秒</strong>
+          </div>
+
+        </section>
+
+        <section class="machinePanel">
+
+          <div class="machineToolbar">
+
+            <div class="machineTabs">
+
+              <button
+                class="machineTab active"
+                data-filter="all"
+                type="button"
+              >
+                全部
+              </button>
+
+              <button
+                class="machineTab"
+                data-filter="online"
+                type="button"
+              >
+                Online
+              </button>
+
+              <button
+                class="machineTab"
+                data-filter="offline"
+                type="button"
+              >
+                Offline
+              </button>
+
+            </div>
+
+            <div class="machineAutoRefresh">
+              <label>
+                <input
+                  id="machineAutoRefresh"
+                  type="checkbox"
+                  checked
+                />
+                每 15 秒自動更新
+              </label>
+            </div>
+
+          </div>
+
+          <div
+            id="machineStatusMessage"
+            class="machineStatusMessage"
+          ></div>
+
+          <div
+            id="machineCards"
+            class="machineCards"
+          >
+            <div class="machineEmpty">
+              正在讀取機台狀態...
+            </div>
+          </div>
+
+        </section>
+
+      </div>
+    </main>
+  </div>
+</body>
+</html>
