@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "aiot-static-v14-p1p2-hardening";
+const CACHE_NAME = "defect-cache-v5";
 const STATIC_ASSETS = [
   "./offline.html",
   "./style.css",
@@ -43,8 +43,11 @@ self.addEventListener("fetch", event => {
     url.pathname.startsWith("/api/") ||
     url.pathname === "/health" ||
     request.headers.has("Authorization")
-  ) return;
+  ) {
+    return;
+  }
 
+  // HTML 導航一律優先讀取最新版。
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request, { cache: "no-store" })
@@ -53,16 +56,45 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  if (!STATIC_ASSETS.some(asset => new URL(asset, self.location.href).pathname === url.pathname)) return;
+  const isStaticAsset = STATIC_ASSETS.some(
+    asset =>
+      new URL(asset, self.location.href).pathname === url.pathname
+  );
 
-  event.respondWith((async () => {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    const response = await fetch(request);
-    if (response.ok && response.type === "basic") {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.put(request, response.clone());
-    }
-    return response;
-  })());
+  if (!isStaticAsset) {
+    return;
+  }
+
+  // JS / CSS / 靜態資源改成 Network First。
+  // 有網路時取得最新版並更新快取；
+  // 只有網路失敗時才使用舊快取。
+  event.respondWith(
+    (async () => {
+      try {
+        const response = await fetch(request, {
+          cache: "no-store"
+        });
+
+        if (response && response.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          await cache.put(request, response.clone());
+        }
+
+        return response;
+      } catch {
+        const cached = await caches.match(request);
+
+        if (cached) {
+          return cached;
+        }
+
+        return new Response("Offline", {
+          status: 503,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8"
+          }
+        });
+      }
+    })()
+  );
 });
