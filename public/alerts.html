@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>告警中心 - 瑕疵辨識與分流系統</title>
+
+  <script src="auth-bootstrap.js?v=20260811-1"></script>
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="unified-sidebar.css" />
+  <link rel="stylesheet" href="alerts.css?v=20260811-1" />
+
+  <script defer src="core.js?v=20260811-1"></script>
+  <script defer src="alerts.js?v=20260811-1"></script>
+</head>
+
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo"></div>
+
+        <div>
+          <h1>瑕疵辨識與分流系統</h1>
+          <p>Defect System</p>
+        </div>
+      </div>
+
+      <div class="nav">
+        <a href="dashboard.html">
+          <span class="nav-label">🏠 首頁</span>
+          <span class="pill">Dashboard</span>
+        </a>
+
+        <a href="logs.html">
+          <span class="nav-label">🧾 事件紀錄</span>
+          <span class="pill">Logs</span>
+        </a>
+
+        <a href="settings.html">
+          <span class="nav-label">⚙️ 系統設定</span>
+          <span class="pill">Settings</span>
+        </a>
+
+        <a href="ai.html">
+          <span class="nav-label">🤖 AI 助理</span>
+          <span class="pill">AI</span>
+        </a>
+
+        <a href="health.html">
+          <span class="nav-label">🩺 系統健康</span>
+          <span class="pill">Health</span>
+        </a>
+
+        <a class="active" href="alerts.html">
+          <span class="nav-label">🚨 告警中心</span>
+          <span class="pill">Alerts</span>
+        </a>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="alertsPage">
+        <div class="alertsHeader">
+          <div>
+            <h2>🚨 告警中心</h2>
+            <p>集中查看機台 NG 異常、告警狀態與處理紀錄。</p>
+          </div>
+
+          <button class="btn btnPrimary" id="refreshAlertsBtn" type="button">
+            ⟳ 重新整理
+          </button>
+        </div>
+
+        <section class="alertsSummary">
+          <div class="alertSummaryCard">
+            <span>全部告警</span>
+            <strong id="countAll">0</strong>
+          </div>
+
+          <div class="alertSummaryCard alertOpen">
+            <span>未處理</span>
+            <strong id="countOpen">0</strong>
+          </div>
+
+          <div class="alertSummaryCard alertAcknowledged">
+            <span>已確認</span>
+            <strong id="countAcknowledged">0</strong>
+          </div>
+
+          <div class="alertSummaryCard alertResolved">
+            <span>已解決</span>
+            <strong id="countResolved">0</strong>
+          </div>
+        </section>
+
+        <section class="alertsPanel">
+          <div class="alertsToolbar">
+            <div class="alertTabs">
+              <button class="alertTab active" data-status="" type="button">
+                全部
+              </button>
+
+              <button class="alertTab" data-status="open" type="button">
+                未處理
+              </button>
+
+              <button class="alertTab" data-status="acknowledged" type="button">
+                已確認
+              </button>
+
+              <button class="alertTab" data-status="resolved" type="button">
+                已解決
+              </button>
+            </div>
+
+            <div class="alertFilter">
+              <label for="alertSystemFilter">機台</label>
+
+              <select id="alertSystemFilter">
+                <option value="">全部機台</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="alertsMessage" class="alertsMessage"></div>
+
+          <div class="alertsTableWrap">
+            <table class="alertsTable">
+              <thead>
+                <tr>
+                  <th>時間</th>
+                  <th>機台</th>
+                  <th>類型</th>
+                  <th>等級</th>
+                  <th>告警內容</th>
+                  <th>狀態</th>
+                  <th>處理人</th>
+                  <th>操作</th>
+                </tr>
+              </thead>
+
+              <tbody id="alertsTableBody">
+                <tr>
+                  <td colspan="8" class="emptyRow">載入中...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

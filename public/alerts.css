@@ -1,0 +1,227 @@
+.alertsPage {
+  padding: 28px;
+  width: 100%;
+}
+
+.alertsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 22px;
+}
+
+.alertsHeader h2 {
+  margin: 0 0 6px;
+  font-size: 28px;
+}
+
+.alertsHeader p {
+  margin: 0;
+  opacity: 0.72;
+}
+
+.alertsSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.alertSummaryCard {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 18px;
+  background: rgba(16, 31, 54, 0.86);
+}
+
+.alertSummaryCard span {
+  display: block;
+  font-size: 14px;
+  opacity: 0.75;
+  margin-bottom: 10px;
+}
+
+.alertSummaryCard strong {
+  font-size: 30px;
+}
+
+.alertOpen {
+  border-color: rgba(255, 92, 92, 0.35);
+}
+
+.alertAcknowledged {
+  border-color: rgba(255, 190, 80, 0.35);
+}
+
+.alertResolved {
+  border-color: rgba(92, 211, 150, 0.35);
+}
+
+.alertsPanel {
+  background: rgba(16, 31, 54, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.alertsToolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.alertTabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.alertTab {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  color: inherit;
+  border-radius: 9px;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+
+.alertTab.active {
+  background: rgba(56, 132, 255, 0.22);
+  border-color: rgba(56, 132, 255, 0.7);
+}
+
+.alertFilter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.alertFilter select {
+  min-width: 180px;
+  padding: 9px 10px;
+  border-radius: 8px;
+}
+
+.alertsTableWrap {
+  overflow-x: auto;
+}
+
+.alertsTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1000px;
+}
+
+.alertsTable th,
+.alertsTable td {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  vertical-align: top;
+}
+
+.alertsTable th {
+  font-size: 13px;
+  opacity: 0.72;
+  white-space: nowrap;
+}
+
+.alertMessageText {
+  min-width: 260px;
+  max-width: 430px;
+  line-height: 1.55;
+}
+
+.alertBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.alertBadgeOpen {
+  background: rgba(255, 76, 76, 0.18);
+}
+
+.alertBadgeAcknowledged {
+  background: rgba(255, 183, 66, 0.18);
+}
+
+.alertBadgeResolved {
+  background: rgba(79, 207, 142, 0.18);
+}
+
+.alertSeverityHigh {
+  font-weight: 700;
+}
+
+.alertActions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.alertActionBtn {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.alertActionBtn:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.alertsMessage {
+  min-height: 22px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.alertsMessage.error {
+  color: #ff8c8c;
+}
+
+.alertsMessage.success {
+  color: #79d9a7;
+}
+
+.emptyRow {
+  text-align: center !important;
+  padding: 30px !important;
+  opacity: 0.7;
+}
+
+@media (max-width: 1000px) {
+  .alertsSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .alertsToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 600px) {
+  .alertsPage {
+    padding: 16px;
+  }
+
+  .alertsSummary {
+    grid-template-columns: 1fr;
+  }
+
+  .alertsHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

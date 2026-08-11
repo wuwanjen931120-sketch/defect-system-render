@@ -239,10 +239,11 @@
       nav.className = "nav";
       nav.append(
   createNavLink("dashboard.html", "🏠 首頁", "Dashboard"),
-  createNavLink("logs.html", "🧾 事件紀錄", "Logs"),
+  createNavLink("logs.html", "📋 事件紀錄", "Logs"),
   createNavLink("settings.html", "⚙️ 系統設定", "Settings"),
   createNavLink("ai.html", "🤖 AI 助理", "AI"),
-  createNavLink("health.html", "🩺 系統健康", "Health")
+  createNavLink("health.html", "🩺 系統健康", "Health"),
+  createNavLink("alerts.html", "🚨 告警中心", "Alerts")
 );
 if (canAdmin) {
   nav.append(

@@ -798,7 +798,139 @@ app.get("/api/admin/tenants", auth, requireRole("super_admin"), asyncHandler(asy
   res.setHeader("X-Page", String(page));
   return res.json(await col.find({}).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).toArray());
 }));
+app.get("/api/alerts", auth, asyncHandler(async (req, res) => {
+  const page = clampInt(req.query.page, 1, 1, 100000);
+  const limit = clampInt(req.query.limit, 100, 1, 500);
 
+  const requestedTenant = cleanText(req.query.tenant_id, 100);
+  const requestedSystem = cleanText(req.query.system_id, 100);
+  const requestedStatus = cleanText(req.query.status, 30);
+
+  const query = {};
+
+  if (req.user.role === "super_admin") {
+    if (requestedTenant) query.tenant_id = requestedTenant;
+  } else {
+    if (requestedTenant && requestedTenant !== req.user.tenant_id) {
+      return res.status(403).json({ message: "無權存取其他租戶告警" });
+    }
+
+    query.tenant_id = req.user.tenant_id;
+  }
+
+  if (requestedSystem) {
+    if (
+      req.user.role === "user" &&
+      !userSystemIds(req.user).includes(requestedSystem)
+    ) {
+      return res.status(403).json({ message: "無權存取此機台告警" });
+    }
+
+    query.system_id = requestedSystem;
+  } else if (req.user.role === "user") {
+    const ids = userSystemIds(req.user);
+
+    query.system_id = ids.length
+      ? { $in: ids }
+      : "__NO_AUTHORIZED_SYSTEM__";
+  }
+
+  if (
+    requestedStatus &&
+    ["open", "acknowledged", "resolved"].includes(requestedStatus)
+  ) {
+    query.status = requestedStatus;
+  }
+
+  const alerts = mongoose.connection.collection("alerts");
+
+  res.setHeader(
+    "X-Total-Count",
+    String(await alerts.countDocuments(query))
+  );
+
+  return res.json(
+    await alerts
+      .find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .toArray()
+  );
+}));
+
+app.patch("/api/alerts/:id", auth, asyncHandler(async (req, res) => {
+  const id = cleanText(req.params.id, 100);
+
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "無效的告警 ID" });
+  }
+
+  const status = cleanText(req.body.status, 30);
+
+  if (!["acknowledged", "resolved"].includes(status)) {
+    return res.status(400).json({ message: "無效的告警狀態" });
+  }
+
+  const alerts = mongoose.connection.collection("alerts");
+
+  const alert = await alerts.findOne({
+    _id: new mongoose.Types.ObjectId(id)
+  });
+
+  if (!alert) {
+    return res.status(404).json({ message: "找不到告警" });
+  }
+
+  if (
+    req.user.role !== "super_admin" &&
+    alert.tenant_id !== req.user.tenant_id
+  ) {
+    return res.status(403).json({ message: "無權操作此告警" });
+  }
+
+  if (
+    req.user.role === "user" &&
+    !userSystemIds(req.user).includes(alert.system_id)
+  ) {
+    return res.status(403).json({ message: "無權操作此機台告警" });
+  }
+
+  const now = new Date();
+
+  const update = {
+    status,
+    handledBy: req.user.email || req.user.username || req.user.id,
+    updatedAt: now
+  };
+
+  if (status === "acknowledged") {
+    update.acknowledgedAt = now;
+  }
+
+  if (status === "resolved") {
+    update.resolvedAt = now;
+  }
+
+  await alerts.updateOne(
+    { _id: alert._id },
+    { $set: update }
+  );
+
+  await writeAudit(req, "alert.update", {
+    tenant_id: alert.tenant_id,
+    system_id: alert.system_id,
+    target: id,
+    details: { status }
+  });
+
+  return res.json({
+    success: true,
+    message: status === "resolved"
+      ? "告警已標記為解決"
+      : "告警已確認"
+  });
+}));
 app.get("/api/admin/audit-logs", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
   const page = clampInt(req.query.page, 1, 1, 100000);
   const limit = clampInt(req.query.limit, 100, 1, 500);
@@ -1103,69 +1235,164 @@ app.post("/api/estop", auth, requireRole("super_admin", "tenant_admin"), asyncHa
 }));
 
 async function evaluateNgAlert(tenant_id, system_id) {
-  if (!mailEnabled || !ALERT_EMAIL || !isMailReady) return;
   const now = new Date();
   const since = new Date(now.getTime() - ALERT_WINDOW_MINUTES * 60000);
-  const count = await Defect.countDocuments({ tenant_id, system_id, status: "NG", timestamp: { $gte: since } });
+
+  const count = await Defect.countDocuments({
+    tenant_id,
+    system_id,
+    status: "NG",
+    timestamp: { $gte: since }
+  });
+
   if (count < ALERT_THRESHOLD) return;
 
-  const col = mongoose.connection.collection("alert_states");
+  const stateCollection = mongoose.connection.collection("alert_states");
+  const alertsCollection = mongoose.connection.collection("alerts");
   const key = `${tenant_id}:${system_id}:ng-window`;
-  const cooldownUntil = new Date(now.getTime() + ALERT_COOLDOWN_MINUTES * 60000);
+  const cooldownUntil = new Date(
+    now.getTime() + ALERT_COOLDOWN_MINUTES * 60000
+  );
+
   try {
-    const claim = await col.findOneAndUpdate({
-      key,
-      $and: [
-        { $or: [{ cooldownUntil: { $exists: false } }, { cooldownUntil: { $lte: now } }] },
-        { $or: [{ processingUntil: { $exists: false } }, { processingUntil: { $lte: now } }] }
-      ]
-    }, {
-      $set: {
+    const claim = await stateCollection.findOneAndUpdate(
+      {
         key,
-        tenant_id,
-        system_id,
-        processingUntil: new Date(now.getTime() + 120000),
-        lastEvaluatedAt: now,
-        lastCount: count
+        $and: [
+          {
+            $or: [
+              { cooldownUntil: { $exists: false } },
+              { cooldownUntil: { $lte: now } }
+            ]
+          },
+          {
+            $or: [
+              { processingUntil: { $exists: false } },
+              { processingUntil: { $lte: now } }
+            ]
+          }
+        ]
+      },
+      {
+        $set: {
+          key,
+          tenant_id,
+          system_id,
+          processingUntil: new Date(now.getTime() + 120000),
+          lastEvaluatedAt: now,
+          lastCount: count
+        }
+      },
+      {
+        upsert: true,
+        returnDocument: "after"
       }
-    }, { upsert: true, returnDocument: "after" });
+    );
+
     if (!claim) return;
   } catch (error) {
     if (error?.code === 11000) return;
     throw error;
   }
 
+  const message =
+    `機台 ${system_id} 在最近 ${ALERT_WINDOW_MINUTES} 分鐘內有 ` +
+    `${count} 筆 NG，已達門檻 ${ALERT_THRESHOLD} 筆。`;
+
   try {
-    await transporter.sendMail({
-      from: MAIL_FROM,
-      to: ALERT_EMAIL,
-      subject: "產線 NG 異常警報",
-      text: `機台 ${system_id} 在最近 ${ALERT_WINDOW_MINUTES} 分鐘內有 ${count} 筆 NG，已達門檻 ${ALERT_THRESHOLD} 筆。`
-    });
-    await col.updateOne({ key }, {
-      $set: { lastSentAt: now, cooldownUntil, lastCount: count },
-      $unset: { processingUntil: "", lastError: "" }
-    });
-    await AuditLog.create({
-      actor_id: "system",
-      actor_email: "",
-      role: "system",
+    // 站內告警不依賴 Email。
+    await alertsCollection.insertOne({
       tenant_id,
       system_id,
-      action: "alert.ng.email",
-      status: "sent",
-      details: { count, window_minutes: ALERT_WINDOW_MINUTES, threshold: ALERT_THRESHOLD },
-      createdAt: now
+      type: "ng_window",
+      severity: "high",
+      message,
+      status: "open",
+      source: "mqtt",
+      count,
+      threshold: ALERT_THRESHOLD,
+      window_minutes: ALERT_WINDOW_MINUTES,
+      createdAt: now,
+      updatedAt: now
     });
   } catch (error) {
-    await col.updateOne({ key }, {
-      $set: { lastError: cleanText(error.message, 500), lastErrorAt: new Date() },
-      $unset: { processingUntil: "" }
-    }).catch(() => {});
-    logger.error("NG alert email failed", { tenant_id, system_id, error: error.message });
-  }
-}
+    await stateCollection.updateOne(
+      { key },
+      {
+        $set: {
+          lastError: cleanText(error.message, 500),
+          lastErrorAt: new Date()
+        },
+        $unset: { processingUntil: "" }
+      }
+    ).catch(() => {});
 
+    logger.error("NG site alert creation failed", {
+      tenant_id,
+      system_id,
+      error: error.message
+    });
+
+    throw error;
+  }
+
+  let emailStatus = "not_configured";
+
+  if (mailEnabled && ALERT_EMAIL && isMailReady && transporter) {
+    try {
+      await transporter.sendMail({
+        from: MAIL_FROM,
+        to: ALERT_EMAIL,
+        subject: "產線 NG 異常警報",
+        text: message
+      });
+
+      emailStatus = "sent";
+    } catch (error) {
+      emailStatus = "failed";
+
+      logger.error("NG alert email failed", {
+        tenant_id,
+        system_id,
+        error: error.message
+      });
+    }
+  }
+
+  await stateCollection.updateOne(
+    { key },
+    {
+      $set: {
+        lastSentAt: emailStatus === "sent" ? now : null,
+        cooldownUntil,
+        lastCount: count,
+        lastAlertAt: now,
+        lastEmailStatus: emailStatus
+      },
+      $unset: {
+        processingUntil: "",
+        lastError: ""
+      }
+    }
+  );
+
+  await AuditLog.create({
+    actor_id: "system",
+    actor_email: "",
+    role: "system",
+    tenant_id,
+    system_id,
+    action: "alert.ng.created",
+    status: "success",
+    details: {
+      count,
+      window_minutes: ALERT_WINDOW_MINUTES,
+      threshold: ALERT_THRESHOLD,
+      email_status: emailStatus
+    },
+    createdAt: now
+  });
+}
 function createMqttClient() {
   const mqttUrl = cleanText(process.env.MQTT_URL, 500);
   const mqttUser = cleanText(process.env.HIVEMQ_USER, 200);
@@ -1340,8 +1567,19 @@ async function ensureIndexes() {
     mongoose.connection.collection("users").createIndex({ username: 1 }, { unique: true, sparse: true }),
     mongoose.connection.collection("users").createIndex({ tenant_id: 1, role: 1, createdAt: -1 }),
     mongoose.connection.collection("systems").createIndex({ tenant_id: 1, system_id: 1 }, { unique: true }),
-    mongoose.connection.collection("alert_states").createIndex({ key: 1 }, { unique: true }),
-    mongoose.connection.collection("ai_daily_usage").createIndex({ key: 1 }, { unique: true }),
+    mongoose.connection.collection("alert_states").createIndex(
+  { key: 1 },
+  { unique: true }
+),
+
+mongoose.connection.collection("alerts").createIndex(
+  { tenant_id: 1, system_id: 1, status: 1, createdAt: -1 }
+),
+
+mongoose.connection.collection("ai_daily_usage").createIndex(
+  { key: 1 },
+  { unique: true }
+),
     mongoose.connection.collection("ai_daily_usage").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
     Defect.createIndexes(),
     AuditLog.createIndexes()
