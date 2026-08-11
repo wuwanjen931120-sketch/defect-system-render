@@ -239,14 +239,16 @@
       nav.className = "nav";
       nav.append(
   createNavLink("dashboard.html", "🏠 首頁", "Dashboard"),
-  createNavLink("logs.html", "📋 事件紀錄", "Logs"),
+  createNavLink("logs.html", "🧾 事件紀錄", "Logs"),
   createNavLink("settings.html", "⚙️ 系統設定", "Settings"),
   createNavLink("ai.html", "🤖 AI 助理", "AI"),
   createNavLink("health.html", "🩺 系統健康", "Health"),
   createNavLink("alerts.html", "🚨 告警中心", "Alerts"),
   createNavLink("machine-status.html", "🖥️ 機台狀態", "Machines"),
-createNavLink("report.html", "📊 報表中心", "Reports"),
-createNavLink("image-trace.html", "🖼️ 圖片追溯", "Images")
+  createNavLink("report.html", "📊 報表中心", "Reports"),
+  createNavLink("image-trace.html", "🖼️ 圖片追溯", "Images")
+);
+
 if (canAdmin) {
   nav.append(
     createNavLink("user-manage.html", "👥 角色機台", "Users"),
