@@ -1,0 +1,287 @@
+.reportPage {
+  width: 100%;
+  padding: 28px;
+}
+
+.reportHeader {
+  margin-bottom: 20px;
+}
+
+.reportHeader h2 {
+  margin: 0 0 6px;
+  font-size: 28px;
+}
+
+.reportHeader p {
+  margin: 0;
+  opacity: 0.72;
+  line-height: 1.6;
+}
+
+.reportFilters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 14px;
+  align-items: end;
+  background: rgba(16, 31, 54, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.reportField {
+  display: grid;
+  gap: 7px;
+}
+
+.reportField label {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.reportField input,
+.reportField select {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.reportActions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.reportSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.reportSummaryCard {
+  background: rgba(16, 31, 54, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.reportSummaryCard span {
+  display: block;
+  font-size: 14px;
+  opacity: 0.72;
+  margin-bottom: 8px;
+}
+
+.reportSummaryCard strong {
+  font-size: 28px;
+}
+
+.reportTablePanel {
+  background: rgba(16, 31, 54, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.reportTableHeader {
+  margin-bottom: 14px;
+}
+
+.reportTableHeader h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.reportTableHeader p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.72;
+}
+
+.reportTableWrap {
+  overflow-x: auto;
+}
+
+.reportTable {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 900px;
+}
+
+.reportTable th,
+.reportTable td {
+  padding: 11px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.reportTable th {
+  font-size: 13px;
+  opacity: 0.72;
+  white-space: nowrap;
+}
+
+.reportStatusOk {
+  font-weight: 700;
+}
+
+.reportStatusNg {
+  font-weight: 700;
+}
+
+.reportImageLink {
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 7px;
+  padding: 5px 8px;
+  display: inline-block;
+}
+
+.reportEmpty {
+  text-align: center !important;
+  padding: 34px !important;
+  opacity: 0.68;
+}
+
+.reportPrintFooter {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .reportFilters {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .reportPage {
+    padding: 16px;
+  }
+
+  .reportFilters {
+    grid-template-columns: 1fr;
+  }
+
+  .reportSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .reportSummary {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .sidebar,
+  .reportActions,
+  .reportFilters,
+  .reportHeader p {
+    display: none !important;
+  }
+
+  .app,
+  .main,
+  .reportPage {
+    display: block !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .reportHeader {
+    margin-bottom: 12px;
+  }
+
+  .reportHeader h2 {
+    color: #000 !important;
+    font-size: 20px;
+  }
+
+  .reportSummary {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .reportSummaryCard,
+  .reportTablePanel {
+    background: #fff !important;
+    color: #000 !important;
+    border: 1px solid #bbb !important;
+    box-shadow: none !important;
+  }
+
+  .reportSummaryCard {
+    padding: 10px;
+  }
+
+  .reportSummaryCard span {
+    color: #333 !important;
+    opacity: 1 !important;
+  }
+
+  .reportSummaryCard strong {
+    font-size: 20px;
+  }
+
+  .reportTablePanel {
+    padding: 10px;
+  }
+
+  .reportTableWrap {
+    overflow: visible !important;
+  }
+
+  .reportTable {
+    min-width: 0 !important;
+    width: 100% !important;
+    font-size: 10px;
+  }
+
+  .reportTable th,
+  .reportTable td {
+    color: #000 !important;
+    border-bottom: 1px solid #ccc !important;
+    padding: 6px 5px;
+  }
+
+  .reportTable th {
+    opacity: 1 !important;
+    font-weight: 700;
+  }
+
+  .reportImageLink {
+    color: #000 !important;
+    border-color: #999 !important;
+  }
+
+  .reportPrintFooter {
+    display: block;
+    margin-top: 12px;
+    text-align: right;
+    font-size: 10px;
+    color: #555;
+  }
+}
