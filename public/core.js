@@ -246,7 +246,7 @@
 );
 if (canAdmin) {
   nav.append(
-    createNavLink("user-manage.html", "👥 角色機台管理", "Users"),
+    createNavLink("user-manage.html", "👥 角色機台", "Users"),
     createNavLink("admin.html", "🧑‍💼 管理後台", "Admin")
   );
 }
