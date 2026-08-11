@@ -1,0 +1,285 @@
+.imageTracePage {
+  width: 100%;
+  padding: 28px;
+}
+
+.imageTraceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.imageTraceHeader h2 {
+  margin: 0 0 6px;
+  font-size: 28px;
+}
+
+.imageTraceHeader p {
+  margin: 0;
+  opacity: 0.72;
+  line-height: 1.6;
+}
+
+.imageTraceFilters {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: 14px;
+  align-items: end;
+  background: rgba(16, 31, 54, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.imageTraceField {
+  display: grid;
+  gap: 7px;
+}
+
+.imageTraceField label {
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+.imageTraceField input,
+.imageTraceField select {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: inherit;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.imageTraceActions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.imageTraceSummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.imageTraceSummaryCard {
+  background: rgba(16, 31, 54, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.imageTraceSummaryCard span {
+  display: block;
+  font-size: 14px;
+  opacity: 0.72;
+  margin-bottom: 8px;
+}
+
+.imageTraceSummaryCard strong {
+  font-size: 28px;
+}
+
+.imageTracePanel {
+  background: rgba(16, 31, 54, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.imageTracePanelHeader {
+  margin-bottom: 14px;
+}
+
+.imageTracePanelHeader h3 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.imageTracePanelHeader p {
+  margin: 0;
+  opacity: 0.72;
+  font-size: 14px;
+}
+
+.imageTraceGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.imageTraceCard {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(8, 20, 38, 0.9);
+}
+
+.imageTraceImageWrap {
+  height: 190px;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.imageTraceImageButton {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.imageTraceImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.imageTraceNoImage {
+  padding: 20px;
+  opacity: 0.6;
+  text-align: center;
+}
+
+.imageTraceBody {
+  padding: 14px;
+}
+
+.imageTraceCaseId {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  word-break: break-all;
+}
+
+.imageTraceInfo {
+  display: grid;
+  gap: 7px;
+}
+
+.imageTraceInfoRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 13px;
+}
+
+.imageTraceInfoLabel {
+  opacity: 0.65;
+  flex: 0 0 auto;
+}
+
+.imageTraceInfoValue {
+  text-align: right;
+  word-break: break-word;
+}
+
+.imageTraceStatusNg {
+  font-weight: 700;
+}
+
+.imageTraceEmpty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 42px 20px;
+  opacity: 0.68;
+}
+
+.imageTraceModal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+}
+
+.imageTraceModal[hidden] {
+  display: none;
+}
+
+.imageTraceModalBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+}
+
+.imageTraceModalBox {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(1000px, calc(100vw - 40px));
+  max-height: calc(100vh - 40px);
+  transform: translate(-50%, -50%);
+  background: #0c1b30;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 18px;
+  overflow: auto;
+}
+
+.imageTraceModalBox img {
+  display: block;
+  max-width: 100%;
+  max-height: 70vh;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+.imageTraceModalClose {
+  position: sticky;
+  float: right;
+  top: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.imageTraceModalInfo {
+  margin-top: 14px;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+@media (max-width: 1200px) {
+  .imageTraceFilters {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+
+  .imageTraceGrid {
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+  }
+}
+
+@media (max-width: 750px) {
+  .imageTracePage {
+    padding: 16px;
+  }
+
+  .imageTraceHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .imageTraceFilters,
+  .imageTraceSummary,
+  .imageTraceGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>瑕疵圖片追溯 - 瑕疵辨識與分流系統</title>
+
+  <script src="auth-bootstrap.js?v=20260811-1"></script>
+
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="unified-sidebar.css" />
+  <link rel="stylesheet" href="image-trace.css?v=20260811-1" />
+
+  <script defer src="core.js?v=20260811-1"></script>
+  <script defer src="image-trace.js?v=20260811-1"></script>
+</head>
+
+<body>
+  <div class="app">
+
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo"></div>
+        <div>
+          <h1>瑕疵辨識與分流系統</h1>
+          <p>Defect System</p>
+        </div>
+      </div>
+
+      <div class="nav">
+
+        <a href="dashboard.html">
+          <span class="nav-label">🏠 首頁</span>
+          <span class="pill">Dashboard</span>
+        </a>
+
+        <a href="logs.html">
+          <span class="nav-label">🧾 事件紀錄</span>
+          <span class="pill">Logs</span>
+        </a>
+
+        <a href="settings.html">
+          <span class="nav-label">⚙️ 系統設定</span>
+          <span class="pill">Settings</span>
+        </a>
+
+        <a href="ai.html">
+          <span class="nav-label">🤖 AI 助理</span>
+          <span class="pill">AI</span>
+        </a>
+
+        <a href="health.html">
+          <span class="nav-label">🩺 系統健康</span>
+          <span class="pill">Health</span>
+        </a>
+
+        <a href="alerts.html">
+          <span class="nav-label">🚨 告警中心</span>
+          <span class="pill">Alerts</span>
+        </a>
+
+        <a href="machine-status.html">
+          <span class="nav-label">🖥️ 機台狀態</span>
+          <span class="pill">Machines</span>
+        </a>
+
+        <a href="report.html">
+          <span class="nav-label">📊 報表中心</span>
+          <span class="pill">Reports</span>
+        </a>
+
+        <a class="active" href="image-trace.html">
+          <span class="nav-label">🖼️ 圖片追溯</span>
+          <span class="pill">Images</span>
+        </a>
+
+      </div>
+    </aside>
+
+    <main class="main">
+
+      <div class="imageTracePage">
+
+        <div class="imageTraceHeader">
+          <div>
+            <h2>🖼️ 瑕疵圖片追溯</h2>
+            <p>
+              依機台、產品、Case ID 與日期查詢 NG 紀錄，
+              並追溯對應瑕疵圖片。
+            </p>
+          </div>
+
+          <button
+            class="btn btnPrimary"
+            id="imageTraceRefreshBtn"
+            type="button"
+          >
+            ⟳ 重新整理
+          </button>
+        </div>
+
+        <section class="imageTraceFilters">
+
+          <div class="imageTraceField">
+            <label for="imageTraceDateFrom">開始日期</label>
+            <input
+              id="imageTraceDateFrom"
+              type="datetime-local"
+            />
+          </div>
+
+          <div class="imageTraceField">
+            <label for="imageTraceDateTo">結束日期</label>
+            <input
+              id="imageTraceDateTo"
+              type="datetime-local"
+            />
+          </div>
+
+          <div class="imageTraceField">
+            <label for="imageTraceSystem">機台</label>
+            <select id="imageTraceSystem">
+              <option value="">全部機台</option>
+            </select>
+          </div>
+
+          <div class="imageTraceField">
+            <label for="imageTraceProduct">產品</label>
+            <input
+              id="imageTraceProduct"
+              type="text"
+              maxlength="100"
+              placeholder="全部產品"
+            />
+          </div>
+
+          <div class="imageTraceField">
+            <label for="imageTraceCaseId">Case ID</label>
+            <input
+              id="imageTraceCaseId"
+              type="text"
+              maxlength="100"
+              placeholder="例如 case_001"
+            />
+          </div>
+
+          <div class="imageTraceActions">
+
+            <button
+              class="btn btnPrimary"
+              id="imageTraceSearchBtn"
+              type="button"
+            >
+              🔍 查詢
+            </button>
+
+            <button
+              class="btn"
+              id="imageTraceResetBtn"
+              type="button"
+            >
+              清除條件
+            </button>
+
+          </div>
+
+        </section>
+
+        <section class="imageTraceSummary">
+
+          <div class="imageTraceSummaryCard">
+            <span>NG 總數</span>
+            <strong id="imageTraceNgCount">0</strong>
+          </div>
+
+          <div class="imageTraceSummaryCard">
+            <span>有圖片</span>
+            <strong id="imageTraceWithImage">0</strong>
+          </div>
+
+          <div class="imageTraceSummaryCard">
+            <span>無圖片</span>
+            <strong id="imageTraceWithoutImage">0</strong>
+          </div>
+
+        </section>
+
+        <section class="imageTracePanel">
+
+          <div class="imageTracePanelHeader">
+            <div>
+              <h3>NG 圖片紀錄</h3>
+              <p id="imageTraceMessage">
+                尚未查詢資料。
+              </p>
+            </div>
+          </div>
+
+          <div
+            id="imageTraceGrid"
+            class="imageTraceGrid"
+          >
+            <div class="imageTraceEmpty">
+              尚未查詢資料
+            </div>
+          </div>
+
+        </section>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <div
+    id="imageTraceModal"
+    class="imageTraceModal"
+    hidden
+  >
+    <div class="imageTraceModalBackdrop"></div>
+
+    <div class="imageTraceModalBox">
+
+      <button
+        id="imageTraceModalClose"
+        class="imageTraceModalClose"
+        type="button"
+        aria-label="關閉圖片"
+      >
+        ×
+      </button>
+
+      <img
+        id="imageTraceModalImage"
+        alt="瑕疵圖片預覽"
+      />
+
+      <div
+        id="imageTraceModalInfo"
+        class="imageTraceModalInfo"
+      ></div>
+
+    </div>
+  </div>
+
+</body>
+</html>
