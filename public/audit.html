@@ -3,12 +3,35 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>操作稽核紀錄</title>
-  <link rel="stylesheet" href="audit.css" />
+  <title>操作稽核紀錄 - 瑕疵辨識與分流系統</title>
+
+<script src="auth-bootstrap.js?v=20260723-3"></script>
+
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="unified-sidebar.css" />
+<link rel="stylesheet" href="audit.css" />
+
+<script defer src="core.js?v=20260811-2"></script>
 </head>
 
 <body>
-  <main class="page">
+
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>瑕疵辨識與分流系統</h1>
+        <p>Defect System</p>
+      </div>
+    </div>
+
+    <div class="nav"></div>
+  </aside>
+
+  <main class="main">
+    <main class="page">
     <section class="card">
       <div class="header">
         <div>
@@ -60,8 +83,12 @@
         </table>
       </div>
     </section>
+      </main>
   </main>
 
-  <script src="audit.js"></script>
+</div>
+
+<script src="audit.js"></script>
+
 </body>
 </html>

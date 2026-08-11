@@ -251,11 +251,11 @@
 
 if (canAdmin) {
   nav.append(
+    createNavLink("audit.html", "📋 操作稽核", "Audit"),
     createNavLink("user-manage.html", "👥 角色機台", "Users"),
     createNavLink("admin.html", "🧑‍💼 管理後台", "Admin")
   );
-}
-      const footer = document.createElement("div");
+}      const footer = document.createElement("div");
       footer.className = "side-footer";
       const resetButton = document.createElement("button");
       resetButton.className = "btn";
