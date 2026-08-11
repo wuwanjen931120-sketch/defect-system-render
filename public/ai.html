@@ -82,13 +82,21 @@
 <div class="aiFilters">
 <div class="labelText">機台 system_id</div>
 <select id="systemSelect">
-<option value="">全部可查看機台</option>
+  <option value="">全部可查看機台</option>
 </select>
+
 <div class="labelText">產品名稱 products</div>
 <input id="productsInput" placeholder="可空白，例如：螺帽,手機殼"/>
+
+<div class="labelText">開始時間 date_from</div>
+<input id="dateFromInput" type="datetime-local"/>
+
+<div class="labelText">結束時間 date_to</div>
+<input id="dateToInput" type="datetime-local"/>
+
 <div class="aiFilterActions">
-<button class="btn btnPrimary" id="showAllSummary" type="button">查看全部</button>
-<button class="btn" id="refreshSummary" type="button">重新讀取統計</button>
+  <button class="btn btnPrimary" id="showAllSummary" type="button">查看全部</button>
+  <button class="btn" id="refreshSummary" type="button">重新讀取統計</button>
 </div>
 </div>
 <div class="summaryGrid">

@@ -10,6 +10,8 @@
   const sendBtn = document.getElementById("sendBtn");
   const systemSelect = document.getElementById("systemSelect");
   const productsInput = document.getElementById("productsInput");
+const dateFromInput = document.getElementById("dateFromInput");
+const dateToInput = document.getElementById("dateToInput");
   const aiDot = document.getElementById("aiDot");
   const aiMode = document.getElementById("aiMode");
   const showAllSummary = document.getElementById("showAllSummary");
@@ -67,13 +69,24 @@
     return div;
   }
 
-  function getFilters(){
-    return {
-      system_id: systemSelect.value || "",
-      tenant_id: role === "super_admin" ? tenantId : "",
-      products: productsInput.value.trim()
-    };
-  }
+  function toIsoDateTime(value) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toISOString();
+}
+
+function getFilters(){
+  return {
+    system_id: systemSelect.value || "",
+    tenant_id: role === "super_admin" ? tenantId : "",
+    products: productsInput.value.trim(),
+    date_from: toIsoDateTime(dateFromInput?.value || ""),
+    date_to: toIsoDateTime(dateToInput?.value || "")
+  };
+}
 
   async function checkAiStatus(){
     try{
@@ -116,7 +129,9 @@
       const params = new URLSearchParams();
       const f = getFilters();
       if (f.system_id) params.set("system_id", f.system_id);
-      if (f.products) params.set("products", f.products);
+if (f.products) params.set("products", f.products);
+if (f.date_from) params.set("date_from", f.date_from);
+if (f.date_to) params.set("date_to", f.date_to);
       if (role === "super_admin" && f.tenant_id) params.set("tenant_id", f.tenant_id);
 
       const res = await fetch(`/api/summary?${params.toString()}`, {
@@ -187,17 +202,21 @@
   document.getElementById("refreshSummary").addEventListener("click", refreshSummary);
   if (showAllSummary) {
     showAllSummary.addEventListener("click", () => {
-      systemSelect.value = "";
-      productsInput.value = "";
-      refreshSummary();
+  systemSelect.value = "";
+  productsInput.value = "";
+  dateFromInput.value = "";
+  dateToInput.value = "";
+  refreshSummary();
       addMessage("已切換成查看全部可查看機台與全部產品。", "bot");
     });
   }
-  systemSelect.addEventListener("change", refreshSummary);
-  productsInput.addEventListener("change", refreshSummary);
+ systemSelect.addEventListener("change", refreshSummary);
+productsInput.addEventListener("change", refreshSummary);
+dateFromInput?.addEventListener("change", refreshSummary);
+dateToInput?.addEventListener("change", refreshSummary);
 
-  Promise.resolve()
-    .then(checkAiStatus)
-    .then(loadSystems)
-    .then(refreshSummary);
+Promise.resolve()
+  .then(checkAiStatus)
+  .then(loadSystems)
+  .then(refreshSummary);
 })();
