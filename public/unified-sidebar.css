@@ -1,7 +1,8 @@
 .app{ grid-template-columns:280px 1fr !important; }
      .sidebar{
-  width:280px !important; min-width:280px !important; max-width:280px !important;
- max-width:240px !important;
+  width:280px !important;
+  min-width:280px !important;
+  max-width:280px !important;
         background:linear-gradient(180deg, rgba(15,27,45,.96), rgba(15,27,45,.82)) !important;
         border-right:1px solid rgba(255,255,255,.10) !important;
         padding:18px 16px !important;
