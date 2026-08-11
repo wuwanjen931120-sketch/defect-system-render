@@ -32,3 +32,24 @@
       @media(max-width:980px){ .app{ grid-template-columns:1fr !important; } .sidebar{ display:none !important; } .drawer .sidebar{ display:flex !important; } .hamburger{ display:inline-flex !important; } }
 
 .nav-hidden{display:none!important}
+.nav a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.nav .nav-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav .pill {
+  flex: 0 0 auto;
+  margin-left: auto;
+  white-space: nowrap;
+}
