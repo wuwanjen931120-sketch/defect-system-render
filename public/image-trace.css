@@ -283,3 +283,11 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* 2026-10-06：日期時間篩選欄位加強 */
+.imageTraceField label {
+  color: #dbeafe;
+  opacity: 1;
+  font-size: 14px;
+  font-weight: 800;
+}
