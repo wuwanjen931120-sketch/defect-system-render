@@ -954,9 +954,13 @@ async function loadHealth() {
   const data = await apiFetch("/api/health");
   if (!data) return;
 
+  const mqttConnected =
+    data?.mqtt_connected === true ||
+    data?.mqttConnected === true;
+
   updateMqttStatus(
-    !!data?.mqttConnected,
-    data?.mqttConnected ? "後端 MQTT 已連線" : "後端 MQTT 未連線"
+    mqttConnected,
+    mqttConnected ? "後端 MQTT 已連線" : "後端 MQTT 未連線"
   );
 }
 
