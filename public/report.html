@@ -10,9 +10,11 @@
 
   <link rel="stylesheet" href="style.css" />
   <link rel="stylesheet" href="unified-sidebar.css" />
-  <link rel="stylesheet" href="report.css?v=20260811-1" />
+  <link rel="stylesheet" href="report.css?v=20261006-1" />
+  <link rel="stylesheet" href="datetime-picker.css?v=20261006-1" />
 
   <script defer src="core.js?v=20260811-2"></script>
+  <script defer src="datetime-picker.js?v=20261006-1"></script>
   <script defer src="report.js?v=20260811-1"></script>
 </head>
 
@@ -92,7 +94,9 @@
             <label for="reportDateFrom">開始日期</label>
             <input
               id="reportDateFrom"
-              type="datetime-local"
+              type="hidden"
+              data-datetime-picker
+              data-picker-label="📅 選擇開始日期與時間"
             />
           </div>
 
@@ -100,7 +104,9 @@
             <label for="reportDateTo">結束日期</label>
             <input
               id="reportDateTo"
-              type="datetime-local"
+              type="hidden"
+              data-datetime-picker
+              data-picker-label="📅 選擇結束日期與時間"
             />
           </div>
 
