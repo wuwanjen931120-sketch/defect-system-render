@@ -580,8 +580,9 @@
     .userChip{
       display:inline-flex;
       align-items:center;
-      min-height:40px;
-      padding:0 14px;
+      min-height:36px;
+      max-width:360px;
+      padding:0 13px;
       border-radius:999px;
       background: linear-gradient(180deg, rgba(59,130,246,.18), rgba(59,130,246,.08));
       border:1px solid rgba(96,165,250,.35);
@@ -589,6 +590,9 @@
       font-size:14px;
       font-weight:800;
       box-shadow: 0 8px 18px rgba(0,0,0,.12);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     .systemSwitchWrap{
@@ -1640,3 +1644,69 @@
   .productGaugeScrollHint{align-items:flex-start !important;flex-direction:column !important;}
   #dynamicProductGaugeArea{grid-template-columns:1fr !important;}
 }
+
+
+/* ===== 2026-10-07 v5：多產品管理、摘要與產品表美化 ===== */
+.productInputTitle{
+  display:flex!important;
+  align-items:center;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.productInputTitle > span:first-child{font-weight:900;color:#f5f8ff}
+#currentProductsText{
+  max-width:none!important;
+  color:#38e889!important;
+  font-weight:800;
+  white-space:nowrap;
+}
+.productManageBtn{
+  margin-left:auto;
+  min-height:36px!important;
+  padding:7px 12px!important;
+  white-space:nowrap;
+}
+#productList.productListCollapsed{
+  display:none;
+  grid-column:1/-1;
+  max-height:156px;
+  overflow:auto;
+  padding:10px;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:12px;
+  background:rgba(6,18,34,.42);
+}
+#productList.productListCollapsed.is-open{display:flex;flex-wrap:wrap;gap:8px}
+#productList.productListCollapsed button{margin:0!important}
+
+/* 三張總覽卡固定同一排、同高，寬度隨容器平均分配 */
+.statusTopRow{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:12px!important;
+  align-items:stretch!important;
+  margin-bottom:14px!important;
+}
+.statusTopRow .gaugeCard,
+.statusTopRow .defectMiniCard,
+.statusTopRow .summaryMiniCard{
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  min-height:214px!important;
+  height:214px!important;
+  flex:none!important;
+  margin-left:0!important;
+  box-sizing:border-box;
+}
+.summaryText{line-height:1.7!important;font-size:13px!important}
+@media(max-width:1100px){.statusTopRow{grid-template-columns:1fr!important}.statusTopRow .gaugeCard,.statusTopRow .defectMiniCard,.statusTopRow .summaryMiniCard{height:auto!important;min-height:180px!important}}
+
+/* 產品統計表固定高度 + 分頁，不讓產品數量把整頁拉長 */
+.productTableHeader{align-items:center!important}
+.productTablePager{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.productTablePager span{min-width:46px;text-align:center;color:#c9d8ec;font-weight:800;font-variant-numeric:tabular-nums}
+.productTablePageBtn{min-height:34px!important;padding:7px 12px!important;border-radius:10px!important;white-space:nowrap}
+.productTablePageBtn:disabled{opacity:.38!important;cursor:not-allowed!important;transform:none!important}
+#dynamicProductRows{min-height:0}
+@media(max-width:700px){.productTableHeader{align-items:flex-start!important;flex-direction:column!important}.productTablePager{width:100%;justify-content:flex-end}}

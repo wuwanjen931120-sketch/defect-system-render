@@ -208,11 +208,8 @@ const seenSystems = new Set();
   const opt = document.createElement("option");
   opt.value = s.system_id;
 
-  opt.textContent = s.system_name
-    ? `${s.system_id}｜${s.system_name}`
-    : s.name
-      ? `${s.system_id}｜${s.name}`
-      : `機台 ${s.system_id}`;
+  opt.textContent = s.system_name || s.name || "未命名機台";
+  opt.title = `system_id：${s.system_id}`;
 
   systemSelect.appendChild(opt);
 });
@@ -414,14 +411,32 @@ if (systemSelect) {
       btn.classList.add("active");
 
       currentFilter = btn.dataset.filter;
+      if (currentFilter === "all") {
+        productSearchText = "";
+        const searchInput = document.getElementById("logProductSearch");
+        if (searchInput) searchInput.value = "";
+      }
       loadLogs();
     });
   });
 
   const productSearch = document.getElementById("logProductSearch");
-  productSearch?.addEventListener("input", () => {
-    productSearchText = productSearch.value.trim();
+  const productSearchBtn = document.getElementById("logProductSearchBtn");
+  const runProductSearch = () => {
+    productSearchText = productSearch?.value.trim() || "";
+    currentFilter = "all";
+    document.querySelectorAll(".filterBtn").forEach(b => b.classList.toggle("active", b.dataset.filter === "all"));
     loadLogs();
+  };
+  productSearchBtn?.addEventListener("click", runProductSearch);
+  productSearch?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      runProductSearch();
+    }
+  });
+  productSearch?.addEventListener("search", () => {
+    if (!productSearch.value) runProductSearch();
   });
 
   await loadLogs();

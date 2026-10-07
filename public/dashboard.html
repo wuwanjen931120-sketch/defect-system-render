@@ -14,7 +14,7 @@
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
-<link href="dashboard.page.css?v=20261007-4" rel="stylesheet"/><link href="unified-sidebar.css?v=20261007-4" rel="stylesheet"/></head>
+<link href="dashboard.page.css?v=20261007-6" rel="stylesheet"/><link href="unified-sidebar.css?v=20261007-4" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
 <body>
 <div class="drawerOverlay" id="overlay"></div>
 <aside class="drawer" id="drawer">
@@ -133,14 +133,15 @@
 <div class="page-bg">
 <div class="productInputBar">
 <div class="productInputTitle">
-    多產品檢測
-    <span id="currentProductsText">尚未設定</span>
+    <span>多產品檢測</span>
+    <span id="currentProductsText">目前已設定 0 種產品</span>
+    <button class="btn productManageBtn" id="dashboard-handler-15" type="button">管理已加入產品</button>
 </div>
 <div class="productInputRow">
 <input id="productInput" placeholder="輸入目前要檢測的產品名稱"/>
 <button class="btn btnPrimary" id="dashboard-handler-7">加入</button>
 </div>
-<div id="productList"></div>
+<div id="productList" class="productListCollapsed" aria-label="已加入產品清單"></div>
 </div>
 <div class="heroGrid">
 <section class="liveCard">
@@ -276,8 +277,15 @@
 <section class="productStatsCard">
 <div class="productTableCard">
 <div class="productTableHeader">
+<div>
 <div class="productTableTitle">產品統計表</div>
-<div class="productTableSub">各產品 OK / NG 即時統計</div>
+<div class="productTableSub">各產品 OK / NG 即時統計，每頁最多顯示 8 種產品</div>
+</div>
+<div class="productTablePager" aria-label="產品統計表分頁">
+<button class="btn productTablePageBtn" id="productTablePrevBtn" type="button">‹ 上一頁</button>
+<span id="productTablePageText">1 / 1</span>
+<button class="btn productTablePageBtn" id="productTableNextBtn" type="button">下一頁 ›</button>
+</div>
 </div>
 <div class="productTable">
 <div class="pt-row pt-head">
@@ -303,7 +311,7 @@
       </div>
 </main>
 </div>
-<script src="dashboard.inline-2.js?v=20261007-4"></script>
-<script src="dashboard.handlers.js?v=20261007-4"></script>
+<script src="dashboard.inline-2.js?v=20261007-5"></script>
+<script src="dashboard.handlers.js?v=20261007-5"></script>
 </body>
 </html>

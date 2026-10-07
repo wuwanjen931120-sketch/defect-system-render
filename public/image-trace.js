@@ -340,8 +340,8 @@ async function loadTraceSystems() {
         traceText(system.system_id);
 
       option.textContent =
-        `${traceText(system.name) || "未命名機台"} ` +
-        `(${traceText(system.system_id)})`;
+        traceText(system.name) || "未命名機台";
+      option.title = `system_id：${traceText(system.system_id)}`;
 
       select.appendChild(option);
     });

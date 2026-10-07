@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8"/>
@@ -12,7 +11,7 @@
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <script defer src="core.js?v=20260811-2"></script>
-<link href="ai.page.css" rel="stylesheet"/><link href="datetime-picker.css?v=20261006-1" rel="stylesheet"/><script defer src="datetime-picker.js?v=20261006-1"></script><link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/></head>
+<link href="ai.page.css" rel="stylesheet"/><link href="unified-sidebar.css" rel="stylesheet"/><link href="datetime-picker.css?v=20261006-1" rel="stylesheet"/><script defer src="datetime-picker.js?v=20261006-1"></script></head>
 <body>
 <div class="drawerOverlay" id="overlay"></div>
 <aside class="drawer" id="drawer">
@@ -80,22 +79,29 @@
 <aside class="aiCard">
 <h3 class="ai-inline-style-5">查詢篩選</h3>
 <div class="aiFilters">
-<div class="labelText">機台 system_id</div>
-<select id="systemSelect">
-  <option value="">全部可查看機台</option>
-</select>
+<div class="labelText">機台</div>
+<div class="autocompleteWrap">
+  <input id="systemInput" autocomplete="off" placeholder="搜尋或選擇機台" />
+  <input id="systemValue" type="hidden" />
+  <select id="systemSelect" hidden aria-hidden="true"><option value="">全部可查看機台</option></select>
+  <div class="autocompleteMenu" id="systemSuggestions"></div>
+</div>
 
-<div class="labelText">產品名稱 products</div>
-<input id="productsInput" placeholder="可空白，輸入產品名稱"/>
+<div class="labelText">產品</div>
+<div class="autocompleteWrap">
+  <input id="productsInput" autocomplete="off" placeholder="搜尋或選擇產品" />
+  <div class="autocompleteMenu" id="productsSuggestions"></div>
+</div>
 
-<div class="labelText">開始時間 date_from</div>
+<div class="labelText">開始時間</div>
 <input id="dateFromInput" type="hidden" data-datetime-picker data-picker-label="📅 選擇開始日期與時間"/>
 
-<div class="labelText">結束時間 date_to</div>
+<div class="labelText">結束時間</div>
 <input id="dateToInput" type="hidden" data-datetime-picker data-picker-label="📅 選擇結束日期與時間"/>
 
-<div class="aiFilterActions">
-  <button class="btn btnPrimary" id="showAllSummary" type="button">查看全部</button>
+<div class="aiFilterActions aiFilterActionsTriple">
+  <button class="btn btnPrimary" id="searchSummary" type="button">查詢</button>
+  <button class="btn" id="clearSummary" type="button">清除條件</button>
   <button class="btn" id="refreshSummary" type="button">重新讀取統計</button>
 </div>
 </div>
@@ -107,9 +113,9 @@
 </div>
 <div class="helpText">
 <b>AI 模式說明：</b><br/>
-            右上角會顯示目前使用的 Gemini 模型與連線狀態。<br/>
-            Gemini 暫時無法使用或免費額度用完時，系統會自動切換成本機統計備援模式，不影響登入、事件紀錄與良率統計。
-          </div>
+右上角會顯示目前使用的 Gemini 模型與連線狀態。<br/>
+Gemini 暫時無法使用或免費額度用完時，系統會自動切換成本機統計備援模式，不影響登入、事件紀錄與良率統計。
+</div>
 </aside>
 </section>
 </main>
@@ -117,7 +123,7 @@
 <div class="ai-inline-style-6" id="errorBar"></div>
 <script defer="" src="vendor/marked.umd.js"></script>
 <script defer="" src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script>
-<script defer="" src="ai.js?v=20260723-3"></script>
+<script defer="" src="ai.js?v=20261007-4"></script>
 <script src="ai.handlers.js"></script>
 </body>
 </html>

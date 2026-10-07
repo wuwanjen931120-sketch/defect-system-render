@@ -226,8 +226,8 @@ async function loadSystems() {
       option.value = alertText(system.system_id);
 
       option.textContent =
-        `${alertText(system.name) || "未命名機台"} ` +
-        `(${alertText(system.system_id)})`;
+        alertText(system.name) || "未命名機台";
+      option.title = `system_id：${alertText(system.system_id)}`;
 
       select.appendChild(option);
     }

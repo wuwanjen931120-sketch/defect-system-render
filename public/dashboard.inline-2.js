@@ -7,6 +7,8 @@ let latestTrendProducts = [];
 let lastMachineRankingLoadTime = 0;
 let productGaugePage = 0;
 const PRODUCT_GAUGE_PAGE_SIZE = 4;
+let productTablePage = 0;
+const PRODUCT_TABLE_PAGE_SIZE = 8;
 
 const YIELD_ALERT_DEFAULTS = {
   yieldThreshold: 90,
@@ -909,9 +911,7 @@ function renderProductList() {
   const text = document.getElementById("currentProductsText");
 
   if (text) {
-    text.textContent = selectedProducts.length > 0
-      ? selectedProducts.join("、")
-      : "尚未設定";
+    text.textContent = `目前已設定 ${selectedProducts.length} 種產品`;
   }
 
   if (!div) return;
@@ -934,6 +934,26 @@ function renderProductList() {
     });
     chip.addEventListener("click", () => removeProduct(product));
     div.appendChild(chip);
+  });
+}
+
+function toggleProductManager(){
+  const div = document.getElementById("productList");
+  const btn = document.getElementById("dashboard-handler-15");
+  if (!div) return;
+  const open = div.classList.toggle("is-open");
+  if (btn) btn.textContent = open ? "收合產品清單" : "管理已加入產品";
+}
+
+function bindProductInputEnter(){
+  const input = document.getElementById("productInput");
+  if (!input || input.dataset.enterBound === "1") return;
+  input.dataset.enterBound = "1";
+  input.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addProduct();
+    }
   });
 }
 
@@ -994,9 +1014,16 @@ function changeProductGaugePage(delta){
   loadDashboardStats();
 }
 
+function changeProductTablePage(delta){
+  productTablePage = Math.max(0, productTablePage + delta);
+  loadDashboardStats();
+}
+
 document.addEventListener("click", event => {
   if (event.target?.id === "productGaugePrevBtn") changeProductGaugePage(-1);
   if (event.target?.id === "productGaugeNextBtn") changeProductGaugePage(1);
+  if (event.target?.id === "productTablePrevBtn") changeProductTablePage(-1);
+  if (event.target?.id === "productTableNextBtn") changeProductTablePage(1);
 });
 
 async function loadDashboardStats() {
@@ -1102,12 +1129,26 @@ const product = normalizeProductName(item.product);
     let totalOK = 0;
     let totalNG = 0;
 
-    // 統計與產品表永遠使用全部產品，不因良率卡片分頁而漏算。
+    // 全部產品都參與總計；產品統計表本身改採分頁，避免產品一多就無限往下拉。
     productNames.forEach(productName => {
       const stats = productStats[productName];
       totalOK += stats.ok;
       totalNG += stats.ng;
+    });
 
+    const productTablePageCount = Math.max(1, Math.ceil(productNames.length / PRODUCT_TABLE_PAGE_SIZE));
+    productTablePage = Math.min(Math.max(productTablePage, 0), productTablePageCount - 1);
+    const productTablePageText = document.getElementById("productTablePageText");
+    const productTablePrevBtn = document.getElementById("productTablePrevBtn");
+    const productTableNextBtn = document.getElementById("productTableNextBtn");
+    if (productTablePageText) productTablePageText.textContent = productNames.length ? `${productTablePage + 1} / ${productTablePageCount}` : "0 / 0";
+    if (productTablePrevBtn) productTablePrevBtn.disabled = productNames.length === 0 || productTablePage <= 0;
+    if (productTableNextBtn) productTableNextBtn.disabled = productNames.length === 0 || productTablePage >= productTablePageCount - 1;
+
+    const tableStart = productTablePage * PRODUCT_TABLE_PAGE_SIZE;
+    const tableVisibleNames = productNames.slice(tableStart, tableStart + PRODUCT_TABLE_PAGE_SIZE);
+    tableVisibleNames.forEach(productName => {
+      const stats = productStats[productName];
       if (dynamicRows) {
         const row = document.createElement("div");
         row.className = "pt-row";
@@ -1417,11 +1458,8 @@ systems.forEach(sys => {
   const opt = document.createElement("option");
   opt.value = sys.system_id;
 
-  opt.textContent = sys.system_name
-    ? `${sys.system_id}｜${sys.system_name}`
-    : sys.name
-      ? `${sys.system_id}｜${sys.name}`
-      : `機台 ${sys.system_id}`;
+  opt.textContent = sys.system_name || sys.name || "未命名機台";
+  opt.title = `system_id：${sys.system_id}`;
 
   systemSelect.appendChild(opt);
 });
@@ -1539,11 +1577,19 @@ document.addEventListener("DOMContentLoaded", async () => {
   const userChip = document.getElementById("userChip");
   const systemSelect = document.getElementById("systemSelect");
 
-  const currentUserId = sessionStorage.getItem("loginUser") || "";
-  const displayName = sessionStorage.getItem("loginName") || getDisplayUserName(currentUserId);
+  const currentUserRaw = sessionStorage.getItem("loginUser") || "";
+  let currentUser = {};
+  try { currentUser = JSON.parse(currentUserRaw) || {}; } catch (e) { currentUser = {}; }
+  const companyName = String(currentUser.company || "").trim();
+  const personName = String(currentUser.name || sessionStorage.getItem("loginName") || "").trim();
+  const email = String(currentUser.email || sessionStorage.getItem("email") || "").trim();
+  const identityText = companyName && personName
+    ? `${companyName}｜${personName}`
+    : (personName || companyName || email || "使用者");
 
   if (userChip) {
-    userChip.textContent = `目前登入：${displayName}`;
+    userChip.textContent = identityText;
+    userChip.title = email ? `登入帳號：${email}` : identityText;
   }
 
   const estopButton = document.querySelector(".estopBig");
@@ -1632,3 +1678,6 @@ if (typeof window.logout !== "function") {
     });
   };
 }
+
+
+document.addEventListener("DOMContentLoaded", bindProductInputEnter);

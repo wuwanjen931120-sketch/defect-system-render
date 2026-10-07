@@ -185,5 +185,75 @@ document.addEventListener("DOMContentLoaded", () => {
 
 });
 
-async function createMachine(){const id=document.getElementById("newSystemId")?.value.trim(),name=document.getElementById("newSystemName")?.value.trim(),out=document.getElementById("machineCreateStatus");if(!id||!name){out.textContent="請輸入機台 ID 與名稱";return;}try{const r=await fetch("/api/systems",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({system_id:id,name})});const d=await r.json();if(!r.ok)throw new Error(d.message||"新增失敗");out.textContent=`新增成功：${id}。請讓設備 MQTT payload 使用相同 system_id。`;document.getElementById("newSystemId").value="";document.getElementById("newSystemName").value="";}catch(e){out.textContent=e.message;}}
+let renameSystemsCache=[];
+function professionalMachineName(index){
+  const letters="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const suffix=index<letters.length?letters[index]:String(index+1);
+  return `AI 視覺分流站 ${suffix}`;
+}
+async function loadRenameSystems(){
+  const sel=document.getElementById("renameSystemSelect");
+  if(!sel)return;
+  try{
+    const tenantId=sessionStorage.getItem("tenant_id")||"";
+    const role=sessionStorage.getItem("role")||"";
+    const url=role==="super_admin"&&tenantId?`/api/systems?tenant_id=${encodeURIComponent(tenantId)}`:"/api/systems";
+    const r=await fetch(url,{credentials:"include"});
+    const list=await r.json();
+    renameSystemsCache=(Array.isArray(list)?list:[]).filter(m=>m&&m.system_id);
+    sel.innerHTML='<option value="">請選擇機台</option>';
+    renameSystemsCache.forEach((m,index)=>{
+      if(!m.system_id)return;
+      const opt=document.createElement("option");
+      opt.value=m.system_id;
+      opt.dataset.name=m.name||"";
+      const displayName=(m.name&&m.name!=="預設機台")?m.name:professionalMachineName(index);
+      opt.textContent=displayName;
+      opt.title=`system_id：${m.system_id}`;
+      sel.appendChild(opt);
+    });
+  }catch(e){console.error(e);}
+}
+async function createMachine(){const id=document.getElementById("newSystemId")?.value.trim(),name=document.getElementById("newSystemName")?.value.trim(),out=document.getElementById("machineCreateStatus");if(!id||!name){out.textContent="請輸入機台 ID 與名稱";return;}try{const r=await fetch("/api/systems",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({system_id:id,name})});const d=await r.json();if(!r.ok)throw new Error(d.message||"新增失敗");out.textContent=`新增成功：${name}（${id}）。MQTT payload 請繼續使用機台 ID：${id}`;document.getElementById("newSystemId").value="";document.getElementById("newSystemName").value="";await loadRenameSystems();}catch(e){out.textContent=e.message;}}
+async function renameMachine(){
+  const sel=document.getElementById("renameSystemSelect"), input=document.getElementById("renameSystemName"), out=document.getElementById("machineRenameStatus");
+  const id=sel?.value||"", name=input?.value.trim()||"";
+  if(!id||!name){if(out)out.textContent="請選擇機台並輸入新的顯示名稱";return;}
+  try{
+    const body={name};
+    const role=sessionStorage.getItem("role")||"", tenantId=sessionStorage.getItem("tenant_id")||"";
+    if(role==="super_admin"&&tenantId)body.tenant_id=tenantId;
+    const r=await fetch(`/api/systems/${encodeURIComponent(id)}/name`,{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.message||"修改失敗");
+    if(out)out.textContent=`已更新為：${name}`;
+    input.value="";
+    await loadRenameSystems();
+  }catch(e){if(out)out.textContent=e.message;}
+}
+document.getElementById("renameSystemSelect")?.addEventListener("change",e=>{const opt=e.target.selectedOptions?.[0];const input=document.getElementById("renameSystemName");if(input)input.value=opt?.dataset?.name||"";});
 document.getElementById("createSystemBtn")?.addEventListener("click",createMachine);
+document.getElementById("renameSystemBtn")?.addEventListener("click",renameMachine);
+document.getElementById("applyProfessionalNamesBtn")?.addEventListener("click",applyProfessionalNames);
+async function applyProfessionalNames(){
+  const out=document.getElementById("machineRenameStatus");
+  const targets=renameSystemsCache.filter(m=>!String(m.name||"").trim()||String(m.name||"").trim()==="預設機台");
+  if(!targets.length){if(out)out.textContent="目前所有機台都已經有自訂名稱，不需修改。";return;}
+  const role=sessionStorage.getItem("role")||"", tenantId=sessionStorage.getItem("tenant_id")||"";
+  try{
+    for(let i=0;i<targets.length;i++){
+      const m=targets[i];
+      const originalIndex=Math.max(0,renameSystemsCache.findIndex(x=>x.system_id===m.system_id));
+      const name=professionalMachineName(originalIndex);
+      const body={name};
+      if(role==="super_admin"&&tenantId)body.tenant_id=tenantId;
+      const r=await fetch(`/api/systems/${encodeURIComponent(m.system_id)}/name`,{method:"PATCH",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw new Error(d.message||`修改 ${m.system_id} 失敗`);
+    }
+    if(out)out.textContent=`已套用 ${targets.length} 台機台的專業名稱；system_id 維持不變。`;
+    await loadRenameSystems();
+  }catch(e){if(out)out.textContent=e.message;}
+}
+
+document.addEventListener("DOMContentLoaded",loadRenameSystems);

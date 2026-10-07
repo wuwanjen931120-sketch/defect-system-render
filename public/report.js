@@ -234,8 +234,8 @@ async function loadReportSystems() {
         reportText(system.system_id);
 
       option.textContent =
-        `${reportText(system.name) || "未命名機台"} ` +
-        `(${reportText(system.system_id)})`;
+        reportText(system.name) || "未命名機台";
+      option.title = `system_id：${reportText(system.system_id)}`;
 
       select.appendChild(option);
     });

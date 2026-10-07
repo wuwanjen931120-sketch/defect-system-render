@@ -1,0 +1,10 @@
+/* 方案 A：全站內容層級與留白統一。保留原有色系，只整理排版。 */
+:root{--planA-max:1480px;--planA-gap:18px}
+.main{box-sizing:border-box;overflow-x:hidden;padding:24px 28px!important}
+.main>.topbar,.main>.page-bg,.main>.page,.main>.healthPage,.main>.alertsPage,.main>.machinePage,.main>.reportPage,.main>.tracePage{width:100%;max-width:var(--planA-max);margin-left:auto!important;margin-right:auto!important;box-sizing:border-box}
+.main>.topbar{margin-bottom:var(--planA-gap)}
+.pageTitle h1,.pageTitle h2,.healthHeader h2,.page h1{margin-top:0}
+.card,.panel,.healthPanel,.filters,.filter-panel,.toolbar,.summary-card,.stat-card{box-sizing:border-box}
+button,.btn,input,select{box-sizing:border-box}
+@media(max-width:1100px){.main{padding:18px!important}}
+@media(max-width:720px){.main{padding:14px!important}}

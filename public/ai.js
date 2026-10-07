@@ -1,5 +1,4 @@
 (function(){
-  const token = sessionStorage.getItem("isLogin");
   const role = sessionStorage.getItem("role") || "";
   const tenantId = sessionStorage.getItem("tenant_id") || "";
   const defaultSystemId = sessionStorage.getItem("system_id") || "";
@@ -8,43 +7,39 @@
   const chatForm = document.getElementById("chatForm");
   const messageInput = document.getElementById("messageInput");
   const sendBtn = document.getElementById("sendBtn");
-  const systemSelect = document.getElementById("systemSelect");
+
+  const systemInput = document.getElementById("systemInput");
+  const systemValue = document.getElementById("systemValue");
+  const systemSuggestions = document.getElementById("systemSuggestions");
   const productsInput = document.getElementById("productsInput");
-const dateFromInput = document.getElementById("dateFromInput");
-const dateToInput = document.getElementById("dateToInput");
+  const productsSuggestions = document.getElementById("productsSuggestions");
+  const dateFromInput = document.getElementById("dateFromInput");
+  const dateToInput = document.getElementById("dateToInput");
+
   const aiDot = document.getElementById("aiDot");
   const aiMode = document.getElementById("aiMode");
-  const showAllSummary = document.getElementById("showAllSummary");
+  const searchSummaryBtn = document.getElementById("searchSummary");
+  const clearSummaryBtn = document.getElementById("clearSummary");
+  const refreshSummaryBtn = document.getElementById("refreshSummary");
 
-  if (role === "super_admin" || role === "tenant_admin") {
-    const adminNav = document.getElementById("adminNav");
-    if (adminNav) adminNav.style.display = "flex";
-  }
+  let systemsCache = [];
+  let productsCache = [];
+  let selectedSystemId = defaultSystemId || "";
+  let selectedProduct = "";
 
   function authHeaders(extra){
-    return Object.assign({
-      "Content-Type": "application/json"
-    }, extra || {});
+    return Object.assign({ "Content-Type": "application/json" }, extra || {});
   }
 
   function renderBotMarkdown(element, text){
     const safeText = String(text ?? "");
-
-    // marked 或 DOMPurify 尚未載入時，退回純文字顯示，避免頁面壞掉。
     if (!window.marked || !window.DOMPurify) {
       element.textContent = safeText;
       return;
     }
-
     try {
-      const rawHtml = window.marked.parse(safeText, {
-        breaks: true,
-        gfm: true
-      });
-
-      element.innerHTML = window.DOMPurify.sanitize(rawHtml, {
-        USE_PROFILES: { html: true }
-      });
+      const rawHtml = window.marked.parse(safeText, { breaks: true, gfm: true });
+      element.innerHTML = window.DOMPurify.sanitize(rawHtml, { USE_PROFILES: { html: true } });
     } catch (err) {
       console.error("Markdown 解析失敗", err);
       element.textContent = safeText;
@@ -52,11 +47,8 @@ const dateToInput = document.getElementById("dateToInput");
   }
 
   function setMessageContent(element, text, who){
-    if ((who || "bot") === "bot") {
-      renderBotMarkdown(element, text);
-    } else {
-      element.textContent = String(text ?? "");
-    }
+    if ((who || "bot") === "bot") renderBotMarkdown(element, text);
+    else element.textContent = String(text ?? "");
   }
 
   function addMessage(text, who){
@@ -69,24 +61,29 @@ const dateToInput = document.getElementById("dateToInput");
     return div;
   }
 
+  function escapeHtml(text){
+    return String(text ?? "").replace(/[&<>"']/g, function(ch){
+      return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[ch];
+    });
+  }
+
   function toIsoDateTime(value) {
-  if (!value) return "";
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toISOString();
+  }
 
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-
-  return date.toISOString();
-}
-
-function getFilters(){
-  return {
-    system_id: systemSelect.value || "",
-    tenant_id: role === "super_admin" ? tenantId : "",
-    products: productsInput.value.trim(),
-    date_from: toIsoDateTime(dateFromInput?.value || ""),
-    date_to: toIsoDateTime(dateToInput?.value || "")
-  };
-}
+  function getFilters(options){
+    const opts = options || {};
+    return {
+      system_id: opts.ignoreSystem ? "" : (selectedSystemId || ""),
+      tenant_id: role === "super_admin" ? tenantId : "",
+      products: opts.ignoreProduct ? "" : ((selectedProduct || productsInput.value || "").trim()),
+      date_from: toIsoDateTime(dateFromInput?.value || ""),
+      date_to: toIsoDateTime(dateToInput?.value || "")
+    };
+  }
 
   async function checkAiStatus(){
     try{
@@ -100,6 +97,120 @@ function getFilters(){
     }
   }
 
+  function normalizeMachine(system){
+    const id = String(system?.system_id || "").trim();
+    const name = String(system?.name || "").trim();
+    return {
+      id,
+      name,
+      label: name ? `${name}（${id}）` : id,
+      searchText: `${name} ${id}`.toLowerCase()
+    };
+  }
+
+  function openMenu(menu){
+    menu.classList.add("show");
+  }
+
+  function closeMenu(menu){
+    menu.classList.remove("show");
+  }
+
+  function buildAutocomplete(config){
+    const state = { items: [], activeIndex: -1 };
+    const { input, menu, getItems, renderItem, onSelect, onRawEnter } = config;
+
+    function refreshItems(keyword){
+      const rawList = getItems(keyword || "") || [];
+      state.items = rawList;
+      state.activeIndex = rawList.length ? 0 : -1;
+      if (!rawList.length) {
+        menu.innerHTML = '<div class="autocompleteEmpty">找不到符合的資料</div>';
+        openMenu(menu);
+        return;
+      }
+      menu.innerHTML = rawList.map((item, index) => {
+        const html = renderItem(item, index === state.activeIndex);
+        return `<button type="button" class="autocompleteOption${index === state.activeIndex ? ' active' : ''}" data-index="${index}">${html}</button>`;
+      }).join("");
+      openMenu(menu);
+    }
+
+    function selectIndex(index){
+      const item = state.items[index];
+      if (!item) return;
+      onSelect(item);
+      closeMenu(menu);
+    }
+
+    menu.addEventListener("mousedown", (e) => {
+      const option = e.target.closest(".autocompleteOption");
+      if (!option) return;
+      e.preventDefault();
+      selectIndex(Number(option.dataset.index));
+    });
+
+    input.addEventListener("focus", () => refreshItems(input.value.trim()));
+    input.addEventListener("input", () => refreshItems(input.value.trim()));
+
+    input.addEventListener("keydown", (e) => {
+      const max = state.items.length - 1;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        if (!menu.classList.contains("show")) refreshItems(input.value.trim());
+        else {
+          state.activeIndex = max < 0 ? -1 : Math.min(max, state.activeIndex + 1);
+          refreshItems(input.value.trim());
+        }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!menu.classList.contains("show")) refreshItems(input.value.trim());
+        else {
+          state.activeIndex = max < 0 ? -1 : Math.max(0, state.activeIndex - 1);
+          refreshItems(input.value.trim());
+        }
+      } else if (e.key === "Enter") {
+        if (menu.classList.contains("show")) {
+          e.preventDefault();
+          if (state.activeIndex >= 0 && state.items[state.activeIndex]) {
+            selectIndex(state.activeIndex);
+          } else if (typeof onRawEnter === "function") {
+            onRawEnter(input.value.trim());
+            closeMenu(menu);
+          }
+        } else if (typeof onRawEnter === "function") {
+          onRawEnter(input.value.trim());
+        }
+      } else if (e.key === "Escape") {
+        closeMenu(menu);
+      }
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!menu.contains(e.target) && e.target !== input) {
+        closeMenu(menu);
+      }
+    });
+
+    return { refreshItems, close: () => closeMenu(menu) };
+  }
+
+  function updateSystemInputById(systemId){
+    selectedSystemId = systemId || "";
+    systemValue.value = selectedSystemId;
+    if (!selectedSystemId) {
+      systemInput.value = "全部可查看機台";
+      return;
+    }
+    const found = systemsCache.find(item => item.id === selectedSystemId);
+    systemInput.value = found ? found.label : selectedSystemId;
+  }
+
+  function updateProductInput(productName){
+    selectedProduct = String(productName || "").trim();
+    productsInput.value = selectedProduct;
+  }
+
   async function loadSystems(){
     try{
       const url = role === "super_admin" && tenantId
@@ -108,19 +219,27 @@ function getFilters(){
       const res = await fetch(url, { credentials: "same-origin", headers: {} });
       const systems = await res.json();
       if (!Array.isArray(systems)) return;
-
-      systems.forEach(s => {
-        const id = s.system_id || "";
-        if (!id) return;
-        const opt = document.createElement("option");
-        opt.value = id;
-        opt.textContent = `${id}${s.name ? "｜" + s.name : ""}`;
-        systemSelect.appendChild(opt);
-      });
-
-      if (defaultSystemId) systemSelect.value = defaultSystemId;
+      systemsCache = systems.map(normalizeMachine).filter(item => item.id);
+      updateSystemInputById(defaultSystemId || "");
     }catch(err){
       console.error("讀取機台失敗", err);
+    }
+  }
+
+  async function loadProducts(){
+    try {
+      const params = new URLSearchParams();
+      const f = getFilters({ ignoreProduct: true });
+      if (f.system_id) params.set("system_id", f.system_id);
+      if (f.date_from) params.set("date_from", f.date_from);
+      if (f.date_to) params.set("date_to", f.date_to);
+      if (role === "super_admin" && f.tenant_id) params.set("tenant_id", f.tenant_id);
+      const res = await fetch(`/api/summary?${params.toString()}`, { headers: {} });
+      const data = await res.json();
+      productsCache = Object.keys(data.byProduct || {}).filter(Boolean).sort((a,b)=>a.localeCompare(b, 'zh-Hant'));
+    } catch (err) {
+      console.error("讀取產品清單失敗", err);
+      productsCache = [];
     }
   }
 
@@ -129,14 +248,12 @@ function getFilters(){
       const params = new URLSearchParams();
       const f = getFilters();
       if (f.system_id) params.set("system_id", f.system_id);
-if (f.products) params.set("products", f.products);
-if (f.date_from) params.set("date_from", f.date_from);
-if (f.date_to) params.set("date_to", f.date_to);
+      if (f.products) params.set("products", f.products);
+      if (f.date_from) params.set("date_from", f.date_from);
+      if (f.date_to) params.set("date_to", f.date_to);
       if (role === "super_admin" && f.tenant_id) params.set("tenant_id", f.tenant_id);
 
-      const res = await fetch(`/api/summary?${params.toString()}`, {
-        headers: {}
-      });
+      const res = await fetch(`/api/summary?${params.toString()}`, { headers: {} });
       const data = await res.json();
       document.getElementById("statTotal").textContent = data.total ?? "0";
       document.getElementById("statOk").textContent = data.okCount ?? "0";
@@ -187,6 +304,66 @@ if (f.date_to) params.set("date_to", f.date_to);
     }
   }
 
+  const systemAutocomplete = buildAutocomplete({
+    input: systemInput,
+    menu: systemSuggestions,
+    getItems(keyword){
+      const all = [{ id: "", name: "全部可查看機台", label: "全部可查看機台", searchText: "全部 可查看機台 all" }, ...systemsCache];
+      const q = String(keyword || "").trim().toLowerCase();
+      if (!q || q === "全部可查看機台") return all;
+      return all.filter(item => item.searchText.includes(q) || item.label.toLowerCase().includes(q));
+    },
+    renderItem(item, active){
+      return `<div class="optionLine"><b>${escapeHtml(item.name || item.label)}</b>${item.id ? `<span>${escapeHtml(item.id)}</span>` : ""}</div>`;
+    },
+    onSelect(item){
+      updateSystemInputById(item.id || "");
+      loadProducts().then(() => {
+        if (selectedProduct && !productsCache.includes(selectedProduct)) updateProductInput("");
+      });
+    },
+    onRawEnter(){
+      const q = systemInput.value.trim().toLowerCase();
+      const match = systemsCache.find(item => item.searchText.includes(q) || item.label.toLowerCase().includes(q));
+      if (match) updateSystemInputById(match.id);
+    }
+  });
+
+  const productAutocomplete = buildAutocomplete({
+    input: productsInput,
+    menu: productsSuggestions,
+    getItems(keyword){
+      const all = ["全部產品", ...productsCache];
+      const q = String(keyword || "").trim().toLowerCase();
+      if (!q) return all;
+      return all.filter(item => item.toLowerCase().includes(q));
+    },
+    renderItem(item){
+      return `<div class="optionLine"><b>${escapeHtml(item)}</b></div>`;
+    },
+    onSelect(item){
+      updateProductInput(item === "全部產品" ? "" : item);
+    },
+    onRawEnter(rawText){
+      const text = String(rawText || "").trim();
+      if (!text || text === "全部產品") updateProductInput("");
+      else updateProductInput(text);
+    }
+  });
+
+  async function doSearch(triggerMessage){
+    await loadProducts();
+    await refreshSummary();
+    if (triggerMessage) addMessage(triggerMessage, "bot");
+  }
+
+  function clearFilters(){
+    updateSystemInputById("");
+    updateProductInput("");
+    dateFromInput.value = "";
+    dateToInput.value = "";
+  }
+
   chatForm.addEventListener("submit", (e) => {
     e.preventDefault();
     const msg = messageInput.value.trim();
@@ -199,24 +376,21 @@ if (f.date_to) params.set("date_to", f.date_to);
     btn.addEventListener("click", () => askAi(btn.dataset.q || btn.textContent));
   });
 
-  document.getElementById("refreshSummary").addEventListener("click", refreshSummary);
-  if (showAllSummary) {
-    showAllSummary.addEventListener("click", () => {
-  systemSelect.value = "";
-  productsInput.value = "";
-  dateFromInput.value = "";
-  dateToInput.value = "";
-  refreshSummary();
-      addMessage("已切換成查看全部可查看機台與全部產品。", "bot");
-    });
-  }
- systemSelect.addEventListener("change", refreshSummary);
-productsInput.addEventListener("change", refreshSummary);
-dateFromInput?.addEventListener("change", refreshSummary);
-dateToInput?.addEventListener("change", refreshSummary);
+  searchSummaryBtn?.addEventListener("click", () => doSearch("已依目前機台、產品與時間條件更新統計。"));
+  clearSummaryBtn?.addEventListener("click", async () => {
+    clearFilters();
+    await loadProducts();
+    await refreshSummary();
+    addMessage("已清除條件，切換成查看全部可查看機台與全部產品。", "bot");
+  });
+  refreshSummaryBtn?.addEventListener("click", () => doSearch("已重新讀取目前條件的統計資料。"));
 
-Promise.resolve()
-  .then(checkAiStatus)
-  .then(loadSystems)
-  .then(refreshSummary);
+  dateFromInput?.addEventListener("change", () => loadProducts());
+  dateToInput?.addEventListener("change", () => loadProducts());
+
+  Promise.resolve()
+    .then(checkAiStatus)
+    .then(loadSystems)
+    .then(loadProducts)
+    .then(refreshSummary);
 })();

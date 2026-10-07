@@ -875,6 +875,20 @@ app.post("/api/systems", auth, requireRole("super_admin", "tenant_admin"), async
   await writeAudit(req,"system.create",{tenant_id,system_id,target:name}); return res.status(201).json({success:true,system_id,name});
 }));
 
+app.patch("/api/systems/:systemId/name", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req,res)=>{
+  const system_id=cleanText(req.params.systemId,100);
+  const name=cleanText(req.body.name,120);
+  const requestedTenant=cleanText(req.body.tenant_id,100);
+  const tenant_id=req.user.role==="super_admin"?requestedTenant:req.user.tenant_id;
+  if(!system_id||!name) return res.status(400).json({message:"請輸入機台名稱"});
+  if(!tenant_id) return res.status(400).json({message:"缺少 tenant_id"});
+  const col=mongoose.connection.collection("systems");
+  const result=await col.updateOne({tenant_id,system_id},{$set:{name,updatedAt:new Date()}});
+  if(!result.matchedCount) return res.status(404).json({message:"找不到機台"});
+  await writeAudit(req,"system.rename",{tenant_id,system_id,target:name});
+  return res.json({success:true,system_id,name});
+}));
+
 app.get("/api/machine-status", auth, asyncHandler(async (req, res) => {
   const requestedTenant = cleanText(req.query.tenant_id, 100);
 

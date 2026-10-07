@@ -13,7 +13,7 @@
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <script src="auth-bootstrap.js?v=20260723-3"></script><script defer="" src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script>
 <script defer src="core.js?v=20260811-2"></script>
-<link href="settings.page.css" rel="stylesheet"/><link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/></head>
+<link href="settings.page.css" rel="stylesheet"/><link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
 <body>
 <div class="settings-inline-style-1" id="errorBar"></div>
 <div class="drawerOverlay" id="overlay"></div>
@@ -78,7 +78,7 @@
 <button class="btn" id="settings-handler-5">載入設定</button>
 </div>
 </div>
-<section class="grid"><div class="card span-12"><h3>新增機台</h3><p>建立機台後，設備或外部測試程式的 MQTT payload 必須使用相同的 system_id；收到第一筆有效回報後才會顯示在線與數據。</p><div class="machine-create-row"><input id="newSystemId" placeholder="機台 ID，例如 LINE_A_01"><input id="newSystemName" placeholder="機台名稱"><button class="btn btnPrimary" id="createSystemBtn" type="button">新增機台</button></div><div id="machineCreateStatus"></div></div>
+<section class="grid"><div class="card span-12"><h3>機台基本資料</h3><p>畫面主要顯示「機台名稱」，MQTT 與後端仍使用唯一的「機台 ID」。建議命名格式採「功能＋站別」，例如「AI 視覺分流站 A」、「AI 視覺分流站 B」或「瑕疵檢測站 A」。</p><div class="machine-create-row"><input id="newSystemId" placeholder="機台 ID，例如 LINE_A_01"><input id="newSystemName" placeholder="顯示名稱，例如 AI 視覺分流站 A"><button class="btn btnPrimary" id="createSystemBtn" type="button">新增機台</button></div><div id="machineCreateStatus"></div></div><div class="card span-12"><h3>修改機台顯示名稱</h3><p>每個客戶的設備可以不同，不需要使用一長串數字當名稱。系統 ID 保留給程式辨識；使用者看到的是專業名稱。</p><div class="machine-create-row"><select id="renameSystemSelect"><option value="">請選擇機台</option></select><input id="renameSystemName" placeholder="新的機台顯示名稱"><button class="btn btnPrimary" id="renameSystemBtn" type="button">儲存名稱</button><button class="btn" id="applyProfessionalNamesBtn" type="button">套用建議名稱</button></div><div id="machineRenameStatus"></div><p class="muted">「套用建議名稱」只會修改未命名或名稱仍為「預設機台」的設備，依序命名為 AI 視覺分流站 A、B、C…，不會更改 system_id。</p></div>
 <div class="card span-6">
 <h3>瑕疵連續次數門檻</h3>
 <div class="settings-inline-style-5">
@@ -101,7 +101,7 @@
 </div>
 </section></main></div>
 <div class="settings-inline-style-1" id="errorBar"></div>
-<script src="settings.inline-1.js"></script>
+<script src="settings.inline-1.js?v=20261007-7"></script>
 <div class="settings-inline-style-1" id="errorBar"></div>
 <script src="settings.handlers.js"></script>
 </body>

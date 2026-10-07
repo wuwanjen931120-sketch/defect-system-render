@@ -120,6 +120,13 @@
       if (result === false) { event.preventDefault(); event.stopPropagation(); }
     });
   }
+  {
+    const element = document.getElementById('dashboard-handler-15');
+    if (element) element.addEventListener('click', function(event) {
+      const result = (function(event) { toggleProductManager() }).call(this, event);
+      if (result === false) { event.preventDefault(); event.stopPropagation(); }
+    });
+  }
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", bindPageHandlers, { once: true });
   else bindPageHandlers();
