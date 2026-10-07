@@ -2,12 +2,7 @@
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
-  background: #0b1728;
-  color: #e7eef8;
-  font-family: Arial, "Microsoft JhengHei", sans-serif;
-}
+body { margin:0; background:#081321; color:#e7eef8; font-family:Arial,"Microsoft JhengHei",sans-serif; }
 
 .page {
   min-height: 100vh;
@@ -15,7 +10,7 @@ body {
 }
 
 .card {
-  max-width: 1500px;
+  max-width: 1180px;
   margin: 0 auto;
   background: #10233b;
   border: 1px solid #29415f;

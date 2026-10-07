@@ -4,11 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>角色與機台管理</title>
+  <script src="auth-bootstrap.js?v=20261007-1"></script>
+  <link rel="stylesheet" href="style.css" />
+
   <link rel="stylesheet" href="user-manage.css" />
-</head>
+  <script defer src="core.js?v=20261007-1"></script>
+<link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/></head>
 
 <body>
-  <main class="page">
+  <div class="app">
+    <aside class="sidebar"><div class="brand"><div class="logo"></div><div><h1>瑕疵辨識與分流系統</h1><p>Defect System</p></div></div><div class="nav"></div></aside>
+    <main class="main"><div class="page">
     <section class="card">
       <div class="header">
         <div>
@@ -18,7 +24,7 @@
 
         <div class="header-actions">
           <button id="refreshBtn" type="button">重新整理</button>
-          
+
         </div>
       </div>
 
@@ -85,8 +91,8 @@
         </section>
       </div>
     </section>
-  </main>
-
+    </div></main>
+  </div>
   <script src="user-manage.js"></script>
 </body>
 </html>
