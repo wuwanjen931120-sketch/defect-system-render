@@ -685,3 +685,39 @@ img, video, canvas {
 
 /* 2026-10-07 UI 統一：放大字級、降低擁擠 */
 html{font-size:17px} body{line-height:1.55}.main{min-width:0}.card{border-radius:14px}.topbar{gap:16px}.nav a{min-height:48px}.machine-create-row{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:center}@media(max-width:800px){.machine-create-row{grid-template-columns:1fr}}
+
+
+/* ===== 2026-10-07：全站按鈕一致互動效果 ===== */
+:where(button, .btn, a.btn, input[type="button"], input[type="submit"], input[type="reset"]){
+  transition:background-color .16s ease,border-color .16s ease,color .16s ease,filter .16s ease,transform .10s ease,box-shadow .16s ease !important;
+  -webkit-tap-highlight-color:transparent;
+}
+:where(button, .btn, a.btn, input[type="button"], input[type="submit"], input[type="reset"]):not(:disabled):hover{
+  filter:brightness(1.16) saturate(1.08) !important;
+  transform:translateY(-1px) !important;
+  border-color:rgba(96,165,250,.68) !important;
+  box-shadow:0 7px 18px rgba(0,0,0,.18),0 0 0 1px rgba(96,165,250,.08) !important;
+}
+:where(button, .btn, a.btn, input[type="button"], input[type="submit"], input[type="reset"]):not(:disabled):active{
+  filter:brightness(.82) saturate(1.10) !important;
+  transform:translateY(1px) scale(.985) !important;
+  box-shadow:inset 0 2px 7px rgba(0,0,0,.30) !important;
+}
+:where(button, .btn, a.btn, input[type="button"], input[type="submit"], input[type="reset"]):focus-visible{
+  outline:none !important;
+  box-shadow:0 0 0 3px rgba(96,165,250,.26) !important;
+  border-color:#60a5fa !important;
+}
+:where(button, .btn, a.btn, input[type="button"], input[type="submit"], input[type="reset"]):disabled{
+  cursor:not-allowed !important;
+  opacity:.48 !important;
+}
+/* 側邊導覽也採同一種滑入/按下回饋，但保留目前頁面的選中色。 */
+.sidebar .nav a:not(.active):hover{
+  filter:brightness(1.12) saturate(1.06) !important;
+  transform:translateY(-1px) !important;
+}
+.sidebar .nav a:active{
+  filter:brightness(.86) !important;
+  transform:translateY(1px) scale(.992) !important;
+}

@@ -78,6 +78,22 @@ function buildReportParams() {
   return params;
 }
 
+
+function filterRowsBySelectedDateRange(rows) {
+  const fromValue = document.getElementById("reportDateFrom")?.value || "";
+  const toValue = document.getElementById("reportDateTo")?.value || "";
+  const from = fromValue ? new Date(fromValue) : null;
+  const to = toValue ? new Date(toValue) : null;
+  return rows.filter(row => {
+    if (!row?.timestamp) return !from && !to;
+    const t = new Date(row.timestamp);
+    if (Number.isNaN(t.getTime())) return false;
+    if (from && t < from) return false;
+    if (to && t > to) return false;
+    return true;
+  });
+}
+
 function updateReportSummary() {
   const total = reportRows.length;
 
@@ -260,9 +276,9 @@ async function loadReport() {
       );
     }
 
-    reportRows = Array.isArray(data)
-      ? data
-      : [];
+    reportRows = filterRowsBySelectedDateRange(
+      Array.isArray(data) ? data : []
+    );
 
     updateReportSummary();
     renderReportRows();

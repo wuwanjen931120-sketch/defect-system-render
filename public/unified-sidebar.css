@@ -63,3 +63,62 @@
   margin-left: auto;
   white-space: nowrap;
 }
+
+/* ===== 2026-10-07：全站側邊欄最終統一版 ===== */
+.sidebar .nav a,
+.sidebar .nav a:link,
+.sidebar .nav a:visited,
+.sidebar .nav a:hover,
+.sidebar .nav a:focus,
+.sidebar .nav a:active {
+  min-height: 56px !important;
+  height: 56px !important;
+  padding: 0 18px !important;
+  border-radius: 20px !important;
+  box-sizing: border-box !important;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "Noto Sans TC", sans-serif !important;
+}
+
+.sidebar .nav .nav-label {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  color: #ffffff !important;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "Noto Sans TC", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+}
+
+.sidebar .nav .pill,
+.sidebar .nav a .pill,
+.sidebar .nav a.active .pill {
+  flex: 0 0 78px !important;
+  width: 78px !important;
+  min-width: 78px !important;
+  height: 32px !important;
+  margin-left: auto !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+  border-radius: 999px !important;
+  background: rgba(8,20,40,.28) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  color: #dfe9f8 !important;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+}
+
+.sidebar .nav a.active .nav-label { color:#ffffff !important; }
+.sidebar .nav a.active .pill { color:#eef5ff !important; }
