@@ -211,3 +211,28 @@ input[readonly] {
     align-items: stretch;
   }
 }
+
+.user-company,
+.user-email{
+  display:block;
+  margin-top:5px;
+  color:#b7c8dc;
+  font-size:13px;
+  line-height:1.4;
+  overflow-wrap:anywhere;
+}
+
+.user-company{
+  color:#d8e5f4;
+  font-weight:700;
+}
+
+.user-email{
+  color:#8fa5bf;
+}
+
+.field-note{
+  color:#8fa5bf;
+  font-size:12px;
+  margin-top:-2px;
+}

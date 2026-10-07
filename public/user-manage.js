@@ -9,6 +9,12 @@ const userListEl = document.getElementById("userList");
 const editForm = document.getElementById("editForm");
 const emptyState = document.getElementById("emptyState");
 
+function roleLabel(role) {
+  if (role === "super_admin") return "系統管理員";
+  if (role === "tenant_admin") return "客戶管理員";
+  return "一般使用者";
+}
+
 async function apiFetch(url, options = {}) {
   const response = await fetch(url, {
     credentials: "include",
@@ -55,15 +61,22 @@ function renderUserList() {
 
     const name = document.createElement("span");
     name.className = "user-name";
-    name.textContent = user.username || "-";
+    name.textContent = user.name || user.email || user.username || "未命名使用者";
+
+    const company = document.createElement("span");
+    company.className = "user-company";
+    company.textContent = user.company || "未設定公司／單位";
+
+    const email = document.createElement("span");
+    email.className = "user-email";
+    email.textContent = user.email || user.username || "-";
 
     const meta = document.createElement("span");
     meta.className = "user-meta";
     meta.textContent =
-      `${user.company || "-"}｜${user.role || "-"}｜` +
-      `${user.disabled ? "停用" : "啟用"}`;
+      `${roleLabel(user.role)}｜${user.disabled ? "停用" : "啟用"}`;
 
-    button.append(name, meta);
+    button.append(name, company, email, meta);
     button.addEventListener("click", () => selectUser(user));
 
     userListEl.appendChild(button);
@@ -155,7 +168,8 @@ async function selectUser(user) {
   emptyState.hidden = true;
   editForm.hidden = false;
 
-  document.getElementById("username").value = user.username || "";
+  document.getElementById("name").value = user.name || "";
+  document.getElementById("username").value = user.email || user.username || "";
   document.getElementById("company").value = user.company || "";
   document.getElementById("tenantId").value = user.tenant_id || "";
   document.getElementById("role").value = user.role || "user";
@@ -179,6 +193,7 @@ editForm.addEventListener("submit", async (event) => {
 
   const role = document.getElementById("role").value;
   const enabled = document.getElementById("enabled").checked;
+  const name = document.getElementById("name").value.trim();
 
   const systems =
     role === "user"
@@ -190,6 +205,7 @@ editForm.addEventListener("submit", async (event) => {
       : [];
 
   const payload = {
+    name,
     role,
     systems,
     disabled: !enabled

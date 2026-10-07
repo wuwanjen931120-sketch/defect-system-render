@@ -7,7 +7,7 @@
   <script src="auth-bootstrap.js?v=20261007-1"></script>
   <link rel="stylesheet" href="style.css" />
 
-  <link rel="stylesheet" href="user-manage.css" />
+  <link rel="stylesheet" href="user-manage.css?v=20261007-2" />
   <script defer src="core.js?v=20261007-1"></script>
 <link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
 
@@ -45,26 +45,32 @@
 
           <form id="editForm" class="edit-form" hidden>
             <label>
-              帳號
+              姓名
+              <input id="name" type="text" maxlength="120" placeholder="輸入使用者姓名" />
+            </label>
+
+            <label>
+              Email（登入帳號）
               <input id="username" type="text" readonly />
             </label>
 
             <label>
-              公司
+              公司／單位
               <input id="company" type="text" readonly />
             </label>
 
             <label>
-              Tenant ID
+              客戶識別碼
               <input id="tenantId" type="text" readonly />
+              <span class="field-note">系統內部 Tenant ID</span>
             </label>
 
             <label>
               角色
               <select id="role">
-                <option value="user">user</option>
-                <option value="tenant_admin">tenant_admin</option>
-                <option value="super_admin">super_admin</option>
+                <option value="user">一般使用者</option>
+                <option value="tenant_admin">客戶管理員</option>
+                <option value="super_admin">系統管理員</option>
               </select>
             </label>
 
@@ -93,6 +99,6 @@
     </section>
     </div></main>
   </div>
-  <script src="user-manage.js"></script>
+  <script src="user-manage.js?v=20261007-2"></script>
 </body>
 </html>

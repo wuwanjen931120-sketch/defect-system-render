@@ -68,3 +68,11 @@
   .healthHeader{align-items:stretch;flex-direction:column}
   .status-grid{grid-template-columns:1fr}
 }
+
+.status-source{
+  display:block;
+  margin-top:6px;
+  color:var(--muted,#9eb1c9);
+  font-size:12px;
+  font-weight:500;
+}
