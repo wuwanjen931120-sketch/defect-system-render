@@ -26,12 +26,15 @@ test("valid production environment passes", () => {
   assert.equal(validateEnvironment(validEnv()), true);
 });
 
-test("production public registration requires a strong invite code", () => {
+test("production public registration requires SMTP for email verification", () => {
   const errors = collectEnvironmentErrors(validEnv({
     ALLOW_PUBLIC_REGISTRATION: "true",
-    REGISTRATION_INVITE_CODE: "short"
+    REQUIRE_EMAIL_LOGIN: "false",
+    SMTP_USER: "",
+    SMTP_PASS: "",
+    SMTP_FROM: ""
   }));
-  assert.ok(errors.some(message => message.includes("REGISTRATION_INVITE_CODE")));
+  assert.ok(errors.some(message => message.includes("Email 驗證註冊")));
 });
 
 test("partial MQTT configuration is rejected", () => {

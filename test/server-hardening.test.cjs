@@ -17,8 +17,9 @@ test("login has account lockout and registration owns OTP challenge", () => {
   assert.match(server, /security\.login\.success/);
 });
 
-test("production registration is closed and strict cookie is configured", () => {
-  assert.match(render, /ALLOW_PUBLIC_REGISTRATION\n\s+value: "false"/);
+test("production registration is email-verified and strict cookie is configured", () => {
+  assert.match(render, /ALLOW_PUBLIC_REGISTRATION\n\s+value: "true"/);
+  assert.match(render, /REQUIRE_EMAIL_LOGIN\n\s+value: "false"/);
   assert.match(render, /AUTH_COOKIE_SAME_SITE\n\s+value: Strict/);
 });
 
