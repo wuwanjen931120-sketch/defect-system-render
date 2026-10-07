@@ -73,7 +73,6 @@ const ALERT_THRESHOLD = clampInt(process.env.ALERT_THRESHOLD, 3, 2, 100);
 const ALERT_WINDOW_MINUTES = clampInt(process.env.ALERT_WINDOW_MINUTES, 10, 1, 1440);
 const ALERT_COOLDOWN_MINUTES = clampInt(process.env.ALERT_COOLDOWN_MINUTES, 30, 1, 1440);
 const ALLOW_PUBLIC_REGISTRATION = String(process.env.ALLOW_PUBLIC_REGISTRATION || (NODE_ENV === "production" ? "false" : "true")) === "true";
-const REGISTRATION_INVITE_CODE = String(process.env.REGISTRATION_INVITE_CODE || "");
 const DEFECT_RETENTION_DAYS = clampInt(process.env.DEFECT_RETENTION_DAYS, 365, 0, 3650);
 const AUDIT_RETENTION_DAYS = clampInt(process.env.AUDIT_RETENTION_DAYS, 365, 0, 3650);
 const AI_REQUESTS_PER_DAY = clampInt(process.env.AI_REQUESTS_PER_DAY, 100, 1, 10000);
@@ -213,7 +212,7 @@ const transporter = mailEnabled ? nodemailer.createTransport({
   disableFileAccess: true,
   disableUrlAccess: true
 }) : null;
-let isMailReady = !REQUIRE_EMAIL_LOGIN;
+let isMailReady = false;
 let lastMailCheckAt = null;
 
 function asyncHandler(fn) { return (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next); }
@@ -454,9 +453,8 @@ app.post("/api/register/send-code", otpSendLimiter, asyncHandler(async (req, res
 
 app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
   if (!ALLOW_PUBLIC_REGISTRATION) return res.status(403).json({ message: "目前已關閉公開註冊，請聯絡管理員建立帳號" });
-  if (REGISTRATION_INVITE_CODE && !timingSafeTextEqual(req.body.invite_code, REGISTRATION_INVITE_CODE)) return res.status(403).json({ message: "註冊邀請碼不正確" });
-  const company=cleanText(req.body.company,120), username=normalizeEmail(req.body.username), password=String(req.body.password||""), code=cleanText(req.body.code,12), challengeId=cleanText(req.body.challenge_id,100);
-  if (!company || !isValidEmail(username) || !password) return res.status(400).json({ message:"資料不完整" });
+  const company=cleanText(req.body.company,120), name=cleanText(req.body.name,80), username=normalizeEmail(req.body.username), password=String(req.body.password||""), code=cleanText(req.body.code,12), challengeId=cleanText(req.body.challenge_id,100);
+  if (!company || !name || !isValidEmail(username) || !password) return res.status(400).json({ message:"請完整輸入公司／單位、姓名、Email 與密碼" });
   const pw=validatePassword(password); if(!pw.valid) return res.status(400).json({message:pw.errors.join("；")});
   const otpCol=mongoose.connection.collection("registration_otps"), saved=await otpCol.findOne({email:username,challengeId});
   if(!saved || new Date(saved.expiresAt).getTime()<Date.now()) return res.status(400).json({message:"註冊驗證碼已失效，請重新寄送"});
@@ -464,12 +462,12 @@ app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
   if(!(expected.length===actual.length && crypto.timingSafeEqual(expected,actual))) return res.status(400).json({message:"註冊驗證碼錯誤"});
   const users=mongoose.connection.collection("users"); if(await users.findOne({$or:[{username},{email:username}]})) return res.status(409).json({message:"帳號已存在"});
   const tenant_id=`T${Date.now()}${crypto.randomInt(100,999)}`;
-  const session=await mongoose.startSession(); try{await session.withTransaction(async()=>{await mongoose.connection.collection("tenants").insertOne({tenant_id,company,createdAt:new Date()},{session});await users.insertOne({username,email:username,password:await bcrypt.hash(password,12),tenant_id,role:"tenant_admin",systems:[],session_version:0,disabled:false,createdAt:new Date()},{session});});}finally{await session.endSession();}
+  const session=await mongoose.startSession(); try{await session.withTransaction(async()=>{await mongoose.connection.collection("tenants").insertOne({tenant_id,company,createdAt:new Date()},{session});await users.insertOne({username,email:username,name,company,password:await bcrypt.hash(password,12),tenant_id,role:"tenant_admin",systems:[],session_version:0,disabled:false,createdAt:new Date()},{session});});}finally{await session.endSession();}
   await otpCol.deleteOne({email:username,challengeId}); await writeAudit(req,"tenant.register",{tenant_id,target:username});
   return res.status(201).json({success:true,tenant_id});
 }));
 
-app.get("/api/login/status", (req,res)=>res.json({ database_connected:mongoose.connection.readyState===1, registration_enabled:ALLOW_PUBLIC_REGISTRATION, registration_requires_invite:ALLOW_PUBLIC_REGISTRATION&&Boolean(REGISTRATION_INVITE_CODE), registration_email_ready:mailEnabled&&isMailReady, two_factor_required:false }));
+app.get("/api/login/status", (req,res)=>res.json({ database_connected:mongoose.connection.readyState===1, registration_enabled:ALLOW_PUBLIC_REGISTRATION, registration_requires_invite:false, registration_email_ready:mailEnabled&&isMailReady, two_factor_required:false }));
 
 app.post("/api/login", authLimiter, asyncHandler(async(req,res)=>{
   const email=normalizeEmail(req.body.email), password=String(req.body.password||"");
@@ -483,6 +481,9 @@ app.post("/api/login", authLimiter, asyncHandler(async(req,res)=>{
 
 app.get("/api/session", auth, asyncHandler(async (req, res) => {
   const systems = await resolveSystemIdsForUserDocument(req.user);
+  const tenant = req.user.tenant_id
+    ? await mongoose.connection.collection("tenants").findOne({ tenant_id: req.user.tenant_id }, { projection: { company: 1 } })
+    : null;
   res.setHeader("Cache-Control", "no-store");
   return res.json({
     authenticated: true,
@@ -490,7 +491,7 @@ app.get("/api/session", auth, asyncHandler(async (req, res) => {
       id: req.user.id,
       email: req.user.email,
       name: req.user.name || "",
-      company: req.user.company || "",
+      company: req.user.company || tenant?.company || "",
       tenant_id: req.user.tenant_id || "",
       role: req.user.role || "user"
     },
@@ -844,7 +845,8 @@ const processStartedAt = new Date();
 function healthSnapshot() {
   const databaseConnected = mongoose.connection.readyState === 1;
   const mqttConfigured = Boolean(process.env.MQTT_URL && process.env.HIVEMQ_USER && process.env.HIVEMQ_PASS);
-  const mailReady = !REQUIRE_EMAIL_LOGIN || (mailEnabled && isMailReady);
+  const mailRequired = ALLOW_PUBLIC_REGISTRATION || REQUIRE_EMAIL_LOGIN;
+  const mailReady = !mailRequired || (mailEnabled && isMailReady);
   const mqttReady = !mqttRequired || (mqttConfigured && isMqttConnected);
   return {
     status: databaseConnected && mailReady && mqttReady ? "ok" : "degraded",
@@ -853,7 +855,7 @@ function healthSnapshot() {
     started_at: processStartedAt.toISOString(),
     checked_at: new Date().toISOString(),
     database_connected: databaseConnected,
-    mail_required: REQUIRE_EMAIL_LOGIN,
+    mail_required: mailRequired,
     mail_configured: mailEnabled,
     mail_ready: isMailReady,
     last_mail_check_at: lastMailCheckAt,
@@ -1610,8 +1612,8 @@ mongoose.connection.collection("ai_daily_usage").createIndex(
 async function verifyMailTransport() {
   lastMailCheckAt = new Date().toISOString();
   if (!mailEnabled || !transporter) {
-    isMailReady = !REQUIRE_EMAIL_LOGIN;
-    return isMailReady;
+    isMailReady = false;
+    return false;
   }
   try {
     await transporter.verify();

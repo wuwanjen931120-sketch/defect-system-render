@@ -29,7 +29,7 @@ services:
       - key: AUTH_COOKIE_SECURE
         value: "true"
       - key: REQUIRE_EMAIL_LOGIN
-        value: "true"
+        value: "false"
       - key: LOGIN_MAX_FAILURES
         value: "5"
       - key: LOGIN_FAILURE_WINDOW_MINUTES
@@ -37,9 +37,7 @@ services:
       - key: LOGIN_LOCK_MINUTES
         value: "15"
       - key: ALLOW_PUBLIC_REGISTRATION
-        value: "false"
-      - key: REGISTRATION_INVITE_CODE
-        sync: false
+        value: "true"
       - key: REQUIRE_MQTT
         value: "false"
       - key: MQTT_URL
