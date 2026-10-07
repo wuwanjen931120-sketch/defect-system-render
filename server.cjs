@@ -536,8 +536,10 @@ app.get("/api/admin/users", auth, requireRole("super_admin", "tenant_admin"), as
   return res.json(users.map(u => ({
     id: String(u._id),
     username: u.username || u.email,
+    email: u.email || u.username || "",
+    name: u.name || "",
     tenant_id: u.tenant_id,
-    company: tenants.find(t => t.tenant_id === u.tenant_id)?.company || "未知",
+    company: tenants.find(t => t.tenant_id === u.tenant_id)?.company || u.company || "未知",
     role: u.role,
     disabled: u.disabled === true || u.status === "disabled",
     systems: Array.isArray(u.systems) ? u.systems : []
@@ -593,6 +595,9 @@ app.patch("/api/admin/users/:id", auth, requireRole("super_admin", "tenant_admin
   }
 
   const update = {};
+  if (req.body.name !== undefined) {
+    update.name = cleanText(req.body.name, 120);
+  }
   if (typeof req.body.disabled === "boolean") update.disabled = req.body.disabled;
   if (req.body.role !== undefined) {
     const role = cleanText(req.body.role, 30);
