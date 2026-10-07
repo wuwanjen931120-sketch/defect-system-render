@@ -291,3 +291,5 @@
   font-size: 14px;
   font-weight: 800;
 }
+
+.imageTraceField select{background:#142943;color:#e8f0ff;color-scheme:dark}.imageTraceField select option{background:#142943;color:#e8f0ff}.imageTraceActions .btn{background:rgba(59,130,246,.12);border:1px solid rgba(96,165,250,.28);color:#eef6ff;transition:.18s ease}.imageTraceActions .btn:hover,.imageTraceActions .btn:focus-visible{background:rgba(59,130,246,.30);border-color:#60a5fa;transform:translateY(-1px)}.imageTraceActions .btn:active{background:rgba(30,64,175,.55);transform:translateY(0)}

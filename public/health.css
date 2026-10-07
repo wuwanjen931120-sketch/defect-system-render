@@ -1,105 +1,70 @@
-* {
-  box-sizing: border-box;
+/* 系統健康頁：統一採用全站深藍色儀表板視覺 */
+.healthPage{
+  width:100%;
+  max-width:1420px;
+  margin:0 auto;
+  padding:28px;
 }
-
-body {
-  margin: 0;
-  font-family: Arial, "Microsoft JhengHei", sans-serif;
-  background: #f4f7fb;
-  color: #1f2937;
+.healthHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  margin-bottom:22px;
 }
-
-.health-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
+.healthHeader h2{margin:0 0 6px;font-size:28px;color:var(--text)}
+.healthHeader p{margin:0;color:var(--muted);line-height:1.6;font-size:15px}
+.healthPanel{
+  background:rgba(16,31,54,.86);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:16px;
+  padding:18px;
 }
-
-.health-card {
-  width: min(900px, 100%);
-  background: #ffffff;
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+.overall{
+  min-height:56px;
+  display:flex;
+  align-items:center;
+  padding:14px 16px;
+  border-radius:12px;
+  background:rgba(9,21,39,.9);
+  border:1px solid rgba(255,255,255,.12);
+  margin-bottom:16px;
+  font-size:16px;
+  font-weight:800;
+  color:var(--text);
 }
-
-h1 {
-  margin-top: 0;
-  margin-bottom: 8px;
+.status-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:14px;
 }
-
-.subtitle {
-  color: #6b7280;
-  margin-bottom: 24px;
+.status-item{
+  min-height:92px;
+  background:rgba(9,21,39,.9);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px;
+  padding:18px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:10px;
 }
-
-.overall {
-  padding: 14px 18px;
-  border-radius: 10px;
-  background: #eef2f7;
-  margin-bottom: 24px;
-  font-weight: bold;
+.status-item span{color:var(--muted);font-size:14px}
+.status-item strong{font-size:19px;color:var(--text)}
+.status-ok{color:#65d996!important}
+.status-error{color:#ff8585!important}
+.status-warn{color:#f6c25d!important}
+.health-note{
+  margin:16px 2px 0;
+  color:var(--muted);
+  font-size:14px;
+  line-height:1.7;
+  padding-top:14px;
+  border-top:1px solid rgba(255,255,255,.08);
 }
-
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+@media(max-width:1000px){.status-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){
+  .healthPage{padding:18px 14px}
+  .healthHeader{align-items:stretch;flex-direction:column}
+  .status-grid{grid-template-columns:1fr}
 }
-
-.status-item {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 18px;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.status-ok {
-  color: #15803d;
-}
-
-.status-error {
-  color: #b91c1c;
-}
-
-.status-warn {
-  color: #b45309;
-}
-
-.actions {
-  margin-top: 24px;
-  display: flex;
-  gap: 12px;
-}
-
-button,
-.actions a {
-  border: 0;
-  border-radius: 8px;
-  padding: 10px 16px;
-  text-decoration: none;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-button {
-  background: #1d4ed8;
-  color: white;
-}
-
-.actions a {
-  background: #e5e7eb;
-  color: #111827;
-}
-
-@media (max-width: 700px) {
-  .status-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-body{background:#081321;color:#e8f0ff}.health-page{all:unset}.main .card{margin:22px}.health-note{margin-top:18px;color:#aebed6}.status-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}

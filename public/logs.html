@@ -11,7 +11,7 @@
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <script src="auth-bootstrap.js?v=20260723-3"></script><script defer src="core.js?v=20260811-2"></script>
-<link href="logs.page.css" rel="stylesheet"/><link href="unified-sidebar.css" rel="stylesheet"/><script src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script></head>
+<link href="logs.page.css" rel="stylesheet"/><script src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script><link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/></head>
 <body>
 <div class="drawerOverlay" id="overlay"></div>
 <aside class="drawer" id="drawer">
@@ -76,6 +76,7 @@
 <div class="filterBar">
 <button class="filterBtn active" data-filter="all">全部</button>
 <span id="dynamicProductFilters"></span>
+<input id="logProductSearch" class="logProductSearch" type="search" maxlength="100" placeholder="輸入產品名稱查詢事件" aria-label="產品名稱查詢" />
 </div>
 <div class="rightTop">
 <button class="btn" id="logs-handler-3" type="button">⬇ 匯出 CSV</button>

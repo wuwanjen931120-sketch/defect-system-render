@@ -5,6 +5,8 @@ let selectedProducts = [];
 let latestDashboardList = [];
 let latestTrendProducts = [];
 let lastMachineRankingLoadTime = 0;
+let productGaugePage = 0;
+const PRODUCT_GAUGE_PAGE_SIZE = 4;
 
 const YIELD_ALERT_DEFAULTS = {
   yieldThreshold: 90,
@@ -703,7 +705,7 @@ function normalizeProductName(name) {
     return "未分類";
   }
 
-  
+
 
   // ⭐ 不認識的產品不要丟掉，直接保留原本名稱（例如：手機殼、書本）
   return original;
@@ -986,6 +988,17 @@ function buildDefectsUrl(){
   return `/api/defects?${params.toString()}`;
 }
 
+
+function changeProductGaugePage(delta){
+  productGaugePage = Math.max(0, productGaugePage + delta);
+  loadDashboardStats();
+}
+
+document.addEventListener("click", event => {
+  if (event.target?.id === "productGaugePrevBtn") changeProductGaugePage(-1);
+  if (event.target?.id === "productGaugeNextBtn") changeProductGaugePage(1);
+});
+
 async function loadDashboardStats() {
   try {
     const data = await apiFetch(buildDefectsUrl());
@@ -1052,15 +1065,36 @@ const product = normalizeProductName(item.product);
       if (status === "NG") productStats[product].ng++;
     });
 
-    document.getElementById("gaugeValue").textContent = totalCount;
-    document.getElementById("defectCount").textContent = defectCount;
+    const gaugeValueEl = document.getElementById("gaugeValue");
+    const defectCountEl = document.getElementById("defectCount");
+    const totalGaugeEl = document.getElementById("gauge");
+    const gaugeBarFillEl = document.getElementById("gaugeBarFill");
+    if (gaugeValueEl) gaugeValueEl.textContent = totalCount;
+    if (defectCountEl) defectCountEl.textContent = defectCount;
 
     const gaugePercent = Math.min(totalCount * 10, 100);
-    document.getElementById("gauge").style.setProperty("--p", gaugePercent);
-    document.getElementById("gaugeBarFill").style.width = gaugePercent + "%";
+    if (totalGaugeEl) totalGaugeEl.style.setProperty("--p", gaugePercent);
+    if (gaugeBarFillEl) gaugeBarFillEl.style.width = gaugePercent + "%";
 
     const gaugeArea = document.getElementById("dynamicProductGaugeArea");
     const dynamicRows = document.getElementById("dynamicProductRows");
+    const productGaugeCountText = document.getElementById("productGaugeCountText");
+    const productGaugePageText = document.getElementById("productGaugePageText");
+    const productGaugePrevBtn = document.getElementById("productGaugePrevBtn");
+    const productGaugeNextBtn = document.getElementById("productGaugeNextBtn");
+
+    const productNames = Object.keys(productStats).filter(name => name !== "未分類");
+    const pageCount = Math.max(1, Math.ceil(productNames.length / PRODUCT_GAUGE_PAGE_SIZE));
+    productGaugePage = Math.min(Math.max(productGaugePage, 0), pageCount - 1);
+
+    if (productGaugeCountText) {
+      productGaugeCountText.textContent = `目前 ${productNames.length} 種產品`;
+    }
+    if (productGaugePageText) {
+      productGaugePageText.textContent = productNames.length ? `${productGaugePage + 1} / ${pageCount}` : "0 / 0";
+    }
+    if (productGaugePrevBtn) productGaugePrevBtn.disabled = productNames.length === 0 || productGaugePage <= 0;
+    if (productGaugeNextBtn) productGaugeNextBtn.disabled = productNames.length === 0 || productGaugePage >= pageCount - 1;
 
     if (gaugeArea) gaugeArea.replaceChildren();
     if (dynamicRows) dynamicRows.replaceChildren();
@@ -1068,14 +1102,37 @@ const product = normalizeProductName(item.product);
     let totalOK = 0;
     let totalNG = 0;
 
-    Object.keys(productStats).forEach(productName => {
-  if (productName === "未分類") return;
-
-  const stats = productStats[productName];
-  const total = stats.ok + stats.ng;
-  const yieldRate = total > 0 ? Math.round((stats.ok / total) * 100) : 0;
+    // 統計與產品表永遠使用全部產品，不因良率卡片分頁而漏算。
+    productNames.forEach(productName => {
+      const stats = productStats[productName];
       totalOK += stats.ok;
       totalNG += stats.ng;
+
+      if (dynamicRows) {
+        const row = document.createElement("div");
+        row.className = "pt-row";
+        const name = document.createElement("div");
+        name.className = "pt-name";
+        name.textContent = productName;
+        const ok = document.createElement("div");
+        ok.className = "pt-ok";
+        ok.textContent = String(stats.ok);
+        const ng = document.createElement("div");
+        ng.className = "pt-ng";
+        ng.textContent = String(stats.ng);
+        row.append(name, ok, ng);
+        dynamicRows.appendChild(row);
+      }
+    });
+
+    // 良率卡片採分頁：桌面一次固定顯示 4 個，不需要左右拖動，也不會無限往下堆。
+    const pageStart = productGaugePage * PRODUCT_GAUGE_PAGE_SIZE;
+    const visibleProductNames = productNames.slice(pageStart, pageStart + PRODUCT_GAUGE_PAGE_SIZE);
+
+    visibleProductNames.forEach(productName => {
+      const stats = productStats[productName];
+      const total = stats.ok + stats.ng;
+      const yieldRate = total > 0 ? Math.round((stats.ok / total) * 100) : 0;
 
       if (gaugeArea) {
         const box = document.createElement("div");
@@ -1104,26 +1161,12 @@ const product = normalizeProductName(item.product);
         box.append(label, gauge, sub);
         gaugeArea.appendChild(box);
       }
-
-      if (dynamicRows) {
-        const row = document.createElement("div");
-        row.className = "pt-row";
-        const name = document.createElement("div");
-        name.className = "pt-name";
-        name.textContent = productName;
-        const ok = document.createElement("div");
-        ok.className = "pt-ok";
-        ok.textContent = String(stats.ok);
-        const ng = document.createElement("div");
-        ng.className = "pt-ng";
-        ng.textContent = String(stats.ng);
-        row.append(name, ok, ng);
-        dynamicRows.appendChild(row);
-      }
     });
 
-    document.getElementById("table-ok-total").textContent = totalOK;
-    document.getElementById("table-ng-total").textContent = totalNG;
+    const tableOkTotalEl = document.getElementById("table-ok-total");
+    const tableNgTotalEl = document.getElementById("table-ng-total");
+    if (tableOkTotalEl) tableOkTotalEl.textContent = totalOK;
+    if (tableNgTotalEl) tableNgTotalEl.textContent = totalNG;
 const totalOkEl = document.getElementById("totalOk");
 const totalNgEl = document.getElementById("totalNg");
 
@@ -1136,8 +1179,9 @@ renderNgImageArchive(list);
 
     showError("");
   } catch (e) {
-    console.error(e);
-    showError("讀取統計資料失敗");
+    console.error("dashboard stats load failed", e);
+    const detail = e?.message ? `：${e.message}` : "";
+    showError(`讀取統計資料失敗${detail}`);
   }
 }
 

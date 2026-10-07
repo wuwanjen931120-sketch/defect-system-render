@@ -1503,3 +1503,140 @@
 .dashboard-inline-style-5 { margin-top:14px; color:rgba(155,176,207,.9); font-size:12px; }
 
 .text-ok{color:#3ddc84}.text-ng{color:#ff8080}
+
+/* 2026-10-07: 多產品區改為固定高度，可橫向捲動，避免產品越多版面越亂 */
+.productInputBar{display:grid;grid-template-columns:auto minmax(280px,1fr);align-items:center;}
+.productInputRow{justify-self:end;}
+#productList{grid-column:1/-1;display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;max-width:100%;padding:4px 2px 8px;scrollbar-width:thin;}
+#productList button{flex:0 0 auto!important;margin:0!important;white-space:nowrap;}
+#currentProductsText{display:inline-block;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;}
+@media(max-width:900px){.productInputBar{grid-template-columns:1fr}.productInputRow{justify-self:stretch}#currentProductsText{max-width:240px}}
+
+/* ===== 2026-10-07：產品分類與良率大量產品版面 ===== */
+.productGaugeScrollHint{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:0 2px -2px;
+  color:rgba(180,199,224,.88);
+  font-size:12px;
+  line-height:1.4;
+}
+.productGaugeScrollHint strong{
+  color:rgba(231,238,252,.96);
+  font-size:13px;
+  font-weight:800;
+}
+#dynamicProductGaugeArea{
+  display:flex !important;
+  flex-wrap:nowrap !important;
+  gap:12px !important;
+  width:100% !important;
+  max-width:100% !important;
+  min-height:224px !important;
+  max-height:224px !important;
+  padding:2px 2px 10px !important;
+  overflow-x:auto !important;
+  overflow-y:hidden !important;
+  align-items:stretch !important;
+  justify-content:flex-start !important;
+  scroll-snap-type:x proximity;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(96,165,250,.65) rgba(255,255,255,.06);
+}
+#dynamicProductGaugeArea::-webkit-scrollbar{height:9px;}
+#dynamicProductGaugeArea::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.06);
+  border-radius:999px;
+}
+#dynamicProductGaugeArea::-webkit-scrollbar-thumb{
+  background:rgba(96,165,250,.65);
+  border-radius:999px;
+}
+#dynamicProductGaugeArea .gaugeBox{
+  width:245px !important;
+  min-width:245px !important;
+  max-width:245px !important;
+  min-height:202px !important;
+  height:202px !important;
+  flex:0 0 245px !important;
+  scroll-snap-align:start;
+  box-sizing:border-box;
+}
+#dynamicProductGaugeArea .gauge{
+  max-width:205px !important;
+}
+#dynamicProductGaugeArea .gaugeLabel{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+@media(max-width:700px){
+  .productGaugeScrollHint{align-items:flex-start;flex-direction:column;gap:2px;}
+  #dynamicProductGaugeArea .gaugeBox{
+    width:220px !important;
+    min-width:220px !important;
+    max-width:220px !important;
+    flex-basis:220px !important;
+  }
+}
+
+
+/* ===== 2026-10-07：產品分類與良率改為分頁，不使用橫向拖曳 ===== */
+.productGaugeScrollHint{
+  margin:10px 2px 8px !important;
+  min-height:38px;
+}
+.productGaugePager{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:0 0 auto;
+}
+.productGaugePager #productGaugePageText{
+  min-width:46px;
+  text-align:center;
+  color:#c9d8ec;
+  font-weight:800;
+  font-variant-numeric:tabular-nums;
+}
+.productGaugePageBtn{
+  min-height:34px !important;
+  padding:7px 12px !important;
+  border-radius:10px !important;
+  white-space:nowrap;
+}
+.productGaugePageBtn:disabled{
+  opacity:.38 !important;
+  cursor:not-allowed !important;
+  transform:none !important;
+  filter:none !important;
+}
+#dynamicProductGaugeArea{
+  display:grid !important;
+  grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+  gap:12px !important;
+  width:100% !important;
+  max-width:100% !important;
+  min-height:224px !important;
+  max-height:none !important;
+  padding:2px !important;
+  overflow:visible !important;
+  align-items:stretch !important;
+}
+#dynamicProductGaugeArea .gaugeBox{
+  width:auto !important;
+  min-width:0 !important;
+  max-width:none !important;
+  min-height:202px !important;
+  height:202px !important;
+  flex:none !important;
+}
+@media(max-width:1200px){
+  #dynamicProductGaugeArea{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}
+}
+@media(max-width:700px){
+  .productGaugeScrollHint{align-items:flex-start !important;flex-direction:column !important;}
+  #dynamicProductGaugeArea{grid-template-columns:1fr !important;}
+}

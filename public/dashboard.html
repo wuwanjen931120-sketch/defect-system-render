@@ -3,7 +3,7 @@
 <html lang="zh-TW">
 <head>
 <meta charset="utf-8"/>
-<script src="auth-bootstrap.js?v=20260723-3"></script><script src="dashboard.inline-1.js"></script>
+<script src="auth-bootstrap.js?v=20260723-3"></script><script src="dashboard.inline-1.js?v=20261007-4"></script>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
 <title>瑕疵辨識與分流系統 - 首頁</title>
 <link href="style.css" rel="stylesheet"/>
@@ -14,7 +14,7 @@
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
-<link href="dashboard.page.css" rel="stylesheet"/><link href="unified-sidebar.css" rel="stylesheet"/></head>
+<link href="dashboard.page.css?v=20261007-4" rel="stylesheet"/><link href="unified-sidebar.css?v=20261007-4" rel="stylesheet"/></head>
 <body>
 <div class="drawerOverlay" id="overlay"></div>
 <aside class="drawer" id="drawer">
@@ -206,6 +206,14 @@
 </div>
 </div>
 </div>
+<div class="productGaugeScrollHint">
+  <strong id="productGaugeCountText">目前 0 種產品</strong>
+  <div class="productGaugePager" aria-label="產品良率分頁">
+    <button class="btn productGaugePageBtn" id="productGaugePrevBtn" type="button">‹ 上一頁</button>
+    <span id="productGaugePageText">1 / 1</span>
+    <button class="btn productGaugePageBtn" id="productGaugeNextBtn" type="button">下一頁 ›</button>
+  </div>
+</div>
 <div id="dynamicProductGaugeArea"></div>
 </section>
 <section class="yieldTrendCard">
@@ -295,7 +303,7 @@
       </div>
 </main>
 </div>
-<script src="dashboard.inline-2.js?v=20260723-3"></script>
-<script src="dashboard.handlers.js"></script>
+<script src="dashboard.inline-2.js?v=20261007-4"></script>
+<script src="dashboard.handlers.js?v=20261007-4"></script>
 </body>
 </html>

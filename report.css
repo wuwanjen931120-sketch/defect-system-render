@@ -293,3 +293,171 @@
   font-size: 14px;
   font-weight: 800;
 }
+
+/* 統一選單與按鈕互動 */
+.reportField select{background:#142943;color:#e8f0ff;color-scheme:dark}.reportField select option{background:#142943;color:#e8f0ff}.reportActions .btn,.imageTraceActions .btn{background:rgba(59,130,246,.12);border:1px solid rgba(96,165,250,.28);color:#eef6ff;transition:.18s ease}.reportActions .btn:hover,.reportActions .btn:focus-visible{background:rgba(59,130,246,.30);border-color:#60a5fa;transform:translateY(-1px)}.reportActions .btn:active{background:rgba(30,64,175,.55);transform:translateY(0)}
+
+/* =========================================================
+   2026-10-07 報表中心版面整理
+   - 中央固定內容寬度，避免超寬螢幕被拉散
+   - 篩選欄位、摘要卡片、明細表格對齊
+   - 四個操作按鈕統一為查詢按鈕的互動樣式
+   ========================================================= */
+
+.reportPage{
+  width:min(1480px, 100%);
+  margin:0 auto;
+  padding:24px 26px 32px;
+}
+
+.reportHeader{
+  margin-bottom:16px;
+  padding:0 2px;
+}
+
+.reportHeader h2{
+  font-size:26px;
+  line-height:1.25;
+  letter-spacing:.02em;
+}
+
+.reportHeader p{
+  max-width:760px;
+  font-size:15px;
+}
+
+.reportFilters{
+  grid-template-columns:repeat(5, minmax(0, 1fr));
+  column-gap:12px;
+  row-gap:12px;
+  padding:16px 18px;
+  margin-bottom:16px;
+  border-radius:14px;
+  background:rgba(16,31,54,.92);
+}
+
+.reportField{
+  min-width:0;
+  gap:6px;
+}
+
+.reportField label{
+  min-height:22px;
+  display:flex;
+  align-items:center;
+  font-size:13px;
+  font-weight:750;
+}
+
+.reportField input,
+.reportField select,
+.reportField .datetimePickerDisplay,
+.reportField [data-datetime-display]{
+  min-height:44px;
+  height:44px;
+  border-radius:10px;
+  font-size:14px;
+}
+
+.reportActions{
+  grid-column:1 / -1;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:2px;
+  padding-top:2px;
+}
+
+/* 四顆按鈕全部跟查詢相同，不再一顆亮、三顆暗 */
+.reportActions .btn,
+.reportActions .btnPrimary{
+  min-height:40px;
+  padding:9px 15px;
+  border-radius:10px;
+  border:1px solid rgba(96,165,250,.42);
+  background:rgba(37,99,235,.30);
+  color:#f4f8ff;
+  font-size:13px;
+  font-weight:750;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  transition:background-color .16s ease,border-color .16s ease,transform .08s ease,box-shadow .16s ease;
+}
+
+.reportActions .btn:hover,
+.reportActions .btnPrimary:hover,
+.reportActions .btn:focus-visible,
+.reportActions .btnPrimary:focus-visible{
+  background:rgba(59,130,246,.46);
+  border-color:rgba(147,197,253,.82);
+  box-shadow:0 4px 14px rgba(30,64,175,.18), inset 0 1px 0 rgba(255,255,255,.07);
+}
+
+.reportActions .btn:active,
+.reportActions .btnPrimary:active{
+  background:rgba(30,64,175,.72);
+  border-color:rgba(147,197,253,.95);
+  transform:translateY(1px);
+  box-shadow:inset 0 2px 5px rgba(0,0,0,.22);
+}
+
+.reportSummary{
+  gap:12px;
+  margin-bottom:16px;
+}
+
+.reportSummaryCard{
+  min-height:112px;
+  padding:16px 18px;
+  border-radius:14px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+}
+
+.reportSummaryCard span{
+  margin-bottom:5px;
+  font-size:13px;
+}
+
+.reportSummaryCard strong{
+  font-size:27px;
+  line-height:1.1;
+}
+
+.reportTablePanel{
+  padding:16px 18px 18px;
+  border-radius:14px;
+}
+
+.reportTableHeader{
+  margin-bottom:10px;
+}
+
+.reportTable th,
+.reportTable td{
+  padding:10px 9px;
+}
+
+.reportTable th{
+  font-size:12.5px;
+  letter-spacing:.01em;
+}
+
+@media (max-width:1400px){
+  .reportPage{width:100%; padding:22px 20px 30px;}
+}
+
+@media (max-width:1120px){
+  .reportFilters{grid-template-columns:repeat(3,minmax(0,1fr));}
+}
+
+@media (max-width:760px){
+  .reportPage{padding:16px 12px 24px;}
+  .reportFilters{grid-template-columns:1fr; padding:14px;}
+  .reportActions{display:grid; grid-template-columns:repeat(2,minmax(0,1fr));}
+  .reportActions .btn{width:100%;}
+}
+
+@media (max-width:480px){
+  .reportActions{grid-template-columns:1fr;}
+}

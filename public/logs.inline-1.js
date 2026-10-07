@@ -184,6 +184,7 @@ window.closeImagePreview = closeImagePreview;
 
 
 let currentFilter = "all";
+let productSearchText = "";
 
 // ⭐ 補在這裡
 async function loadSystemOptionsByTenant(tenantId) {
@@ -240,8 +241,10 @@ async function loadLogs() {
 
     const filteredList = data
       .filter(item => {
-        if (currentFilter === "all") return true;
-        return item.product === currentFilter;
+        const product = String(item.product || "").trim();
+        const filterOk = currentFilter === "all" || product === currentFilter;
+        const searchOk = !productSearchText || product.toLowerCase().includes(productSearchText.toLowerCase());
+        return filterOk && searchOk;
       })
       .slice(0, 50);
 
@@ -413,6 +416,12 @@ if (systemSelect) {
       currentFilter = btn.dataset.filter;
       loadLogs();
     });
+  });
+
+  const productSearch = document.getElementById("logProductSearch");
+  productSearch?.addEventListener("input", () => {
+    productSearchText = productSearch.value.trim();
+    loadLogs();
   });
 
   await loadLogs();
