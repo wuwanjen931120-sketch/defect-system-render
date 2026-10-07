@@ -131,15 +131,16 @@
 </div>
 </div>
 <div class="page-bg">
-<div class="productInputBar">
+<div class="productInputBar productManagerCompact">
 <div class="productInputTitle">
-    <span>多產品檢測</span>
-    <span id="currentProductsText">目前已設定 0 種產品</span>
-    <button class="btn productManageBtn" id="dashboard-handler-15" type="button">管理已加入產品</button>
+    <span>檢測產品管理</span>
+    <span id="currentProductsText">網站自訂 0 種｜資料庫已出現 0 種</span>
+    <button class="btn productManageBtn" id="dashboard-handler-15" type="button">管理產品</button>
 </div>
+<div class="productSourceHint">新增後會立即出現在「產品分類與良率」中；實際手臂／YOLO 是否能辨識該產品，仍需由現場辨識程式辨識成功並透過 MQTT 上報相同產品名稱。</div>
 <div class="productInputRow">
-<input id="productInput" placeholder="輸入目前要檢測的產品名稱"/>
-<button class="btn btnPrimary" id="dashboard-handler-7">加入</button>
+<input id="productInput" placeholder="輸入要加入監控與統計的產品名稱"/>
+<button class="btn btnPrimary" id="dashboard-handler-7">加入產品</button>
 </div>
 <div id="productList" class="productListCollapsed" aria-label="已加入產品清單"></div>
 </div>
@@ -208,11 +209,12 @@
 </div>
 </div>
 <div class="productGaugeScrollHint">
-  <strong id="productGaugeCountText">目前 0 種產品</strong>
-  <div class="productGaugePager" aria-label="產品良率分頁">
-    <button class="btn productGaugePageBtn" id="productGaugePrevBtn" type="button">‹ 上一頁</button>
-    <span id="productGaugePageText">1 / 1</span>
-    <button class="btn productGaugePageBtn" id="productGaugeNextBtn" type="button">下一頁 ›</button>
+  <strong id="productGaugeCountText">共 0 種產品</strong>
+  <div class="productGaugeSelectorWrap">
+    <label for="productGaugeGroupSelect">顯示產品</label>
+    <select class="trendSelect" id="productGaugeGroupSelect">
+      <option value="0">目前沒有產品</option>
+    </select>
   </div>
 </div>
 <div id="dynamicProductGaugeArea"></div>
@@ -279,12 +281,13 @@
 <div class="productTableHeader">
 <div>
 <div class="productTableTitle">產品統計表</div>
-<div class="productTableSub">各產品 OK / NG 即時統計，每頁最多顯示 8 種產品</div>
+<div class="productTableSub">各產品 OK / NG 即時統計；取消分頁，改用固定高度捲動與產品下拉篩選。</div>
 </div>
-<div class="productTablePager" aria-label="產品統計表分頁">
-<button class="btn productTablePageBtn" id="productTablePrevBtn" type="button">‹ 上一頁</button>
-<span id="productTablePageText">1 / 1</span>
-<button class="btn productTablePageBtn" id="productTableNextBtn" type="button">下一頁 ›</button>
+<div class="productTableFilterWrap">
+<label for="productTableFilterSelect">產品</label>
+<select class="trendSelect" id="productTableFilterSelect">
+<option value="__all__">全部產品</option>
+</select>
 </div>
 </div>
 <div class="productTable">
@@ -311,7 +314,7 @@
       </div>
 </main>
 </div>
-<script src="dashboard.inline-2.js?v=20261007-5"></script>
+<script src="dashboard.inline-2.js?v=20261007-8"></script>
 <script src="dashboard.handlers.js?v=20261007-5"></script>
 </body>
 </html>

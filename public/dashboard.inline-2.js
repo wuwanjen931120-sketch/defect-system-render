@@ -5,10 +5,9 @@ let selectedProducts = [];
 let latestDashboardList = [];
 let latestTrendProducts = [];
 let lastMachineRankingLoadTime = 0;
-let productGaugePage = 0;
-const PRODUCT_GAUGE_PAGE_SIZE = 4;
-let productTablePage = 0;
-const PRODUCT_TABLE_PAGE_SIZE = 8;
+let productGaugeGroup = 0;
+const PRODUCT_GAUGE_GROUP_SIZE = 4;
+let latestProductStats = {};
 
 const YIELD_ALERT_DEFAULTS = {
   yieldThreshold: 90,
@@ -351,15 +350,14 @@ function renderYieldTrend(){
 
   const ctx = canvas.getContext("2d");
   const wrap = canvas.parentElement;
-  const rect = wrap?.getBoundingClientRect?.() || { width: 700, height: 300 };
-  const width = Math.max(320, rect.width || 700);
-  const height = Math.max(240, rect.height || 300);
+  const width = Math.max(320, Math.floor(wrap?.clientWidth || 700));
+  const height = Math.max(240, Math.floor(wrap?.clientHeight || 300));
   const dpr = window.devicePixelRatio || 1;
 
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${height}px`;
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, width, height);
@@ -911,7 +909,12 @@ function renderProductList() {
   const text = document.getElementById("currentProductsText");
 
   if (text) {
-    text.textContent = `目前已設定 ${selectedProducts.length} 種產品`;
+    const dbCount = new Set(
+      (Array.isArray(latestDashboardList) ? latestDashboardList : [])
+        .map(item => normalizeProductName(item.product))
+        .filter(name => name && name !== "未分類")
+    ).size;
+    text.textContent = `網站自訂 ${selectedProducts.length} 種｜資料庫已出現 ${dbCount} 種`;
   }
 
   if (!div) return;
@@ -942,7 +945,7 @@ function toggleProductManager(){
   const btn = document.getElementById("dashboard-handler-15");
   if (!div) return;
   const open = div.classList.toggle("is-open");
-  if (btn) btn.textContent = open ? "收合產品清單" : "管理已加入產品";
+  if (btn) btn.textContent = open ? "收合產品管理" : "管理產品";
 }
 
 function bindProductInputEnter(){
@@ -1009,23 +1012,6 @@ function buildDefectsUrl(){
 }
 
 
-function changeProductGaugePage(delta){
-  productGaugePage = Math.max(0, productGaugePage + delta);
-  loadDashboardStats();
-}
-
-function changeProductTablePage(delta){
-  productTablePage = Math.max(0, productTablePage + delta);
-  loadDashboardStats();
-}
-
-document.addEventListener("click", event => {
-  if (event.target?.id === "productGaugePrevBtn") changeProductGaugePage(-1);
-  if (event.target?.id === "productGaugeNextBtn") changeProductGaugePage(1);
-  if (event.target?.id === "productTablePrevBtn") changeProductTablePage(-1);
-  if (event.target?.id === "productTableNextBtn") changeProductTablePage(1);
-});
-
 async function loadDashboardStats() {
   try {
     const data = await apiFetch(buildDefectsUrl());
@@ -1051,6 +1037,7 @@ const displayProducts = [
 
 latestTrendProducts = displayProducts;
 updateTrendProductOptions(displayProducts);
+renderProductList();
 
 // 3. 只統計要顯示的產品資料
 const filteredList = displayProducts.length === 0
@@ -1106,47 +1093,74 @@ const product = normalizeProductName(item.product);
     const gaugeArea = document.getElementById("dynamicProductGaugeArea");
     const dynamicRows = document.getElementById("dynamicProductRows");
     const productGaugeCountText = document.getElementById("productGaugeCountText");
-    const productGaugePageText = document.getElementById("productGaugePageText");
-    const productGaugePrevBtn = document.getElementById("productGaugePrevBtn");
-    const productGaugeNextBtn = document.getElementById("productGaugeNextBtn");
+    const productGaugeGroupSelect = document.getElementById("productGaugeGroupSelect");
+    const productTableFilterSelect = document.getElementById("productTableFilterSelect");
 
     const productNames = Object.keys(productStats).filter(name => name !== "未分類");
-    const pageCount = Math.max(1, Math.ceil(productNames.length / PRODUCT_GAUGE_PAGE_SIZE));
-    productGaugePage = Math.min(Math.max(productGaugePage, 0), pageCount - 1);
+    latestProductStats = productStats;
 
     if (productGaugeCountText) {
-      productGaugeCountText.textContent = `目前 ${productNames.length} 種產品`;
+      productGaugeCountText.textContent = `共 ${productNames.length} 種產品`;
     }
-    if (productGaugePageText) {
-      productGaugePageText.textContent = productNames.length ? `${productGaugePage + 1} / ${pageCount}` : "0 / 0";
+
+    const groupCount = Math.max(1, Math.ceil(productNames.length / PRODUCT_GAUGE_GROUP_SIZE));
+    productGaugeGroup = Math.min(Math.max(productGaugeGroup, 0), groupCount - 1);
+
+    if (productGaugeGroupSelect) {
+      const previous = Number(productGaugeGroupSelect.value || productGaugeGroup || 0);
+      productGaugeGroupSelect.replaceChildren();
+      if (productNames.length === 0) {
+        const option = document.createElement("option");
+        option.value = "0";
+        option.textContent = "目前沒有產品";
+        productGaugeGroupSelect.appendChild(option);
+        productGaugeGroupSelect.disabled = true;
+      } else {
+        productGaugeGroupSelect.disabled = false;
+        for (let groupIndex = 0; groupIndex < groupCount; groupIndex++) {
+          const groupProducts = productNames.slice(groupIndex * PRODUCT_GAUGE_GROUP_SIZE, (groupIndex + 1) * PRODUCT_GAUGE_GROUP_SIZE);
+          const option = document.createElement("option");
+          option.value = String(groupIndex);
+          option.textContent = groupProducts.join("、");
+          productGaugeGroupSelect.appendChild(option);
+        }
+        productGaugeGroup = Math.min(previous, groupCount - 1);
+        productGaugeGroupSelect.value = String(productGaugeGroup);
+      }
     }
-    if (productGaugePrevBtn) productGaugePrevBtn.disabled = productNames.length === 0 || productGaugePage <= 0;
-    if (productGaugeNextBtn) productGaugeNextBtn.disabled = productNames.length === 0 || productGaugePage >= pageCount - 1;
 
     if (gaugeArea) gaugeArea.replaceChildren();
     if (dynamicRows) dynamicRows.replaceChildren();
 
     let totalOK = 0;
     let totalNG = 0;
-
-    // 全部產品都參與總計；產品統計表本身改採分頁，避免產品一多就無限往下拉。
     productNames.forEach(productName => {
       const stats = productStats[productName];
       totalOK += stats.ok;
       totalNG += stats.ng;
     });
 
-    const productTablePageCount = Math.max(1, Math.ceil(productNames.length / PRODUCT_TABLE_PAGE_SIZE));
-    productTablePage = Math.min(Math.max(productTablePage, 0), productTablePageCount - 1);
-    const productTablePageText = document.getElementById("productTablePageText");
-    const productTablePrevBtn = document.getElementById("productTablePrevBtn");
-    const productTableNextBtn = document.getElementById("productTableNextBtn");
-    if (productTablePageText) productTablePageText.textContent = productNames.length ? `${productTablePage + 1} / ${productTablePageCount}` : "0 / 0";
-    if (productTablePrevBtn) productTablePrevBtn.disabled = productNames.length === 0 || productTablePage <= 0;
-    if (productTableNextBtn) productTableNextBtn.disabled = productNames.length === 0 || productTablePage >= productTablePageCount - 1;
+    if (productTableFilterSelect) {
+      const previousFilter = productTableFilterSelect.value || "__all__";
+      productTableFilterSelect.replaceChildren();
+      const allOption = document.createElement("option");
+      allOption.value = "__all__";
+      allOption.textContent = `全部產品（${productNames.length}）`;
+      productTableFilterSelect.appendChild(allOption);
+      productNames.forEach(productName => {
+        const option = document.createElement("option");
+        option.value = productName;
+        option.textContent = productName;
+        productTableFilterSelect.appendChild(option);
+      });
+      productTableFilterSelect.value = productNames.includes(previousFilter) ? previousFilter : "__all__";
+    }
 
-    const tableStart = productTablePage * PRODUCT_TABLE_PAGE_SIZE;
-    const tableVisibleNames = productNames.slice(tableStart, tableStart + PRODUCT_TABLE_PAGE_SIZE);
+    const selectedTableProduct = productTableFilterSelect?.value || "__all__";
+    const tableVisibleNames = selectedTableProduct === "__all__"
+      ? productNames
+      : productNames.filter(name => name === selectedTableProduct);
+
     tableVisibleNames.forEach(productName => {
       const stats = productStats[productName];
       if (dynamicRows) {
@@ -1166,9 +1180,8 @@ const product = normalizeProductName(item.product);
       }
     });
 
-    // 良率卡片採分頁：桌面一次固定顯示 4 個，不需要左右拖動，也不會無限往下堆。
-    const pageStart = productGaugePage * PRODUCT_GAUGE_PAGE_SIZE;
-    const visibleProductNames = productNames.slice(pageStart, pageStart + PRODUCT_GAUGE_PAGE_SIZE);
+    const groupStart = productGaugeGroup * PRODUCT_GAUGE_GROUP_SIZE;
+    const visibleProductNames = productNames.slice(groupStart, groupStart + PRODUCT_GAUGE_GROUP_SIZE);
 
     visibleProductNames.forEach(productName => {
       const stats = productStats[productName];
@@ -1206,8 +1219,16 @@ const product = normalizeProductName(item.product);
 
     const tableOkTotalEl = document.getElementById("table-ok-total");
     const tableNgTotalEl = document.getElementById("table-ng-total");
-    if (tableOkTotalEl) tableOkTotalEl.textContent = totalOK;
-    if (tableNgTotalEl) tableNgTotalEl.textContent = totalNG;
+    if (tableOkTotalEl) {
+      tableOkTotalEl.textContent = selectedTableProduct === "__all__"
+        ? totalOK
+        : (productStats[selectedTableProduct]?.ok ?? 0);
+    }
+    if (tableNgTotalEl) {
+      tableNgTotalEl.textContent = selectedTableProduct === "__all__"
+        ? totalNG
+        : (productStats[selectedTableProduct]?.ng ?? 0);
+    }
 const totalOkEl = document.getElementById("totalOk");
 const totalNgEl = document.getElementById("totalNg");
 
@@ -1253,7 +1274,7 @@ async function loadDefects() {
         statusText === "OK" ? "status-ok" : "";
 
       setSafeHtml(row, `
-        <div class="defect-id">${escapeHtml(item.id || "-")}</div>
+        <div class="defect-id"><span class="eventIdLabel">事件編號：</span>${escapeHtml(item.id || "-")}</div>
         <div class="defect-status ${statusClass}">
           ${escapeHtml(statusText)} ${item.product ? `(${escapeHtml(item.product)})` : ""}
         </div>
@@ -1629,6 +1650,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 loadSelectedProducts();
 renderProductList();
 renderYieldAlertSettings();
+
+  const productGaugeGroupSelect = document.getElementById("productGaugeGroupSelect");
+  productGaugeGroupSelect?.addEventListener("change", async (event) => {
+    productGaugeGroup = Math.max(0, Number(event.target.value || 0));
+    await loadDashboardStats();
+  });
+
+  const productTableFilterSelect = document.getElementById("productTableFilterSelect");
+  productTableFilterSelect?.addEventListener("change", async () => {
+    await loadDashboardStats();
+  });
 
   if (systemSelect) {
     systemSelect.addEventListener("change", async (e) => {

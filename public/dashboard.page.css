@@ -1710,3 +1710,87 @@
 .productTablePageBtn:disabled{opacity:.38!important;cursor:not-allowed!important;transform:none!important}
 #dynamicProductRows{min-height:0}
 @media(max-width:700px){.productTableHeader{align-items:flex-start!important;flex-direction:column!important}.productTablePager{width:100%;justify-content:flex-end}}
+
+
+/* ===== 2026-10-07 v8：產品管理、良率下拉、趨勢寬度、統計表 ===== */
+.productManagerCompact{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px 14px;
+  align-items:center;
+}
+.productManagerCompact .productInputTitle{grid-column:1/-1}
+.productSourceHint{
+  grid-column:1/-1;
+  color:rgba(155,176,207,.95);
+  font-size:12px;
+  line-height:1.6;
+  padding:8px 10px;
+  border-radius:10px;
+  background:rgba(6,18,34,.34);
+  border:1px solid rgba(255,255,255,.08);
+}
+.productManagerCompact .productInputRow{
+  grid-column:1/-1;
+  display:grid;
+  grid-template-columns:minmax(260px,1fr) auto;
+}
+.productManagerCompact .productInputRow input{width:100%;min-width:0}
+
+.productGaugeSelectorWrap,
+.productTableFilterWrap{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.productGaugeSelectorWrap label,
+.productTableFilterWrap label{
+  color:rgba(231,238,252,.82);
+  font-size:13px;
+  font-weight:900;
+  white-space:nowrap;
+}
+#productGaugeGroupSelect{min-width:260px;max-width:420px}
+#productTableFilterSelect{min-width:180px;max-width:260px}
+
+.statusCard{min-width:0}
+#dynamicProductGaugeArea{
+  flex:1 1 auto !important;
+  min-height:260px !important;
+  grid-auto-rows:minmax(250px,1fr) !important;
+}
+#dynamicProductGaugeArea .gaugeBox{
+  height:100% !important;
+  min-height:250px !important;
+  justify-content:center !important;
+  gap:12px !important;
+}
+
+.yieldTrendCard,
+.trendCanvasWrap,
+#yieldTrendCanvas{
+  min-width:0 !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
+}
+.yieldTrendCard{width:100%;overflow:hidden}
+.trendCanvasWrap{width:100%;overflow:hidden}
+#yieldTrendCanvas{display:block;width:100% !important;height:100% !important}
+
+.productTableCard{overflow:hidden}
+.productTable{overflow:hidden}
+#dynamicProductRows{
+  max-height:430px;
+  overflow-y:auto;
+  overflow-x:hidden;
+  scrollbar-gutter:stable;
+}
+.productTableHeader{gap:16px}
+.eventIdLabel{color:rgba(155,176,207,.85);font-weight:700;margin-right:4px}
+
+@media(max-width:900px){
+  .productManagerCompact{grid-template-columns:1fr}
+  .productManagerCompact .productInputRow{grid-template-columns:1fr}
+  .productGaugeSelectorWrap,.productTableFilterWrap{width:100%;align-items:stretch;flex-direction:column}
+  #productGaugeGroupSelect,#productTableFilterSelect{width:100%;max-width:none}
+}

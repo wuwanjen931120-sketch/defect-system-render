@@ -10,10 +10,10 @@
 
   <link rel="stylesheet" href="style.css" />
 
-  <link rel="stylesheet" href="alerts.css?v=20260811-1" />
+  <link rel="stylesheet" href="alerts.css?v=20261007-3" />
 
   <script defer src="core.js?v=20260811-2"></script>
-  <script defer src="alerts.js?v=20260811-1"></script>
+  <script defer src="alerts.js?v=20261007-3"></script>
 <link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
 
 <body>
@@ -66,7 +66,7 @@
         <div class="alertsHeader">
           <div>
             <h2>🚨 告警中心</h2>
-            <p>集中查看機台 NG 異常、告警狀態與處理紀錄。</p>
+            <p>集中查看品質、機械手臂、相機、通訊、輸送帶控制與系統服務告警；不使用不存在的輸送帶感應器資料。</p>
           </div>
 
           <button class="btn btnPrimary" id="refreshAlertsBtn" type="button">
@@ -96,7 +96,19 @@
           </div>
         </section>
 
-        <section class="alertsPanel">
+        <section class="alertsGuide">
+  <div class="alertsGuideTitle">告警來源</div>
+  <div class="alertsGuideGrid">
+    <div><b>品質異常</b><span>NG 數量／NG 率／連續 NG</span></div>
+    <div><b>機械手臂異常</b><span>控制程式實際回報離線、抓取失敗或逾時時才建立</span></div>
+    <div><b>相機異常</b><span>影像／辨識程式實際回報中斷時才建立</span></div>
+    <div><b>MQTT／通訊異常</b><span>裝置 heartbeat 或通訊狀態實際超時時才建立</span></div>
+    <div><b>輸送帶控制異常</b><span>只判斷控制命令 ACK／逾時，不宣稱能偵測卡料或馬達故障</span></div>
+    <div><b>系統服務異常</b><span>MongoDB、Email 等服務健康狀態異常</span></div>
+  </div>
+</section>
+
+<section class="alertsPanel">
           <div class="alertsToolbar">
             <div class="alertTabs">
               <button class="alertTab active" data-status="" type="button">

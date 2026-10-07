@@ -36,8 +36,22 @@ function alertStatusClass(status) {
 }
 
 function alertTypeText(type) {
-  if (type === "ng_window") return "NG 異常";
-  return alertText(type) || "-";
+  const labels = {
+    ng_window: "品質異常",
+    ng_rate: "品質異常",
+    consecutive_ng: "品質異常",
+    robot_offline: "機械手臂異常",
+    robot_error: "機械手臂異常",
+    pick_failed: "機械手臂異常",
+    camera_offline: "相機異常",
+    vision_offline: "相機異常",
+    mqtt_timeout: "MQTT／通訊異常",
+    heartbeat_timeout: "MQTT／通訊異常",
+    conveyor_control_timeout: "輸送帶控制異常",
+    estop_ack_timeout: "輸送帶控制異常",
+    service_error: "系統服務異常"
+  };
+  return labels[type] || alertText(type) || "-";
 }
 
 function alertSeverityText(severity) {

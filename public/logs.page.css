@@ -472,3 +472,63 @@ td:first-child{
 .logProductSearch:focus{border-color:#60a5fa!important;box-shadow:0 0 0 3px rgba(59,130,246,.14)}
 #logProductSearchBtn{height:40px;min-width:72px;white-space:nowrap}
 @media(max-width:900px){.logProductSearchBar{min-width:0;flex-wrap:wrap}.logProductSearchRow{width:100%;min-width:0;max-width:none}}
+
+
+/* 2026-10-07：事件紀錄工具列統一成單列 */
+.logsTopbarUnified{
+  display:block !important;
+  padding:12px 14px !important;
+}
+.logsToolbarUnified{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:100%;
+  min-width:0;
+  flex-wrap:nowrap;
+}
+.logsToolbarUnified .systemSwitchWrap{
+  flex:0 0 auto;
+  padding:7px 10px;
+}
+.logsToolbarUnified .systemSelect{
+  min-width:190px;
+  max-width:240px;
+}
+.logsToolbarUnified .logProductSearch{
+  flex:1 1 260px;
+  min-width:180px;
+  height:42px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(11,18,32,.95);
+  color:#fff;
+  padding:0 14px;
+  font-size:15px;
+  outline:none;
+}
+.logsToolbarUnified .logProductSearch:focus{
+  border-color:rgba(96,165,250,.75);
+  box-shadow:0 0 0 3px rgba(59,130,246,.18);
+}
+.logsToolbarUnified .btnPrimary,
+.logsToolbarUnified .logAllBtn{
+  min-height:42px;
+  padding:0 15px;
+  font-size:15px;
+  border-radius:12px;
+  white-space:nowrap;
+}
+.logsToolbarUnified .logAllBtn.active{
+  background:linear-gradient(180deg,#2f69b0,#244f86) !important;
+  color:#fff !important;
+  border-color:rgba(139,194,255,.55) !important;
+  box-shadow:0 7px 16px rgba(16,74,145,.24) !important;
+}
+.logsToolbarSpacer{flex:1 1 auto;min-width:4px}
+#dynamicProductFilters{display:none}
+@media(max-width:1250px){
+  .logsToolbarUnified{flex-wrap:wrap}
+  .logsToolbarSpacer{display:none}
+  .logsToolbarUnified .logProductSearch{flex:1 1 280px}
+}

@@ -61,29 +61,23 @@
 </div>
 </aside>
 <main class="main">
-<div class="topbar">
-<div class="leftTop">
-<button class="hamburger" id="logs-handler-2">☰</button>
-<div class="systemSwitchWrap logs-inline-style-2" id="tenantSwitchWrap">
-<label class="systemLabel">目前客戶</label>
-<select class="systemSelect" id="tenantSelect"></select>
-</div>
-<div class="systemSwitchWrap logs-inline-style-2" id="systemSwitchWrap">
-<label class="systemLabel">目前機台</label>
-<select class="systemSelect" id="systemSelect"></select>
-</div>
-</div>
-<div class="filterBar logProductSearchBar">
-<button class="filterBtn active" data-filter="all" type="button">全部</button>
-<div class="logProductSearchRow">
-<input id="logProductSearch" class="logProductSearch" type="search" maxlength="100" placeholder="輸入要查詢的產品名稱" aria-label="產品名稱查詢" />
-<button class="btn btnPrimary" id="logProductSearchBtn" type="button">搜尋</button>
-</div>
-<span id="dynamicProductFilters"></span>
-</div>
-<div class="rightTop">
-<button class="btn" id="logs-handler-3" type="button">⬇ 匯出 CSV</button>
-<button class="btn btnPrimary" id="logs-handler-4" type="button">⟳ 重新整理</button>
+<div class="topbar logsTopbarUnified">
+<div class="logsToolbarUnified">
+  <div class="systemSwitchWrap logs-inline-style-2" id="tenantSwitchWrap">
+    <label class="systemLabel">目前客戶</label>
+    <select class="systemSelect" id="tenantSelect"></select>
+  </div>
+  <div class="systemSwitchWrap logs-inline-style-2" id="systemSwitchWrap">
+    <label class="systemLabel">目前機台</label>
+    <select class="systemSelect" id="systemSelect"></select>
+  </div>
+  <button class="btn btnPrimary filterBtn logAllBtn active" data-filter="all" type="button">全部</button>
+  <input id="logProductSearch" class="logProductSearch" type="search" maxlength="100" placeholder="輸入要查詢的產品名稱" aria-label="產品名稱查詢" />
+  <button class="btn btnPrimary" id="logProductSearchBtn" type="button">搜尋</button>
+  <span id="dynamicProductFilters"></span>
+  <div class="logsToolbarSpacer"></div>
+  <button class="btn btnPrimary" id="logs-handler-3" type="button">⬇ 匯出 CSV</button>
+  <button class="btn btnPrimary" id="logs-handler-4" type="button">⟳ 重新整理</button>
 </div>
 </div>
 <section class="grid">
