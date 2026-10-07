@@ -184,3 +184,6 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 });
+
+async function createMachine(){const id=document.getElementById("newSystemId")?.value.trim(),name=document.getElementById("newSystemName")?.value.trim(),out=document.getElementById("machineCreateStatus");if(!id||!name){out.textContent="請輸入機台 ID 與名稱";return;}try{const r=await fetch("/api/systems",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({system_id:id,name})});const d=await r.json();if(!r.ok)throw new Error(d.message||"新增失敗");out.textContent=`新增成功：${id}。請讓設備 MQTT payload 使用相同 system_id。`;document.getElementById("newSystemId").value="";document.getElementById("newSystemName").value="";}catch(e){out.textContent=e.message;}}
+document.getElementById("createSystemBtn")?.addEventListener("click",createMachine);

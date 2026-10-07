@@ -101,3 +101,5 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+body{background:#081321;color:#e8f0ff}.health-page{all:unset}.main .card{margin:22px}.health-note{margin-top:18px;color:#aebed6}.status-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}

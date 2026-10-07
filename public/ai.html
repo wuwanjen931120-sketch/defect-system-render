@@ -12,7 +12,7 @@
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <script defer src="core.js?v=20260811-2"></script>
-<link href="ai.page.css" rel="stylesheet"/><link href="unified-sidebar.css" rel="stylesheet"/></head>
+<link href="ai.page.css" rel="stylesheet"/><link href="unified-sidebar.css" rel="stylesheet"/><link href="datetime-picker.css?v=20261006-1" rel="stylesheet"/><script defer src="datetime-picker.js?v=20261006-1"></script></head>
 <body>
 <div class="drawerOverlay" id="overlay"></div>
 <aside class="drawer" id="drawer">
@@ -73,7 +73,7 @@
 <div class="msg bot">你好，我是這個瑕疵辨識網站的 AI 助理。你可以問我良率、NG率、事件紀錄、產品分類、機台資料或 MQTT 測試格式。</div>
 </div>
 <form class="chatForm" id="chatForm">
-<textarea id="messageInput" placeholder="輸入問題，例如：螺帽為什麼沒有資料？" required=""></textarea>
+<textarea id="messageInput" placeholder="輸入問題，例如：目前哪個產品 NG 最多？" required=""></textarea>
 <button class="btn btnPrimary sendBtn" id="sendBtn" type="submit">送出</button>
 </form>
 </div>
@@ -86,13 +86,13 @@
 </select>
 
 <div class="labelText">產品名稱 products</div>
-<input id="productsInput" placeholder="可空白，例如：螺帽,手機殼"/>
+<input id="productsInput" placeholder="可空白，輸入產品名稱"/>
 
 <div class="labelText">開始時間 date_from</div>
-<input id="dateFromInput" type="datetime-local"/>
+<input id="dateFromInput" type="hidden" data-datetime-picker data-picker-label="📅 選擇開始日期與時間"/>
 
 <div class="labelText">結束時間 date_to</div>
-<input id="dateToInput" type="datetime-local"/>
+<input id="dateToInput" type="hidden" data-datetime-picker data-picker-label="📅 選擇結束日期與時間"/>
 
 <div class="aiFilterActions">
   <button class="btn btnPrimary" id="showAllSummary" type="button">查看全部</button>

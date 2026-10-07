@@ -438,198 +438,47 @@ async function clearLoginFailures(email, req) {
   await loginSecurityCollection().deleteOne({ key });
 }
 
+app.post("/api/register/send-code", otpSendLimiter, asyncHandler(async (req, res) => {
+  if (!ALLOW_PUBLIC_REGISTRATION) return res.status(403).json({ message: "目前已關閉公開註冊" });
+  if (!mailEnabled || !isMailReady) return res.status(503).json({ message: "Email 驗證服務尚未真正連線" });
+  const email = normalizeEmail(req.body.email);
+  if (!isValidEmail(email)) return res.status(400).json({ message: "請輸入有效 Email" });
+  const users = mongoose.connection.collection("users");
+  if (await users.findOne({ $or: [{ username: email }, { email }] })) return res.status(409).json({ message: "帳號已存在" });
+  const code = String(crypto.randomInt(100000, 1000000));
+  const challengeId = crypto.randomUUID(), now = new Date();
+  await mongoose.connection.collection("registration_otps").updateOne({ email }, { $set: { email, challengeId, codeHash: hashOtp(email, code, JWT_SECRET), attempts: 0, createdAt: now, expiresAt: new Date(now.getTime()+OTP_TTL_MINUTES*60000) } }, { upsert: true });
+  await transporter.sendMail({ from: MAIL_FROM, to: email, subject: "瑕疵辨識與分流系統註冊驗證碼", text: `您的註冊驗證碼是：${code}\n\n${OTP_TTL_MINUTES} 分鐘內有效。` });
+  return res.json({ success:true, challenge_id:challengeId, expires_in_seconds:OTP_TTL_MINUTES*60 });
+}));
+
 app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
   if (!ALLOW_PUBLIC_REGISTRATION) return res.status(403).json({ message: "目前已關閉公開註冊，請聯絡管理員建立帳號" });
-  if (REGISTRATION_INVITE_CODE && !timingSafeTextEqual(req.body.invite_code, REGISTRATION_INVITE_CODE)) {
-    return res.status(403).json({ message: "註冊邀請碼不正確" });
-  }
-  const company = cleanText(req.body.company, 120);
-  const username = normalizeEmail(req.body.username);
-  const password = String(req.body.password || "");
-  if (!company || !username || !password) return res.status(400).json({ message: "資料不完整" });
-  if (!isValidEmail(username)) return res.status(400).json({ message: "請輸入有效的 Email 信箱，登入驗證碼會寄到此信箱" });
-  const pw = validatePassword(password);
-  if (!pw.valid) return res.status(400).json({ message: pw.errors.join("；") });
-  const users = mongoose.connection.collection("users");
-  if (await users.findOne({ $or: [{ username }, { email: username }] })) return res.status(409).json({ message: "帳號已存在" });
-  const tenant_id = `T${Date.now()}${crypto.randomInt(100, 999)}`;
-  const system_id = `S${Date.now()}${crypto.randomInt(100, 999)}`;
-  const session = await mongoose.startSession();
-  try {
-    await session.withTransaction(async () => {
-      await mongoose.connection.collection("tenants").insertOne({ tenant_id, company, createdAt: new Date() }, { session });
-      await users.insertOne({
-        username,
-        email: username,
-        password: await bcrypt.hash(password, 12),
-        tenant_id,
-        role: "tenant_admin",
-        systems: [system_id],
-        session_version: 0,
-        disabled: false,
-        createdAt: new Date()
-      }, { session });
-      await mongoose.connection.collection("systems").insertOne({ tenant_id, system_id, name: "預設機台", createdAt: new Date() }, { session });
-    });
-  } finally { await session.endSession(); }
-  await writeAudit(req, "tenant.register", { tenant_id, system_id, target: username });
-  return res.status(201).json({ success: true, tenant_id, system_id });
+  if (REGISTRATION_INVITE_CODE && !timingSafeTextEqual(req.body.invite_code, REGISTRATION_INVITE_CODE)) return res.status(403).json({ message: "註冊邀請碼不正確" });
+  const company=cleanText(req.body.company,120), username=normalizeEmail(req.body.username), password=String(req.body.password||""), code=cleanText(req.body.code,12), challengeId=cleanText(req.body.challenge_id,100);
+  if (!company || !isValidEmail(username) || !password) return res.status(400).json({ message:"資料不完整" });
+  const pw=validatePassword(password); if(!pw.valid) return res.status(400).json({message:pw.errors.join("；")});
+  const otpCol=mongoose.connection.collection("registration_otps"), saved=await otpCol.findOne({email:username,challengeId});
+  if(!saved || new Date(saved.expiresAt).getTime()<Date.now()) return res.status(400).json({message:"註冊驗證碼已失效，請重新寄送"});
+  const expected=Buffer.from(String(saved.codeHash||""),"hex"), actual=Buffer.from(hashOtp(username,code,JWT_SECRET),"hex");
+  if(!(expected.length===actual.length && crypto.timingSafeEqual(expected,actual))) return res.status(400).json({message:"註冊驗證碼錯誤"});
+  const users=mongoose.connection.collection("users"); if(await users.findOne({$or:[{username},{email:username}]})) return res.status(409).json({message:"帳號已存在"});
+  const tenant_id=`T${Date.now()}${crypto.randomInt(100,999)}`;
+  const session=await mongoose.startSession(); try{await session.withTransaction(async()=>{await mongoose.connection.collection("tenants").insertOne({tenant_id,company,createdAt:new Date()},{session});await users.insertOne({username,email:username,password:await bcrypt.hash(password,12),tenant_id,role:"tenant_admin",systems:[],session_version:0,disabled:false,createdAt:new Date()},{session});});}finally{await session.endSession();}
+  await otpCol.deleteOne({email:username,challengeId}); await writeAudit(req,"tenant.register",{tenant_id,target:username});
+  return res.status(201).json({success:true,tenant_id});
 }));
 
-app.get("/api/login/status", (req, res) => {
-  return res.json({
-    database_connected: mongoose.connection.readyState === 1,
-    email_login_enabled: mailEnabled && isMailReady,
-    two_factor_required: true,
-    registration_enabled: ALLOW_PUBLIC_REGISTRATION,
-    registration_requires_invite: ALLOW_PUBLIC_REGISTRATION && Boolean(REGISTRATION_INVITE_CODE),
-    smtp_provider: mailEnabled ? smtpProvider : "not-configured",
-    login_lock_policy: {
-      max_failures: LOGIN_MAX_FAILURES,
-      window_minutes: LOGIN_FAILURE_WINDOW_MINUTES,
-      lock_minutes: LOGIN_LOCK_MINUTES
-    }
-  });
-});
+app.get("/api/login/status", (req,res)=>res.json({ database_connected:mongoose.connection.readyState===1, registration_enabled:ALLOW_PUBLIC_REGISTRATION, registration_requires_invite:ALLOW_PUBLIC_REGISTRATION&&Boolean(REGISTRATION_INVITE_CODE), registration_email_ready:mailEnabled&&isMailReady, two_factor_required:false }));
 
-app.post("/api/login", authLimiter, (req, res) => res.status(409).json({
-  message: "此系統採用兩步驟登入，請先寄送驗證碼，再輸入信箱收到的 6 位數驗證碼"
-}));
-
-app.post("/api/login/send-code", otpSendLimiter, asyncHandler(async (req, res) => {
-  if (!mailEnabled) return res.status(503).json({
-    message: "寄信服務尚未設定。請在 Render Environment 設定 SMTP_USER、SMTP_PASS、SMTP_FROM，或設定 Brevo/Gmail 相容變數"
-  });
-  const email = normalizeEmail(req.body.email);
-  const password = String(req.body.password || "");
-  if (!email || !password) return res.status(400).json({ message: "請輸入信箱與密碼" });
-  if (!isValidEmail(email)) return res.status(400).json({ message: "Email 格式不正確" });
-
-  const lock = await readLoginLock(email, req);
-  if (lock.locked) {
-    res.setHeader("Retry-After", String(lock.retryAfterSeconds));
-    await writeAudit(req, "security.login.locked", {
-      actor_email: email,
-      status: "blocked",
-      details: { retry_after_seconds: lock.retryAfterSeconds }
-    });
-    return res.status(429).json({ message: `登入失敗次數過多，請等待 ${lock.retryAfterSeconds} 秒後再試` });
-  }
-
-  const user = await mongoose.connection.collection("users").findOne({ $or: [{ email }, { username: email }] });
-  const storedPasswordHash = String(user?.password || user?.passwordHash || user?.password_hash || "");
-  const matched = user && user.disabled !== true && user.status !== "disabled" && /^\$2[aby]\$/.test(storedPasswordHash)
-    ? await bcrypt.compare(password, storedPasswordHash)
-    : false;
-  if (!user || !matched) {
-    const failure = await recordLoginFailure(email, req);
-    await writeAudit(req, "security.login.password_failed", {
-      actor_email: email,
-      status: failure.shouldLock ? "locked" : "failed",
-      details: { failures: failure.failures, remaining_attempts: failure.remainingAttempts }
-    });
-    if (failure.shouldLock) {
-      res.setHeader("Retry-After", String(LOGIN_LOCK_MINUTES * 60));
-      return res.status(429).json({ message: `登入失敗次數過多，帳號與此裝置暫停登入 ${LOGIN_LOCK_MINUTES} 分鐘` });
-    }
-    return res.status(401).json({ message: "信箱或密碼錯誤" });
-  }
-
-  await clearLoginFailures(email, req);
-  const col = mongoose.connection.collection("login_otps");
-  const existing = await col.findOne({ email });
-  if (existing?.lastSentAt && Date.now() - new Date(existing.lastSentAt).getTime() < OTP_RESEND_SECONDS * 1000) {
-    const wait = Math.ceil((OTP_RESEND_SECONDS * 1000 - (Date.now() - new Date(existing.lastSentAt).getTime())) / 1000);
-    res.setHeader("Retry-After", String(wait));
-    return res.status(429).json({ message: `請等待 ${wait} 秒後再寄送驗證碼` });
-  }
-
-  const code = String(crypto.randomInt(100000, 1000000));
-  const challengeId = crypto.randomUUID();
-  const now = new Date();
-  await col.updateOne({ email }, { $set: {
-    email,
-    userId: String(user._id),
-    challengeId,
-    codeHash: hashOtp(email, code, JWT_SECRET),
-    attempts: 0,
-    createdAt: now,
-    lastSentAt: now,
-    expiresAt: new Date(now.getTime() + OTP_TTL_MINUTES * 60000)
-  } }, { upsert: true });
-  try {
-    await transporter.sendMail({
-      from: MAIL_FROM,
-      to: user.email || user.username,
-      subject: "瑕疵辨識與分流系統登入驗證碼",
-      text: `您的登入驗證碼是：${code}\n\n此驗證碼 ${OTP_TTL_MINUTES} 分鐘內有效。若不是您本人操作，請忽略此信。`
-    });
-  } catch (error) {
-    await col.deleteOne({ email, challengeId }).catch(() => {});
-    logger.error("OTP send failed", { request_id: req.requestId, provider: smtpProvider, error: error.message });
-    throw Object.assign(new Error("驗證碼寄送失敗，請檢查 Render 的 SMTP 設定後再試"), { status: 502 });
-  }
-  await writeAudit(req, "security.login.otp_sent", { actor_id: String(user._id), actor_email: email, tenant_id: user.tenant_id || "" });
-  const response = {
-    success: true,
-    challenge_id: challengeId,
-    expires_in_seconds: OTP_TTL_MINUTES * 60,
-    resend_after_seconds: OTP_RESEND_SECONDS,
-    message: "驗證碼已寄出，請到信箱查看"
-  };
-  if (NODE_ENV === "development" && process.env.DEV_RETURN_OTP === "true") response.dev_code = code;
-  return res.json(response);
-}));
-
-app.post("/api/login/verify-code", authLimiter, asyncHandler(async (req, res) => {
-  const email = normalizeEmail(req.body.email);
-  const code = cleanText(req.body.code, 12);
-  const challengeId = cleanText(req.body.challenge_id, 100);
-  if (!isValidEmail(email) || !/^\d{6}$/.test(code) || !/^[0-9a-f-]{36}$/i.test(challengeId)) {
-    return res.status(400).json({ message: "請先寄送驗證碼，再輸入信箱與 6 位數驗證碼" });
-  }
-  const col = mongoose.connection.collection("login_otps");
-  const saved = await col.findOne({ email, challengeId });
-  if (!saved) return res.status(400).json({ message: "登入驗證已失效，請重新寄送驗證碼" });
-  if (new Date(saved.expiresAt).getTime() < Date.now()) {
-    await col.deleteOne({ email, challengeId });
-    return res.status(400).json({ message: "驗證碼已過期，請重新寄送" });
-  }
-  if (Number(saved.attempts || 0) >= OTP_MAX_ATTEMPTS) {
-    await col.deleteOne({ email, challengeId });
-    return res.status(429).json({ message: "驗證碼錯誤次數過多，請重新寄送" });
-  }
-  const expected = Buffer.from(String(saved.codeHash || ""), "hex");
-  const actual = Buffer.from(hashOtp(email, code, JWT_SECRET), "hex");
-  if (!(expected.length === actual.length && crypto.timingSafeEqual(expected, actual))) {
-    const updated = await col.findOneAndUpdate(
-      { email, challengeId, attempts: { $lt: OTP_MAX_ATTEMPTS } },
-      { $inc: { attempts: 1 }, $set: { lastAttemptAt: new Date() } },
-      { returnDocument: "after" }
-    );
-    const attempts = Number(updated?.attempts || OTP_MAX_ATTEMPTS);
-    await writeAudit(req, "security.login.otp_failed", {
-      actor_email: email,
-      status: attempts >= OTP_MAX_ATTEMPTS ? "locked" : "failed",
-      details: { attempts }
-    });
-    if (attempts >= OTP_MAX_ATTEMPTS) await col.deleteOne({ email, challengeId });
-    return res.status(400).json({ message: `驗證碼錯誤，剩餘 ${Math.max(0, OTP_MAX_ATTEMPTS - attempts)} 次機會` });
-  }
-
-  await col.deleteOne({ email, challengeId });
-  const userQuery = mongoose.Types.ObjectId.isValid(String(saved.userId || ""))
-    ? { _id: new mongoose.Types.ObjectId(String(saved.userId)) }
-    : { $or: [{ email }, { username: email }] };
-  const user = await mongoose.connection.collection("users").findOne(userQuery);
-  if (!user || user.disabled === true || user.status === "disabled") return res.status(401).json({ message: "帳號不存在或已停用" });
-  await writeAudit(req, "security.login.success", {
-    actor_id: String(user._id),
-    actor_email: email,
-    tenant_id: user.tenant_id || "",
-    role: user.role || "user"
-  });
-  return res.json(await issueLoginResponse(user, req, res));
+app.post("/api/login", authLimiter, asyncHandler(async(req,res)=>{
+  const email=normalizeEmail(req.body.email), password=String(req.body.password||"");
+  if(!isValidEmail(email)||!password) return res.status(400).json({message:"請輸入信箱與密碼"});
+  const lock=await readLoginLock(email,req); if(lock.locked){res.setHeader("Retry-After",String(lock.retryAfterSeconds));return res.status(429).json({message:`登入失敗次數過多，請等待 ${lock.retryAfterSeconds} 秒後再試`});}
+  const user=await mongoose.connection.collection("users").findOne({$or:[{email},{username:email}]}); const hash=String(user?.password||user?.passwordHash||user?.password_hash||"");
+  const matched=user&&user.disabled!==true&&/^\$2[aby]\$/.test(hash)?await bcrypt.compare(password,hash):false;
+  if(!matched){const f=await recordLoginFailure(email,req);return res.status(f.shouldLock?429:401).json({message:f.shouldLock?`登入失敗次數過多，暫停登入 ${LOGIN_LOCK_MINUTES} 分鐘`:"信箱或密碼錯誤"});}
+  await clearLoginFailures(email,req); await writeAudit(req,"security.login.success",{actor_id:String(user._id),actor_email:email,tenant_id:user.tenant_id||"",role:user.role||"user"}); return res.json(await issueLoginResponse(user,req,res));
 }));
 
 app.get("/api/session", auth, asyncHandler(async (req, res) => {
@@ -1014,6 +863,16 @@ function healthSnapshot() {
     gemini_configured: Boolean(process.env.GEMINI_API_KEY)
   };
 }
+app.post("/api/systems", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req,res)=>{
+  const tenant_id=req.user.role==="super_admin"?cleanText(req.body.tenant_id,100):req.user.tenant_id;
+  const system_id=cleanText(req.body.system_id,100), name=cleanText(req.body.name,120);
+  if(!tenant_id||!system_id||!name) return res.status(400).json({message:"請輸入機台 ID 與名稱"});
+  if(!/^[A-Za-z0-9_-]{2,100}$/.test(system_id)) return res.status(400).json({message:"機台 ID 只能使用英文、數字、_、-"});
+  try{await mongoose.connection.collection("systems").insertOne({tenant_id,system_id,name,current_product:"",createdAt:new Date()});}
+  catch(e){if(e?.code===11000)return res.status(409).json({message:"此機台 ID 已存在"});throw e;}
+  await writeAudit(req,"system.create",{tenant_id,system_id,target:name}); return res.status(201).json({success:true,system_id,name});
+}));
+
 app.get("/api/machine-status", auth, asyncHandler(async (req, res) => {
   const requestedTenant = cleanText(req.query.tenant_id, 100);
 
@@ -1715,6 +1574,8 @@ async function runRetentionCleanup() {
 async function ensureIndexes() {
   const tasks = [
     mongoose.connection.collection("login_otps").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    mongoose.connection.collection("registration_otps").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+    mongoose.connection.collection("registration_otps").createIndex({ email: 1 }, { unique: true }),
     mongoose.connection.collection("login_otps").createIndex({ email: 1 }, { unique: true }),
     mongoose.connection.collection("login_otps").createIndex({ challengeId: 1 }, { unique: true, sparse: true }),
     mongoose.connection.collection("login_security").createIndex({ key: 1 }, { unique: true }),

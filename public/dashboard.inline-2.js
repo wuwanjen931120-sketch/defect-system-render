@@ -39,7 +39,8 @@ function clampNumber(value, min, max, fallback){
 function loadYieldAlertSettings(){
   try {
     const raw = localStorage.getItem(getYieldAlertSettingsKey());
-    const saved = raw ? JSON.parse(raw) : {};
+    const saved = raw ? JSON.parse(raw) : null;
+    if (!saved) return null;
 
     return {
       yieldThreshold: clampNumber(saved.yieldThreshold, 0, 100, YIELD_ALERT_DEFAULTS.yieldThreshold),
@@ -47,7 +48,7 @@ function loadYieldAlertSettings(){
       consecutiveNg: Math.round(clampNumber(saved.consecutiveNg, 1, null, YIELD_ALERT_DEFAULTS.consecutiveNg))
     };
   } catch (e) {
-    return { ...YIELD_ALERT_DEFAULTS };
+    return null;
   }
 }
 
@@ -58,9 +59,11 @@ function renderYieldAlertSettings(){
   const minSamplesInput = document.getElementById("alertMinSamples");
   const consecutiveInput = document.getElementById("alertConsecutiveNg");
 
-  if (thresholdInput) thresholdInput.value = settings.yieldThreshold;
-  if (minSamplesInput) minSamplesInput.value = settings.minSamples;
-  if (consecutiveInput) consecutiveInput.value = settings.consecutiveNg;
+  if (settings) {
+    if (thresholdInput) thresholdInput.value = settings.yieldThreshold;
+    if (minSamplesInput) minSamplesInput.value = settings.minSamples;
+    if (consecutiveInput) consecutiveInput.value = settings.consecutiveNg;
+  }
 
   renderYieldAlertLogs();
 }
@@ -700,9 +703,7 @@ function normalizeProductName(name) {
     return "未分類";
   }
 
-  if (s.includes("橡皮") || s.includes("eraser")) return "橡皮擦";
-  if (s.includes("立可帶") || s.includes("修正帶") || s.includes("tape")) return "立可帶";
-  if (s.includes("螺帽") || s.includes("螺母") || s.includes("nut")) return "螺帽";
+  
 
   // ⭐ 不認識的產品不要丟掉，直接保留原本名稱（例如：手機殼、書本）
   return original;

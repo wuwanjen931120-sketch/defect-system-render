@@ -47,10 +47,7 @@
   <span class="nav-label">👥 角色機台管理</span>
   <span class="pill">Users</span>
 </a>
-<a class="dashboard-inline-style-2" href="admin.html" id="adminNavLinkDrawer">
-<span class="nav-label">🧑‍💼 管理後台</span>
-<span class="pill">Admin</span>
-</a>
+
 <a href="health.html">
   <span class="nav-label">🩺 系統健康</span>
   <span class="pill">Health</span>
@@ -92,10 +89,7 @@
   <span class="nav-label">👥 角色機台管理</span>
   <span class="pill">Users</span>
 </a>
-<a class="dashboard-inline-style-2" href="admin.html" id="adminNavLink">
-<span class="nav-label">🧑‍💼 管理後台</span>
-<span class="pill">Admin</span>
-</a>
+
 <a href="health.html">
   <span class="nav-label">🩺 系統健康</span>
   <span class="pill">Health</span>
@@ -143,7 +137,7 @@
     <span id="currentProductsText">尚未設定</span>
 </div>
 <div class="productInputRow">
-<input id="productInput" placeholder="輸入產品（例如：立可帶、手機殼、螺帽）"/>
+<input id="productInput" placeholder="輸入目前要檢測的產品名稱"/>
 <button class="btn btnPrimary" id="dashboard-handler-7">加入</button>
 </div>
 <div id="productList"></div>
@@ -252,15 +246,15 @@
 <div class="yieldAlertSettings">
 <div class="yieldAlertField">
 <label for="alertYieldThreshold">良率警戒值（%）</label>
-<input id="alertYieldThreshold" max="100" min="0" step="1" type="number" value="90"/>
+<input id="alertYieldThreshold" max="100" min="0" step="1" type="number"/>
 </div>
 <div class="yieldAlertField">
 <label for="alertMinSamples">最少檢測筆數</label>
-<input id="alertMinSamples" min="1" step="1" type="number" value="5"/>
+<input id="alertMinSamples" min="1" step="1" type="number"/>
 </div>
 <div class="yieldAlertField">
 <label for="alertConsecutiveNg">連續 NG 警戒值</label>
-<input id="alertConsecutiveNg" min="1" step="1" type="number" value="3"/>
+<input id="alertConsecutiveNg" min="1" step="1" type="number"/>
 </div>
 </div>
 <div class="yieldAlertActions">
@@ -292,43 +286,7 @@
 </div>
 </div>
 </section>
-<section class="ngImageCard">
-<div class="ngImageHeader">
-<div>
-<div class="ngImageTitle">🖼️ NG 瑕疵圖片留存</div>
-<div class="ngImageHint">NG 影像若後端有 image_url、snapshot_url、imageUrl 等欄位，會自動顯示在這裡。真正永久保存仍需要後端儲存圖片檔與資料庫欄位。</div>
-</div>
-<button class="btn" id="dashboard-handler-13" type="button">重新整理圖片</button>
-</div>
 
-
-
-<div class="ngImageGrid" id="ngImageList"></div>
-</section>
-<section class="machineRankCard">
-<div class="rankHeader">
-<div>
-<div class="rankTitle">🏆 各機台比較排行</div>
-<div class="rankHint">依目前客戶的 MongoDB 資料，即時計算每台機台的 OK、NG 與良率排行。</div>
-</div>
-<button class="btn" id="dashboard-handler-14" type="button">重新讀取排行</button>
-</div>
-<div class="rankTableWrap">
-<div class="machineRankTable">
-<div class="rank-row rank-head">
-<div>排名</div>
-<div>機台</div>
-<div>總數</div>
-<div>OK</div>
-<div>NG</div>
-<div>良率</div>
-<div>狀態</div>
-</div>
-<div id="machineRankingRows"></div>
-</div>
-</div>
-<div class="rankFooter" id="machineRankingFooter">尚未讀取排行。</div>
-</section>
 </div>
 </div>
 <div class="dashboard-inline-style-4" id="errorBar"></div>

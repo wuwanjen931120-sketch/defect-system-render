@@ -682,3 +682,6 @@ img, video, canvas {
   border-color:rgba(239,68,68,.35);
   color:rgba(231,238,252,.95);
 }
+
+/* 2026-10-07 UI 統一：放大字級、降低擁擠 */
+html{font-size:17px} body{line-height:1.55}.main{min-width:0}.card{border-radius:14px}.topbar{gap:16px}.nav a{min-height:48px}.machine-create-row{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:center}@media(max-width:800px){.machine-create-row{grid-template-columns:1fr}}

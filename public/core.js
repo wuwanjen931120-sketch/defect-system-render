@@ -4,7 +4,7 @@
  * 目的：讓首頁、事件紀錄、系統設定、AI 助理左邊選單都長一樣。
  */
 (function(){
-  const PROTECTED_PAGES = ["dashboard.html", "logs.html", "settings.html", "ai.html", "admin.html", "mongo-admin.html"];
+  const PROTECTED_PAGES = ["dashboard.html", "logs.html", "settings.html", "ai.html", "health.html", "alerts.html", "machine-status.html", "report.html", "image-trace.html", "user-manage.html"];
 
   function currentFile(){
     const p = location.pathname.toLowerCase();
@@ -251,9 +251,7 @@
 
 if (canAdmin) {
   nav.append(
-    createNavLink("audit.html", "📋 操作稽核", "Audit"),
-    createNavLink("user-manage.html", "👥 角色機台", "Users"),
-    createNavLink("admin.html", "🧑‍💼 管理後台", "Admin")
+    createNavLink("user-manage.html", "👥 角色機台", "Users")
   );
 }      const footer = document.createElement("div");
       footer.className = "side-footer";

@@ -35,9 +35,7 @@
 <a class="active" href="settings.html">
 <span class="nav-label">⚙️ 系統設定</span>
 </a>
-<a class="settings-inline-style-3" href="admin.html" id="adminNavLinkDrawer">
-<span class="nav-label">🧑‍💼 管理後台</span>
-</a>
+
 </div>
 </div>
 </aside>
@@ -59,9 +57,7 @@
 <a class="active" href="settings.html">
 <span class="nav-label">⚙️ 系統設定</span>
 </a>
-<a class="settings-inline-style-3" href="admin.html" id="adminNavLinkDesktop">
-<span class="nav-label">🧑‍💼 管理後台</span>
-</a>
+
 </div>
 <div class="side-footer">
 <button class="btn" id="settings-handler-1">修復灰底/警告（清快取）</button>
@@ -82,7 +78,7 @@
 <button class="btn" id="settings-handler-5">載入設定</button>
 </div>
 </div>
-<section class="grid">
+<section class="grid"><div class="card span-12"><h3>新增機台</h3><p>建立機台後，設備或外部測試程式的 MQTT payload 必須使用相同的 system_id；收到第一筆有效回報後才會顯示在線與數據。</p><div class="machine-create-row"><input id="newSystemId" placeholder="機台 ID，例如 LINE_A_01"><input id="newSystemName" placeholder="機台名稱"><button class="btn btnPrimary" id="createSystemBtn" type="button">新增機台</button></div><div id="machineCreateStatus"></div></div>
 <div class="card span-6">
 <h3>瑕疵連續次數門檻</h3>
 <div class="settings-inline-style-5">
