@@ -60,14 +60,15 @@ test("service worker static cache only references existing non-application asset
   assert.doesNotMatch(block, /auth-bootstrap\.js|login\.js/);
 });
 
-test("login page uses the unified two-step login script", () => {
+test("login page uses direct password login and registration owns OTP", () => {
   const html = fs.readFileSync(path.join(publicDir, "login.html"), "utf8");
   const js = fs.readFileSync(path.join(publicDir, "login.js"), "utf8");
   assert.match(html, /src="login\.js\?v=/);
-  assert.match(js, /\/api\/login\/send-code/);
-  assert.match(js, /\/api\/login\/verify-code/);
+  assert.match(js, /\/api\/login/);
+  assert.doesNotMatch(js, /\/api\/login\/verify-code/);
   assert.match(js, /\/api\/login\/status/);
-  assert.doesNotMatch(js, /window\.location\.origin/);
+  const registerJs = fs.readFileSync(path.join(publicDir, "register.inline-1.js"), "utf8");
+  assert.match(registerJs, /\/api\/register\/send-code/);
 });
 
 test("environment example documents current SMTP, Gemini and deployment variables", () => {

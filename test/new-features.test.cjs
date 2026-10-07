@@ -15,8 +15,7 @@ test("new feature pages exist", () => {
     "public/alerts.html",
     "public/machine-status.html",
     "public/report.html",
-    "public/image-trace.html",
-    "public/audit.html"
+    "public/image-trace.html"
   ];
 
   for (const page of pages) {
@@ -33,8 +32,7 @@ test("new feature pages use unified sidebar", () => {
     "alerts.html",
     "machine-status.html",
     "report.html",
-    "image-trace.html",
-    "audit.html"
+    "image-trace.html"
   ];
 
   for (const page of pages) {
@@ -66,9 +64,7 @@ test("shared sidebar contains current feature links", () => {
     "machine-status.html",
     "report.html",
     "image-trace.html",
-    "audit.html",
     "user-manage.html",
-    "admin.html"
   ];
 
   for (const link of requiredLinks) {

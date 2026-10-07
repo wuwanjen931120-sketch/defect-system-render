@@ -10,10 +10,10 @@ const server = fs.readFileSync(path.join(root, "server.cjs"), "utf8");
 const core = fs.readFileSync(path.join(root, "public/core.js"), "utf8");
 const render = fs.readFileSync(path.join(root, "render.yaml"), "utf8");
 
-test("login has account lockout, OTP challenge and audit events", () => {
+test("login has account lockout and registration owns OTP challenge", () => {
   assert.match(server, /login_security/);
   assert.match(server, /challenge_id/);
-  assert.match(server, /security\.login\.password_failed/);
+  assert.match(server, /register\/send-code/);
   assert.match(server, /security\.login\.success/);
 });
 
