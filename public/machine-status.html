@@ -10,10 +10,10 @@
 
   <link rel="stylesheet" href="style.css" />
 
-  <link rel="stylesheet" href="machine-status.css?v=20260811-1" />
+  <link rel="stylesheet" href="machine-status.css?v=20261009-2" />
 
   <script defer src="core.js?v=20260811-2"></script>
-  <script defer src="machine-status.js?v=20260811-1"></script>
+  <script defer src="machine-status.js?v=20261009-2"></script>
 <link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
 
 <body>
@@ -73,8 +73,8 @@
           <div>
             <h2>🖥️ 即時機台狀態</h2>
             <p>
-              查看各機台連線狀態、最後回報時間、目前產品、
-              良率與最新緊急停止狀態。
+              分開查看「檢測資料回報」與「實體機械手臂 heartbeat」，
+              避免把 MQTT Broker 或資料上報誤認為手臂已連線。
             </p>
           </div>
 
@@ -95,18 +95,28 @@
           </div>
 
           <div class="machineSummaryCard machineSummaryOnline">
-            <span>Online</span>
+            <span>資料回報正常</span>
             <strong id="machineCountOnline">0</strong>
           </div>
 
           <div class="machineSummaryCard machineSummaryOffline">
-            <span>Offline</span>
+            <span>資料未回報</span>
             <strong id="machineCountOffline">0</strong>
           </div>
 
+          <div class="machineSummaryCard machineSummaryOnline">
+            <span>實體手臂已連線</span>
+            <strong id="robotCountOnline">0</strong>
+          </div>
+
+          <div class="machineSummaryCard machineSummaryOffline">
+            <span>實體手臂未連線</span>
+            <strong id="robotCountOffline">0</strong>
+          </div>
+
           <div class="machineSummaryCard">
-            <span>Online 判斷時間</span>
-            <strong id="machineOnlineWindow">120 秒</strong>
+            <span>手臂 heartbeat 判斷</span>
+            <strong id="robotHeartbeatWindow">15 秒</strong>
           </div>
 
         </section>

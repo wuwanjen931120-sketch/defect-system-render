@@ -26,6 +26,15 @@
   let productsCache = [];
   let selectedSystemId = defaultSystemId || "";
   let selectedProduct = "";
+  let currentConversationId = "";
+
+  const aiHistoryBtn = document.getElementById("aiHistoryBtn");
+  const aiNewChatBtn = document.getElementById("aiNewChatBtn");
+  const aiHistoryPanel = document.getElementById("aiHistoryPanel");
+  const aiHistoryOverlay = document.getElementById("aiHistoryOverlay");
+  const aiHistoryClose = document.getElementById("aiHistoryClose");
+  const aiHistoryNewBtn = document.getElementById("aiHistoryNewBtn");
+  const aiHistoryList = document.getElementById("aiHistoryList");
 
   function authHeaders(extra){
     return Object.assign({ "Content-Type": "application/json" }, extra || {});
@@ -59,6 +68,99 @@
     chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
     return div;
+  }
+
+  function resetChat(){
+    currentConversationId = "";
+    chatBox.replaceChildren();
+    addMessage("你好，我是這個瑕疵辨識網站的 AI 助理。你可以問我良率、NG率、事件紀錄、產品分類、機台資料或 MQTT 測試格式。", "bot");
+  }
+
+  function openHistoryPanel(){
+    aiHistoryPanel?.classList.add("show");
+    aiHistoryOverlay?.classList.add("show");
+    loadAiHistory();
+  }
+
+  function closeHistoryPanel(){
+    aiHistoryPanel?.classList.remove("show");
+    aiHistoryOverlay?.classList.remove("show");
+  }
+
+  function formatHistoryTime(value){
+    if (!value) return "";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleString("zh-TW", { hour12: false, month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  }
+
+  async function loadAiHistory(){
+    if (!aiHistoryList) return;
+    aiHistoryList.innerHTML = '<div class="aiHistoryEmpty">載入中...</div>';
+    try {
+      const res = await fetch("/api/ai/history?limit=40", { credentials: "same-origin", cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "讀取對話紀錄失敗");
+      aiHistoryList.replaceChildren();
+      if (!Array.isArray(data) || !data.length) {
+        aiHistoryList.innerHTML = '<div class="aiHistoryEmpty">目前沒有對話紀錄</div>';
+        return;
+      }
+      data.forEach(item => {
+        const wrap = document.createElement("div");
+        wrap.className = "aiHistoryItem";
+        const openBtn = document.createElement("button");
+        openBtn.type = "button";
+        openBtn.className = "aiHistoryOpen";
+        const title = document.createElement("b");
+        title.textContent = item.title || "AI 品質問答";
+        const time = document.createElement("span");
+        time.textContent = formatHistoryTime(item.updatedAt || item.createdAt);
+        openBtn.append(title, time);
+        openBtn.addEventListener("click", () => loadConversation(item.conversation_id));
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "aiHistoryDelete";
+        delBtn.textContent = "×";
+        delBtn.title = "刪除對話";
+        delBtn.addEventListener("click", async () => {
+          await deleteConversation(item.conversation_id);
+        });
+        wrap.append(openBtn, delBtn);
+        aiHistoryList.appendChild(wrap);
+      });
+    } catch (err) {
+      aiHistoryList.innerHTML = `<div class="aiHistoryEmpty">${escapeHtml(err.message || "讀取失敗")}</div>`;
+    }
+  }
+
+  async function loadConversation(conversationId){
+    if (!conversationId) return;
+    try {
+      const res = await fetch(`/api/ai/history/${encodeURIComponent(conversationId)}`, { credentials: "same-origin", cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "讀取對話失敗");
+      currentConversationId = conversationId;
+      chatBox.replaceChildren();
+      (Array.isArray(data.messages) ? data.messages : []).forEach(msg => {
+        addMessage(msg.text || "", msg.role === "user" ? "user" : "bot");
+      });
+      if (!chatBox.children.length) resetChat();
+      closeHistoryPanel();
+    } catch (err) {
+      addMessage(`對話紀錄讀取失敗：${err.message}`, "bot");
+    }
+  }
+
+  async function deleteConversation(conversationId){
+    if (!conversationId) return;
+    try {
+      await fetch(`/api/ai/history/${encodeURIComponent(conversationId)}`, { method: "DELETE", credentials: "same-origin" });
+      if (currentConversationId === conversationId) resetChat();
+      await loadAiHistory();
+    } catch (err) {
+      console.error("刪除 AI 對話失敗", err);
+    }
   }
 
   function escapeHtml(text){
@@ -275,12 +377,14 @@
       const res = await fetch("/api/ai/chat", {
         method: "POST",
         headers: authHeaders(),
-        body: JSON.stringify(Object.assign({ message }, getFilters()))
+        body: JSON.stringify(Object.assign({ message, conversation_id: currentConversationId }, getFilters()))
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "AI 回覆失敗");
 
       setMessageContent(loading, data.reply || "沒有收到回覆", "bot");
+      if (data.conversation_id) currentConversationId = data.conversation_id;
+      loadAiHistory();
       if (data.mode === "local-summary-fallback") {
         aiDot.classList.remove("on");
         aiMode.textContent = "本機備援模式｜Gemini 暫時無法使用";
@@ -387,6 +491,12 @@
 
   dateFromInput?.addEventListener("change", () => loadProducts());
   dateToInput?.addEventListener("change", () => loadProducts());
+
+  aiHistoryBtn?.addEventListener("click", openHistoryPanel);
+  aiHistoryClose?.addEventListener("click", closeHistoryPanel);
+  aiHistoryOverlay?.addEventListener("click", closeHistoryPanel);
+  aiNewChatBtn?.addEventListener("click", resetChat);
+  aiHistoryNewBtn?.addEventListener("click", () => { resetChat(); closeHistoryPanel(); });
 
   Promise.resolve()
     .then(checkAiStatus)

@@ -1,6 +1,7 @@
 "use strict";
 
 let reportRows = [];
+const reportSystemNames = new Map();
 
 function reportText(value) {
   return String(value ?? "");
@@ -151,8 +152,9 @@ function renderReportRows() {
     timeCell.textContent = formatReportTime(item.timestamp);
 
     const systemCell = document.createElement("td");
-    systemCell.textContent =
-      reportText(item.system_id) || "-";
+    const systemId = reportText(item.system_id);
+    systemCell.textContent = reportSystemNames.get(systemId) || systemId || "-";
+    if (systemId) systemCell.title = `system_id：${systemId}`;
 
     const idCell = document.createElement("td");
     idCell.textContent =
@@ -233,9 +235,10 @@ async function loadReportSystems() {
       option.value =
         reportText(system.system_id);
 
-      option.textContent =
-        reportText(system.name) || "未命名機台";
+      const systemName = reportText(system.name) || "未命名機台";
+      option.textContent = systemName;
       option.title = `system_id：${reportText(system.system_id)}`;
+      reportSystemNames.set(reportText(system.system_id), systemName);
 
       select.appendChild(option);
     });

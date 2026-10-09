@@ -1794,3 +1794,48 @@
   .productGaugeSelectorWrap,.productTableFilterWrap{width:100%;align-items:stretch;flex-direction:column}
   #productGaugeGroupSelect,#productTableFilterSelect{width:100%;max-width:none}
 }
+
+
+/* 2026-10-09：產品分類與良率 - 每頁最多 8 項、四欄兩排、可勾選 */
+.productGaugeToolbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.productGaugePickerWrap{position:relative}
+.productGaugePicker{
+  position:absolute;right:0;top:calc(100% + 8px);z-index:80;width:min(420px,82vw);
+  max-height:360px;overflow:auto;background:#0f1f37;border:1px solid rgba(255,255,255,.14);
+  border-radius:14px;padding:12px;box-shadow:0 18px 40px rgba(0,0,0,.38);display:none;
+}
+.productGaugePicker.show{display:block}
+.productGaugePickerHead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid rgba(255,255,255,.1)}
+.productGaugePickerHead>div{display:flex;gap:8px}
+.pickerTextBtn{border:0;background:transparent;color:#93c5fd;font-weight:800;cursor:pointer;padding:4px 6px}
+.productGaugeCheckboxes{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.productGaugeCheckItem{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 9px;border-radius:10px;background:rgba(255,255,255,.04);cursor:pointer}
+.productGaugeCheckItem:hover{background:rgba(59,130,246,.14)}
+.productGaugeCheckItem input{accent-color:#3b82f6;flex:0 0 auto}
+.productGaugeCheckItem span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.productGaugePickerEmpty,.productGaugeEmpty{color:var(--muted);padding:16px;text-align:center}
+.productGaugeEmpty{grid-column:1/-1;min-height:170px;display:grid;place-items:center}
+.productGaugePager{display:flex;align-items:center;gap:8px}
+.productGaugePager #productGaugePageText{min-width:46px;text-align:center;color:var(--muted);font-weight:800}
+.productGaugePageBtn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+#dynamicProductGaugeArea{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  grid-auto-rows:minmax(210px,1fr);
+  gap:12px!important;
+  overflow:visible!important;
+  min-height:432px;
+  align-content:stretch;
+}
+#dynamicProductGaugeArea .gaugeBox{
+  min-width:0!important;width:auto!important;height:auto!important;min-height:210px;
+  display:flex!important;flex-direction:column;justify-content:center;
+}
+@media(max-width:1200px){#dynamicProductGaugeArea{grid-template-columns:repeat(2,minmax(0,1fr))!important;min-height:auto}}
+@media(max-width:700px){
+  #dynamicProductGaugeArea{grid-template-columns:1fr!important}
+  .productGaugeToolbar{width:100%;justify-content:stretch}
+  .productGaugePickerWrap,.productGaugePickerBtn{width:100%}
+  .productGaugePager{width:100%;justify-content:space-between}
+  .productGaugeCheckboxes{grid-template-columns:1fr}
+}

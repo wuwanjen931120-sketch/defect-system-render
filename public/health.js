@@ -70,7 +70,10 @@ async function loadMachineConnection() {
       setStatus("machineConnection", "尚無機台", "warn");
       const detail = document.getElementById("machineConnectionDetail");
       if (detail) detail.textContent = "目前沒有可查看的機台";
-      return { healthy: false, total: 0 };
+      setStatus("robotConnection", "尚無機台", "warn");
+      const robotDetail = document.getElementById("robotConnectionDetail");
+      if (robotDetail) robotDetail.textContent = "等待 Python 手臂控制程式 heartbeat";
+      return { healthy: false, robotHealthy: false, total: 0 };
     }
 
     const counts = {
@@ -93,6 +96,21 @@ async function loadMachineConnection() {
           ? "warn"
           : "ok";
 
+    const robotOnline = machines.filter(machine => machine.robot_online === true).length;
+    const robotNever = machines.filter(machine => !machine.last_robot_heartbeat_at).length;
+    const robotOffline = total - robotOnline;
+    const robotState = robotOnline === total ? "ok" : robotOnline > 0 ? "warn" : "error";
+    const robotLabel = robotOnline === total
+      ? `全部 ${total} 台手臂已連線`
+      : `${robotOnline} / ${total} 台手臂已連線`;
+    setStatus("robotConnection", robotLabel, robotState);
+    const robotDetail = document.getElementById("robotConnectionDetail");
+    if (robotDetail) {
+      const parts = [`已連線 ${robotOnline}`, `未連線 ${robotOffline}`];
+      if (robotNever) parts.push(`尚未 heartbeat ${robotNever}`);
+      robotDetail.textContent = parts.join("｜");
+    }
+
     let label = `${counts.online} / ${total} 台正常`;
     if (counts.online === total) {
       label = `全部 ${total} 台正常連線`;
@@ -113,15 +131,21 @@ async function loadMachineConnection() {
 
     return {
       healthy: mainState === "ok",
+      robotHealthy: robotState === "ok",
       total,
-      counts
+      counts,
+      robotOnline,
+      robotOffline
     };
   } catch (error) {
     console.error("machine connection check failed", error);
     setStatus("machineConnection", "無法確認", "error");
     const detail = document.getElementById("machineConnectionDetail");
     if (detail) detail.textContent = "機台狀態讀取失敗";
-    return { healthy: false, total: 0 };
+    setStatus("robotConnection", "無法確認", "error");
+    const robotDetail = document.getElementById("robotConnectionDetail");
+    if (robotDetail) robotDetail.textContent = "手臂 heartbeat 狀態讀取失敗";
+    return { healthy: false, robotHealthy: false, total: 0 };
   }
 }
 
@@ -178,9 +202,9 @@ async function loadHealth() {
       formatUptime(data.uptime_seconds);
 
     const coreServicesOk = databaseOk && emailOk && mqttOk;
-    overall.textContent = coreServicesOk && machineResult.healthy
-      ? "✅ 主要服務與機台連線目前正常"
-      : "⚠️ 部分服務或機台連線需要檢查";
+    overall.textContent = coreServicesOk && machineResult.healthy && machineResult.robotHealthy
+      ? "✅ 主要服務、機台資料回報與實體手臂連線目前正常"
+      : "⚠️ 部分服務、機台資料回報或實體手臂連線需要檢查";
   } catch (error) {
     overall.textContent = "❌ 無法取得系統健康狀態";
 
@@ -188,6 +212,7 @@ async function loadHealth() {
     setStatus("email", "無法確認", "error");
     setStatus("mqtt", "無法確認", "error");
     setStatus("gemini", "無法確認", "error");
+    setStatus("robotConnection", "無法確認", "error");
 
     console.error("health check failed", error);
   }

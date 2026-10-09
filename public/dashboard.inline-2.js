@@ -5,9 +5,11 @@ let selectedProducts = [];
 let latestDashboardList = [];
 let latestTrendProducts = [];
 let lastMachineRankingLoadTime = 0;
-let productGaugeGroup = 0;
-const PRODUCT_GAUGE_GROUP_SIZE = 4;
+let productGaugePage = 0;
+const PRODUCT_GAUGE_PAGE_SIZE = 8;
 let latestProductStats = {};
+let selectedGaugeProducts = new Set();
+let knownGaugeProducts = new Set();
 
 const YIELD_ALERT_DEFAULTS = {
   yieldThreshold: 90,
@@ -1093,7 +1095,10 @@ const product = normalizeProductName(item.product);
     const gaugeArea = document.getElementById("dynamicProductGaugeArea");
     const dynamicRows = document.getElementById("dynamicProductRows");
     const productGaugeCountText = document.getElementById("productGaugeCountText");
-    const productGaugeGroupSelect = document.getElementById("productGaugeGroupSelect");
+    const productGaugeCheckboxes = document.getElementById("productGaugeCheckboxes");
+    const productGaugePageText = document.getElementById("productGaugePageText");
+    const productGaugePrev = document.getElementById("productGaugePrev");
+    const productGaugeNext = document.getElementById("productGaugeNext");
     const productTableFilterSelect = document.getElementById("productTableFilterSelect");
 
     const productNames = Object.keys(productStats).filter(name => name !== "未分類");
@@ -1103,31 +1108,52 @@ const product = normalizeProductName(item.product);
       productGaugeCountText.textContent = `共 ${productNames.length} 種產品`;
     }
 
-    const groupCount = Math.max(1, Math.ceil(productNames.length / PRODUCT_GAUGE_GROUP_SIZE));
-    productGaugeGroup = Math.min(Math.max(productGaugeGroup, 0), groupCount - 1);
+    const newProducts = productNames.filter(name => !knownGaugeProducts.has(name));
+    if (knownGaugeProducts.size === 0) {
+      selectedGaugeProducts = new Set(productNames);
+    } else {
+      newProducts.forEach(name => selectedGaugeProducts.add(name));
+      [...selectedGaugeProducts].forEach(name => {
+        if (!productNames.includes(name)) selectedGaugeProducts.delete(name);
+      });
+    }
+    knownGaugeProducts = new Set(productNames);
 
-    if (productGaugeGroupSelect) {
-      const previous = Number(productGaugeGroupSelect.value || productGaugeGroup || 0);
-      productGaugeGroupSelect.replaceChildren();
-      if (productNames.length === 0) {
-        const option = document.createElement("option");
-        option.value = "0";
-        option.textContent = "目前沒有產品";
-        productGaugeGroupSelect.appendChild(option);
-        productGaugeGroupSelect.disabled = true;
+    if (productGaugeCheckboxes) {
+      productGaugeCheckboxes.replaceChildren();
+      if (!productNames.length) {
+        const empty = document.createElement("div");
+        empty.className = "productGaugePickerEmpty";
+        empty.textContent = "目前沒有產品";
+        productGaugeCheckboxes.appendChild(empty);
       } else {
-        productGaugeGroupSelect.disabled = false;
-        for (let groupIndex = 0; groupIndex < groupCount; groupIndex++) {
-          const groupProducts = productNames.slice(groupIndex * PRODUCT_GAUGE_GROUP_SIZE, (groupIndex + 1) * PRODUCT_GAUGE_GROUP_SIZE);
-          const option = document.createElement("option");
-          option.value = String(groupIndex);
-          option.textContent = groupProducts.join("、");
-          productGaugeGroupSelect.appendChild(option);
-        }
-        productGaugeGroup = Math.min(previous, groupCount - 1);
-        productGaugeGroupSelect.value = String(productGaugeGroup);
+        productNames.forEach(productName => {
+          const label = document.createElement("label");
+          label.className = "productGaugeCheckItem";
+          const checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = selectedGaugeProducts.has(productName);
+          checkbox.value = productName;
+          checkbox.addEventListener("change", async () => {
+            if (checkbox.checked) selectedGaugeProducts.add(productName);
+            else selectedGaugeProducts.delete(productName);
+            productGaugePage = 0;
+            await loadDashboardStats();
+          });
+          const text = document.createElement("span");
+          text.textContent = productName;
+          label.append(checkbox, text);
+          productGaugeCheckboxes.appendChild(label);
+        });
       }
     }
+
+    const selectedGaugeNames = productNames.filter(name => selectedGaugeProducts.has(name));
+    const pageCount = Math.max(1, Math.ceil(selectedGaugeNames.length / PRODUCT_GAUGE_PAGE_SIZE));
+    productGaugePage = Math.min(Math.max(productGaugePage, 0), pageCount - 1);
+    if (productGaugePageText) productGaugePageText.textContent = `${productGaugePage + 1} / ${pageCount}`;
+    if (productGaugePrev) productGaugePrev.disabled = productGaugePage <= 0;
+    if (productGaugeNext) productGaugeNext.disabled = productGaugePage >= pageCount - 1;
 
     if (gaugeArea) gaugeArea.replaceChildren();
     if (dynamicRows) dynamicRows.replaceChildren();
@@ -1180,8 +1206,15 @@ const product = normalizeProductName(item.product);
       }
     });
 
-    const groupStart = productGaugeGroup * PRODUCT_GAUGE_GROUP_SIZE;
-    const visibleProductNames = productNames.slice(groupStart, groupStart + PRODUCT_GAUGE_GROUP_SIZE);
+    const pageStart = productGaugePage * PRODUCT_GAUGE_PAGE_SIZE;
+    const visibleProductNames = selectedGaugeNames.slice(pageStart, pageStart + PRODUCT_GAUGE_PAGE_SIZE);
+
+    if (gaugeArea && selectedGaugeNames.length === 0) {
+      const empty = document.createElement("div");
+      empty.className = "productGaugeEmpty";
+      empty.textContent = "尚未勾選要顯示的產品";
+      gaugeArea.appendChild(empty);
+    }
 
     visibleProductNames.forEach(productName => {
       const stats = productStats[productName];
@@ -1651,9 +1684,35 @@ loadSelectedProducts();
 renderProductList();
 renderYieldAlertSettings();
 
-  const productGaugeGroupSelect = document.getElementById("productGaugeGroupSelect");
-  productGaugeGroupSelect?.addEventListener("change", async (event) => {
-    productGaugeGroup = Math.max(0, Number(event.target.value || 0));
+  const productGaugePickerBtn = document.getElementById("productGaugePickerBtn");
+  const productGaugePicker = document.getElementById("productGaugePicker");
+  const productGaugePrev = document.getElementById("productGaugePrev");
+  const productGaugeNext = document.getElementById("productGaugeNext");
+  const productGaugeSelectAll = document.getElementById("productGaugeSelectAll");
+  const productGaugeClearAll = document.getElementById("productGaugeClearAll");
+
+  productGaugePickerBtn?.addEventListener("click", (event) => {
+    event.stopPropagation();
+    productGaugePicker?.classList.toggle("show");
+  });
+  productGaugePicker?.addEventListener("click", event => event.stopPropagation());
+  document.addEventListener("click", () => productGaugePicker?.classList.remove("show"));
+  productGaugePrev?.addEventListener("click", async () => {
+    productGaugePage = Math.max(0, productGaugePage - 1);
+    await loadDashboardStats();
+  });
+  productGaugeNext?.addEventListener("click", async () => {
+    productGaugePage += 1;
+    await loadDashboardStats();
+  });
+  productGaugeSelectAll?.addEventListener("click", async () => {
+    selectedGaugeProducts = new Set(Object.keys(latestProductStats).filter(name => name !== "未分類"));
+    productGaugePage = 0;
+    await loadDashboardStats();
+  });
+  productGaugeClearAll?.addEventListener("click", async () => {
+    selectedGaugeProducts.clear();
+    productGaugePage = 0;
     await loadDashboardStats();
   });
 

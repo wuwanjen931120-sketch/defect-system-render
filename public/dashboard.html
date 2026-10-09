@@ -14,7 +14,7 @@
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
-<link href="dashboard.page.css?v=20261007-6" rel="stylesheet"/><link href="unified-sidebar.css?v=20261007-4" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
+<link href="dashboard.page.css?v=20261009-1" rel="stylesheet"/><link href="unified-sidebar.css?v=20261007-4" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
 <body>
 <div class="drawerOverlay" id="overlay"></div>
 <aside class="drawer" id="drawer">
@@ -210,11 +210,25 @@
 </div>
 <div class="productGaugeScrollHint">
   <strong id="productGaugeCountText">共 0 種產品</strong>
-  <div class="productGaugeSelectorWrap">
-    <label for="productGaugeGroupSelect">顯示產品</label>
-    <select class="trendSelect" id="productGaugeGroupSelect">
-      <option value="0">目前沒有產品</option>
-    </select>
+  <div class="productGaugeToolbar">
+    <div class="productGaugePickerWrap">
+      <button class="btn" id="productGaugePickerBtn" type="button">☑ 選擇顯示產品</button>
+      <div class="productGaugePicker" id="productGaugePicker">
+        <div class="productGaugePickerHead">
+          <b>選擇要顯示的產品</b>
+          <div>
+            <button class="pickerTextBtn" id="productGaugeSelectAll" type="button">全選</button>
+            <button class="pickerTextBtn" id="productGaugeClearAll" type="button">清除</button>
+          </div>
+        </div>
+        <div class="productGaugeCheckboxes" id="productGaugeCheckboxes"></div>
+      </div>
+    </div>
+    <div class="productGaugePager" id="productGaugePager">
+      <button class="btn productGaugePageBtn" id="productGaugePrev" type="button">‹ 上一頁</button>
+      <span id="productGaugePageText">1 / 1</span>
+      <button class="btn productGaugePageBtn" id="productGaugeNext" type="button">下一頁 ›</button>
+    </div>
   </div>
 </div>
 <div id="dynamicProductGaugeArea"></div>
@@ -314,7 +328,7 @@
       </div>
 </main>
 </div>
-<script src="dashboard.inline-2.js?v=20261007-8"></script>
+<script src="dashboard.inline-2.js?v=20261009-1"></script>
 <script src="dashboard.handlers.js?v=20261007-5"></script>
 </body>
 </html>

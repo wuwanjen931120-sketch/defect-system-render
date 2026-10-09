@@ -17,6 +17,11 @@ function buildDefectsParams(){
 
   if (tenantId) params.append("tenant_id", tenantId);
   if (systemId) params.append("system_id", systemId);
+  if (currentFilter && currentFilter !== "all") {
+    params.append("products", currentFilter);
+  } else if (productSearchText) {
+    params.append("product_search", productSearchText);
+  }
 
   return params;
 }
@@ -43,7 +48,11 @@ async function exportDefectsCsv(){
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `defects-${new Date().toISOString().slice(0,10)}.csv`;
+    const productLabel = currentFilter && currentFilter !== "all"
+      ? currentFilter
+      : productSearchText;
+    const safeProduct = String(productLabel || "all").replace(/[^0-9A-Za-z\u4e00-\u9fff_-]+/g, "-");
+    link.download = `defects-${safeProduct}-${new Date().toISOString().slice(0,10)}.csv`;
     document.body.appendChild(link);
     link.click();
     link.remove();

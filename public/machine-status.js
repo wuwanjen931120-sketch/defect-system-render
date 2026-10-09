@@ -103,14 +103,22 @@ function renderMachineSummary() {
   ).length;
 
   const offline = all - online;
+  const robotOnline = machineStatusData.filter(
+    machine => machine.robot_online === true
+  ).length;
+  const robotOffline = all - robotOnline;
 
   const allEl = document.getElementById("machineCountAll");
   const onlineEl = document.getElementById("machineCountOnline");
   const offlineEl = document.getElementById("machineCountOffline");
+  const robotOnlineEl = document.getElementById("robotCountOnline");
+  const robotOfflineEl = document.getElementById("robotCountOffline");
 
   if (allEl) allEl.textContent = String(all);
   if (onlineEl) onlineEl.textContent = String(online);
   if (offlineEl) offlineEl.textContent = String(offline);
+  if (robotOnlineEl) robotOnlineEl.textContent = String(robotOnline);
+  if (robotOfflineEl) robotOfflineEl.textContent = String(robotOffline);
 }
 
 function filteredMachines() {
@@ -178,8 +186,8 @@ function renderMachines() {
       : "machineStatusBadge machineStatusOffline";
 
     badge.textContent = machine.online
-      ? "🟢 Online"
-      : "🔴 Offline";
+      ? "🟢 資料回報中"
+      : "🔴 無近期回報";
 
     header.append(heading, badge);
 
@@ -192,8 +200,20 @@ function renderMachines() {
         machineText(machine.current_product) || "未設定"
       ),
       createInfoRow(
-        "最後回報",
+        "最後資料回報",
         formatMachineTime(machine.last_report_at)
+      ),
+      createInfoRow(
+        "實體手臂",
+        machine.robot_online === true ? "已連線" : "未連線"
+      ),
+      createInfoRow(
+        "手臂最後 heartbeat",
+        formatMachineTime(machine.last_robot_heartbeat_at)
+      ),
+      createInfoRow(
+        "手臂通訊埠",
+        machineText(machine.robot_port) || "未回報"
       )
     );
 
@@ -275,6 +295,12 @@ async function loadMachineStatus() {
       windowEl.textContent =
         `${windowSeconds} 秒`;
     }
+
+    const robotWindowSeconds = Number(
+      data?.robot_heartbeat_timeout_seconds || 15
+    );
+    const robotWindowEl = document.getElementById("robotHeartbeatWindow");
+    if (robotWindowEl) robotWindowEl.textContent = `${robotWindowSeconds} 秒`;
 
     renderMachineSummary();
     renderMachines();
