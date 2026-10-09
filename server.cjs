@@ -87,6 +87,9 @@ const MQTT_MAX_PAST_DAYS = clampInt(process.env.MQTT_MAX_PAST_DAYS, 30, 0, 3650)
 const ESTOP_ACK_TIMEOUT_SECONDS = clampInt(process.env.ESTOP_ACK_TIMEOUT_SECONDS, 30, 5, 600);
 const ESTOP_COMMAND_RETENTION_DAYS = clampInt(process.env.ESTOP_COMMAND_RETENTION_DAYS, 30, 1, 3650);
 const mqttRequired = isTrue(process.env.REQUIRE_MQTT, false);
+const DEVICE_API_KEY = String(process.env.DEVICE_API_KEY || "");
+const ROBOT_HEARTBEAT_TIMEOUT_SECONDS = clampInt(process.env.ROBOT_HEARTBEAT_TIMEOUT_SECONDS, 15, 5, 300);
+const NG_IMAGE_MAX_BYTES = clampInt(process.env.NG_IMAGE_MAX_BYTES, 5242880, 65536, 10485760);
 
 const allowedOrigins = buildConfiguredOrigins(process.env);
 
@@ -102,7 +105,7 @@ app.use((req, res, next) => {
       return callback(Object.assign(new Error("此來源不允許呼叫 API"), { status: 403 }));
     },
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id", "X-Device-Key"],
     credentials: true,
     maxAge: 600
   });
@@ -268,6 +271,17 @@ async function auth(req, res, next) {
   }
 }
 function requireRole(...roles) { return (req, res, next) => roles.includes(req.user?.role) ? next() : res.status(403).json({ message: "權限不足" }); }
+
+function deviceAuth(req, res, next) {
+  if (!DEVICE_API_KEY) {
+    return res.status(503).json({ message: "DEVICE_API_KEY 尚未設定，裝置整合 API 已停用" });
+  }
+  const supplied = String(req.headers["x-device-key"] || "");
+  if (!supplied || !timingSafeTextEqual(supplied, DEVICE_API_KEY)) {
+    return res.status(401).json({ message: "裝置驗證失敗" });
+  }
+  return next();
+}
 function userSystemIds(user) { return Array.isArray(user?.systems) ? user.systems.map(v => cleanText(v, 100)).filter(Boolean) : []; }
 
 async function systemAccess(user, systemId, requestedTenantId) {
@@ -289,6 +303,11 @@ async function buildScopedDefectQuery(user, params = {}) {
   if (products) {
     const list = products.split(",").map(v => cleanText(v, 100)).filter(Boolean).slice(0, 30);
     if (list.length) query.product = { $in: list };
+  }
+  const productSearch = cleanText(params.product_search, 100);
+  if (productSearch) {
+    const escaped = productSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    query.product = { $regex: escaped, $options: "i" };
   }
   const status = cleanText(params.status, 10).toUpperCase();
   if (status) {
@@ -894,6 +913,149 @@ app.patch("/api/systems/:systemId/name", auth, requireRole("super_admin", "tenan
   return res.json({success:true,system_id,name});
 }));
 
+// ===== 現場裝置整合：NG 圖片與實體手臂 heartbeat =====
+app.post(
+  "/api/device/ng-image",
+  deviceAuth,
+  express.raw({ type: ["image/jpeg", "image/png", "image/webp"], limit: `${NG_IMAGE_MAX_BYTES}b` }),
+  asyncHandler(async (req, res) => {
+    const system_id = cleanText(req.query.system_id, 100);
+    const case_id = cleanText(req.query.case_id || req.query.id, 100);
+    const product = cleanText(req.query.product, 100) || "未分類";
+    const contentType = cleanText(req.headers["content-type"], 100).toLowerCase();
+
+    if (!system_id || !case_id) {
+      return res.status(400).json({ message: "缺少 system_id 或 case_id" });
+    }
+    if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      return res.status(400).json({ message: "請以 JPEG、PNG 或 WebP 原始圖片內容上傳" });
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(contentType)) {
+      return res.status(415).json({ message: "圖片格式僅支援 JPEG、PNG、WebP" });
+    }
+
+    const system = await mongoose.connection.collection("systems").findOne(
+      { system_id },
+      { projection: { tenant_id: 1, system_id: 1 } }
+    );
+    if (!system) return res.status(404).json({ message: "找不到機台" });
+
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+      bucketName: "ng_images"
+    });
+    const ext = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
+    const filename = `${system_id}-${case_id}.${ext}`;
+    const upload = bucket.openUploadStream(filename, {
+      contentType,
+      metadata: {
+        tenant_id: system.tenant_id,
+        system_id,
+        case_id,
+        product,
+        uploaded_at: new Date()
+      }
+    });
+
+    await new Promise((resolve, reject) => {
+      upload.once("error", reject);
+      upload.once("finish", resolve);
+      upload.end(req.body);
+    });
+
+    const image_url = `/api/images/${upload.id.toString()}`;
+
+    // 若事件已先透過 MQTT 建立，圖片上傳後直接補回同一筆事件。
+    await Defect.updateOne(
+      { tenant_id: system.tenant_id, system_id, id: case_id },
+      { $set: { image_url } }
+    );
+
+    return res.status(201).json({
+      success: true,
+      image_id: upload.id.toString(),
+      image_url,
+      system_id,
+      case_id
+    });
+  })
+);
+
+app.get("/api/images/:id", auth, asyncHandler(async (req, res) => {
+  const imageId = cleanText(req.params.id, 100);
+  if (!mongoose.Types.ObjectId.isValid(imageId)) {
+    return res.status(400).json({ message: "無效的圖片 ID" });
+  }
+
+  const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+    bucketName: "ng_images"
+  });
+  const _id = new mongoose.Types.ObjectId(imageId);
+  const files = await bucket.find({ _id }).limit(1).toArray();
+  const file = files[0];
+  if (!file) return res.status(404).json({ message: "找不到圖片" });
+
+  const meta = file.metadata || {};
+  if (req.user.role !== "super_admin") {
+    if (meta.tenant_id !== req.user.tenant_id) {
+      return res.status(403).json({ message: "無權查看此圖片" });
+    }
+    if (req.user.role === "user" && !userSystemIds(req.user).includes(meta.system_id)) {
+      return res.status(403).json({ message: "無權查看此機台圖片" });
+    }
+  }
+
+  res.setHeader("Content-Type", file.contentType || "image/jpeg");
+  res.setHeader("Cache-Control", "private, max-age=300");
+  const stream = bucket.openDownloadStream(_id);
+  stream.on("error", error => {
+    if (!res.headersSent) res.status(404).json({ message: "圖片讀取失敗" });
+    else res.destroy(error);
+  });
+  return stream.pipe(res);
+}));
+
+app.post("/api/device/robot-heartbeat", deviceAuth, asyncHandler(async (req, res) => {
+  const system_id = cleanText(req.body.system_id, 100);
+  if (!system_id) return res.status(400).json({ message: "缺少 system_id" });
+
+  const robot_connected = req.body.robot_connected === true;
+  const robot_status = cleanText(
+    req.body.robot_status || (robot_connected ? "connected" : "disconnected"),
+    60
+  );
+  const robot_port = cleanText(req.body.robot_port, 80);
+  const controller = cleanText(req.body.controller || "python", 80);
+  const reportedAt = req.body.timestamp ? new Date(req.body.timestamp) : new Date();
+  if (Number.isNaN(reportedAt.getTime())) {
+    return res.status(400).json({ message: "timestamp 格式不正確" });
+  }
+
+  const col = mongoose.connection.collection("systems");
+  const result = await col.updateOne(
+    { system_id },
+    {
+      $set: {
+        robot_connected,
+        robot_status,
+        robot_port,
+        robot_controller: controller,
+        last_robot_heartbeat_at: reportedAt,
+        robot_heartbeat_received_at: new Date()
+      }
+    }
+  );
+  if (!result.matchedCount) return res.status(404).json({ message: "找不到機台" });
+
+  return res.json({
+    success: true,
+    system_id,
+    robot_connected,
+    robot_status,
+    heartbeat_timeout_seconds: ROBOT_HEARTBEAT_TIMEOUT_SECONDS,
+    received_at: new Date().toISOString()
+  });
+}));
+
 app.get("/api/machine-status", auth, asyncHandler(async (req, res) => {
   const requestedTenant = cleanText(req.query.tenant_id, 100);
 
@@ -990,6 +1152,15 @@ app.get("/api/machine-status", auth, asyncHandler(async (req, res) => {
         !Number.isNaN(lastReportAt.getTime()) &&
         now - lastReportAt.getTime() <= onlineWindowMs;
 
+      const lastRobotHeartbeatAt = system.last_robot_heartbeat_at
+        ? new Date(system.last_robot_heartbeat_at)
+        : null;
+      const robotHeartbeatFresh =
+        lastRobotHeartbeatAt &&
+        !Number.isNaN(lastRobotHeartbeatAt.getTime()) &&
+        now - lastRobotHeartbeatAt.getTime() <= ROBOT_HEARTBEAT_TIMEOUT_SECONDS * 1000;
+      const robotOnline = Boolean(system.robot_connected === true && robotHeartbeatFresh);
+
       const latestEstop = await AuditLog.findOne({
         tenant_id: system.tenant_id,
         system_id: system.system_id,
@@ -1007,6 +1178,13 @@ app.get("/api/machine-status", auth, asyncHandler(async (req, res) => {
         online: Boolean(online),
         last_report_at:
           system.last_report_at || null,
+        robot_online: robotOnline,
+        robot_connected_reported: system.robot_connected === true,
+        robot_status: system.robot_status || "never_reported",
+        robot_port: system.robot_port || "",
+        robot_controller: system.robot_controller || "",
+        last_robot_heartbeat_at: system.last_robot_heartbeat_at || null,
+        robot_heartbeat_timeout_seconds: ROBOT_HEARTBEAT_TIMEOUT_SECONDS,
         total,
         ok,
         ng,
@@ -1028,6 +1206,7 @@ app.get("/api/machine-status", auth, asyncHandler(async (req, res) => {
 
   return res.json({
     online_window_seconds: 120,
+    robot_heartbeat_timeout_seconds: ROBOT_HEARTBEAT_TIMEOUT_SECONDS,
     machines: result
   });
 }));
@@ -1138,13 +1317,77 @@ function extractGeminiText(data) {
   return text || (data?.promptFeedback?.blockReason ? `Gemini 因安全限制未產生回答（${data.promptFeedback.blockReason}）。` : "Gemini 已回應，但沒有可顯示的文字內容。");
 }
 app.get("/api/ai/status", auth, (req, res) => { const model = GEMINI_DEFAULT_MODEL; return res.json({ enabled: Boolean(process.env.GEMINI_API_KEY), provider: "gemini", model, tier: "free", mode: process.env.GEMINI_API_KEY ? "gemini" : "local-summary" }); });
+
+app.get("/api/ai/history", auth, asyncHandler(async (req, res) => {
+  const limit = clampInt(req.query.limit, 30, 1, 100);
+  const rows = await mongoose.connection.collection("ai_conversations")
+    .find({ user_id: req.user.id }, { projection: { _id: 0, conversation_id: 1, title: 1, createdAt: 1, updatedAt: 1 } })
+    .sort({ updatedAt: -1 })
+    .limit(limit)
+    .toArray();
+  return res.json(rows);
+}));
+
+app.get("/api/ai/history/:conversation_id", auth, asyncHandler(async (req, res) => {
+  const conversation_id = cleanText(req.params.conversation_id, 100);
+  const row = await mongoose.connection.collection("ai_conversations").findOne(
+    { user_id: req.user.id, conversation_id },
+    { projection: { _id: 0, conversation_id: 1, title: 1, messages: 1, createdAt: 1, updatedAt: 1 } }
+  );
+  if (!row) return res.status(404).json({ message: "找不到此 AI 對話紀錄" });
+  return res.json(row);
+}));
+
+app.delete("/api/ai/history/:conversation_id", auth, asyncHandler(async (req, res) => {
+  const conversation_id = cleanText(req.params.conversation_id, 100);
+  await mongoose.connection.collection("ai_conversations").deleteOne({ user_id: req.user.id, conversation_id });
+  return res.json({ success: true });
+}));
+
+async function saveAiConversationTurn(user, conversationId, message, reply) {
+  const now = new Date();
+  const cleanConversationId = cleanText(conversationId, 100) || crypto.randomUUID();
+  const cleanMessage = cleanText(message, 2000);
+  const cleanReply = cleanText(reply, 12000);
+  const title = cleanText(cleanMessage, 42) || "AI 品質問答";
+  await mongoose.connection.collection("ai_conversations").updateOne(
+    { user_id: user.id, conversation_id: cleanConversationId },
+    {
+      $setOnInsert: {
+        conversation_id: cleanConversationId,
+        user_id: user.id,
+        user_email: user.email || "",
+        tenant_id: user.tenant_id || "",
+        title,
+        createdAt: now
+      },
+      $set: { updatedAt: now },
+      $push: {
+        messages: {
+          $each: [
+            { role: "user", text: cleanMessage, createdAt: now },
+            { role: "assistant", text: cleanReply, createdAt: now }
+          ],
+          $slice: -60
+        }
+      }
+    },
+    { upsert: true }
+  );
+  return cleanConversationId;
+}
 app.post("/api/ai/chat", auth, aiLimiter, asyncHandler(async (req, res) => {
   const message = cleanText(req.body.message, 2000);
   if (!message) return res.status(400).json({ message: "請輸入問題" });
   const query = await buildScopedDefectQuery(req.user, req.body || {});
   const defects = await Defect.find(query).sort({ timestamp: -1 }).limit(500).lean();
   const summary = summarizeDefectsForAi(defects);
-  if (!process.env.GEMINI_API_KEY) return res.json({ mode: "local-summary", provider: "local", reply: buildLocalAiReply(message, summary), summary });
+  const requestedConversationId = cleanText(req.body.conversation_id, 100);
+  if (!process.env.GEMINI_API_KEY) {
+    const reply = buildLocalAiReply(message, summary);
+    const conversation_id = await saveAiConversationTurn(req.user, requestedConversationId, message, reply);
+    return res.json({ mode: "local-summary", provider: "local", reply, summary, conversation_id });
+  }
   const model = GEMINI_DEFAULT_MODEL;
   const usageKey = `${new Date().toISOString().slice(0, 10)}:${req.user.id || req.user.email || req.ip}`;
   const usage = await mongoose.connection.collection("ai_daily_usage").findOneAndUpdate(
@@ -1160,14 +1403,18 @@ app.post("/api/ai/chat", auth, aiLimiter, asyncHandler(async (req, res) => {
   }
   try {
     const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      systemInstruction: { parts: [{ text: "你是瑕疵辨識與分流系統的 AI 助理。請使用繁體中文，先給結論，再提供最多 5 個可操作步驟。只能根據提供的統計資料回答；資料不足時必須說明只是可能原因。" }] },
+      systemInstruction: { parts: [{ text: "你是瑕疵辨識與分流系統的 AI 品質資料助理。請使用繁體中文，先給結論，再提供最多 5 個可操作步驟。只能根據後端提供的統計與事件摘要回答；資料不足時必須明確說明。不得因為存在歷史檢測資料、MQTT Broker 已連線或 system_id 出現，就推論實體機械手臂、相機或輸送帶目前在線或正在運轉。除非資料中明確提供設備連線狀態，否則只能描述品質資料，不得宣稱設備連線正常。" }] },
       contents: [{ role: "user", parts: [{ text: `使用者問題：${message}\n\n目前統計資料：\n${JSON.stringify(summary).slice(0, 12000)}` }] }],
       generationConfig: { temperature: 0.2, maxOutputTokens: 500 }
     }, { headers: { "x-goog-api-key": process.env.GEMINI_API_KEY, "Content-Type": "application/json" }, timeout: 30000, maxContentLength: 1048576, maxBodyLength: 1048576, proxy: false });
-    return res.json({ mode: "gemini", provider: "gemini", tier: "free", model, reply: extractGeminiText(response.data), summary });
+    const reply = extractGeminiText(response.data);
+    const conversation_id = await saveAiConversationTurn(req.user, requestedConversationId, message, reply);
+    return res.json({ mode: "gemini", provider: "gemini", tier: "free", model, reply, summary, conversation_id });
   } catch (error) {
     const reason = error?.response?.status === 429 ? "Gemini 免費額度或速率限制已達上限" : "Gemini 暫時無法連線";
-    return res.json({ mode: "local-summary-fallback", provider: "local", model, warning: `${reason}，已自動切換成本機統計模式。`, reply: `${reason}，已自動切換成本機統計模式。\n\n${buildLocalAiReply(message, summary)}`, summary });
+    const reply = `${reason}，已自動切換成本機統計模式。\n\n${buildLocalAiReply(message, summary)}`;
+    const conversation_id = await saveAiConversationTurn(req.user, requestedConversationId, message, reply);
+    return res.json({ mode: "local-summary-fallback", provider: "local", model, warning: `${reason}，已自動切換成本機統計模式。`, reply, summary, conversation_id });
   }
 }));
 
@@ -1608,6 +1855,11 @@ async function ensureIndexes() {
     mongoose.connection.collection("alert_states").createIndex(
   { key: 1 },
   { unique: true }
+),
+
+mongoose.connection.collection("ai_conversations").createIndex(
+  { user_id: 1, updatedAt: -1 },
+  { name: "ai_history_user_updated" }
 ),
 
 mongoose.connection.collection("alerts").createIndex(
