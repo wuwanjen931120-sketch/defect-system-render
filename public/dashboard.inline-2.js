@@ -1250,6 +1250,18 @@ const product = normalizeProductName(item.product);
       }
     });
 
+    // 每頁固定 8 個位置（4 欄 × 2 排）。最後一頁不足 8 個時補空白占位，
+    // 避免第 2 頁只有 1~2 張卡時卡片被整列撐高、版面變形。
+    if (gaugeArea && selectedGaugeNames.length > 0) {
+      const missingSlots = Math.max(0, PRODUCT_GAUGE_PAGE_SIZE - visibleProductNames.length);
+      for (let i = 0; i < missingSlots; i += 1) {
+        const placeholder = document.createElement("div");
+        placeholder.className = "gaugeBox gaugeBoxPlaceholder";
+        placeholder.setAttribute("aria-hidden", "true");
+        gaugeArea.appendChild(placeholder);
+      }
+    }
+
     const tableOkTotalEl = document.getElementById("table-ok-total");
     const tableNgTotalEl = document.getElementById("table-ng-total");
     if (tableOkTotalEl) {

@@ -35,6 +35,11 @@
   const aiHistoryClose = document.getElementById("aiHistoryClose");
   const aiHistoryNewBtn = document.getElementById("aiHistoryNewBtn");
   const aiHistoryList = document.getElementById("aiHistoryList");
+  const aiHistoryChatTab = document.getElementById("aiHistoryChatTab");
+  const aiHistoryEventTab = document.getElementById("aiHistoryEventTab");
+  const aiHistoryChatPane = document.getElementById("aiHistoryChatPane");
+  const aiHistoryEventPane = document.getElementById("aiHistoryEventPane");
+  const aiRecentEventList = document.getElementById("aiRecentEventList");
 
   function authHeaders(extra){
     return Object.assign({ "Content-Type": "application/json" }, extra || {});
@@ -79,12 +84,64 @@
   function openHistoryPanel(){
     aiHistoryPanel?.classList.add("show");
     aiHistoryOverlay?.classList.add("show");
+    showHistoryTab("chat");
     loadAiHistory();
   }
 
   function closeHistoryPanel(){
     aiHistoryPanel?.classList.remove("show");
     aiHistoryOverlay?.classList.remove("show");
+  }
+
+  function showHistoryTab(tab){
+    const isChat = tab !== "events";
+    aiHistoryChatTab?.classList.toggle("active", isChat);
+    aiHistoryEventTab?.classList.toggle("active", !isChat);
+    if (aiHistoryChatPane) aiHistoryChatPane.hidden = !isChat;
+    if (aiHistoryEventPane) aiHistoryEventPane.hidden = isChat;
+    if (!isChat) loadRecentExternalEvents();
+  }
+
+  async function loadRecentExternalEvents(){
+    if (!aiRecentEventList) return;
+    aiRecentEventList.innerHTML = '<div class="aiHistoryEmpty">載入中...</div>';
+    try {
+      const params = new URLSearchParams();
+      const f = getFilters();
+      if (f.system_id) params.set("system_id", f.system_id);
+      if (f.products) params.set("products", f.products);
+      if (f.date_from) params.set("date_from", f.date_from);
+      if (f.date_to) params.set("date_to", f.date_to);
+      if (role === "super_admin" && f.tenant_id) params.set("tenant_id", f.tenant_id);
+      params.set("limit", "20");
+      const res = await fetch(`/api/defects?${params.toString()}`, { credentials: "same-origin", cache: "no-store" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.message || "讀取近期檢測資料失敗");
+      aiRecentEventList.replaceChildren();
+      if (!Array.isArray(data) || !data.length) {
+        aiRecentEventList.innerHTML = '<div class="aiHistoryEmpty">目前條件下沒有檢測事件</div>';
+        return;
+      }
+      data.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "aiRecentEventItem";
+        const top = document.createElement("div");
+        top.className = "aiRecentEventTop";
+        const product = document.createElement("b");
+        product.textContent = item.product || "未分類";
+        const status = document.createElement("span");
+        status.className = `aiRecentEventStatus ${String(item.status || "").toLowerCase()}`;
+        status.textContent = item.status || "-";
+        top.append(product, status);
+        const meta = document.createElement("div");
+        meta.className = "aiRecentEventMeta";
+        meta.textContent = `${item.id || item.case_id || "無事件編號"}｜${formatHistoryTime(item.timestamp)}`;
+        card.append(top, meta);
+        aiRecentEventList.appendChild(card);
+      });
+    } catch (err) {
+      aiRecentEventList.innerHTML = `<div class="aiHistoryEmpty">${escapeHtml(err.message || "讀取失敗")}</div>`;
+    }
   }
 
   function formatHistoryTime(value){
@@ -495,6 +552,8 @@
   aiHistoryBtn?.addEventListener("click", openHistoryPanel);
   aiHistoryClose?.addEventListener("click", closeHistoryPanel);
   aiHistoryOverlay?.addEventListener("click", closeHistoryPanel);
+  aiHistoryChatTab?.addEventListener("click", () => { showHistoryTab("chat"); loadAiHistory(); });
+  aiHistoryEventTab?.addEventListener("click", () => showHistoryTab("events"));
   aiNewChatBtn?.addEventListener("click", resetChat);
   aiHistoryNewBtn?.addEventListener("click", () => { resetChat(); closeHistoryPanel(); });
 

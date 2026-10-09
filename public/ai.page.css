@@ -408,3 +408,43 @@
 @media print{
   .aiHistoryPanel,.aiHistoryOverlay{display:none!important}
 }
+
+
+/* 2026-10-09：AI 紀錄改為 AI 卡片內抽屜，不再從整個網站左側滑出 */
+.aiChatCard{position:relative!important;overflow:hidden!important}
+.aiHistoryMenuBtn{display:inline-flex;align-items:center;gap:6px}
+.aiHistoryLocalOverlay{
+  position:absolute!important;inset:0!important;z-index:90!important;
+  background:rgba(3,10,20,.45)!important;opacity:0!important;pointer-events:none!important;
+  transition:.18s ease!important;border-radius:18px!important;
+}
+.aiHistoryLocalOverlay.show{opacity:1!important;pointer-events:auto!important}
+.aiHistoryPanel{
+  position:absolute!important;top:0!important;right:0!important;bottom:0!important;left:auto!important;
+  width:min(390px,92%)!important;background:#0f1f37!important;
+  border-left:1px solid rgba(255,255,255,.14)!important;border-right:0!important;
+  z-index:91!important;padding:16px!important;box-sizing:border-box!important;
+  transform:translateX(105%)!important;transition:.2s ease!important;
+  box-shadow:-18px 0 40px rgba(0,0,0,.35)!important;
+  display:flex!important;flex-direction:column!important;gap:12px!important;
+}
+.aiHistoryPanel.show{transform:translateX(0)!important}
+.aiHistoryTabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.aiHistoryTab{
+  border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);
+  color:var(--muted);border-radius:10px;padding:9px 10px;font-weight:800;cursor:pointer;
+}
+.aiHistoryTab.active{background:rgba(59,130,246,.22);border-color:rgba(96,165,250,.5);color:var(--text)}
+.aiHistoryChatPane,.aiHistoryEventPane{min-height:0;display:flex;flex:1;flex-direction:column;gap:10px}
+.aiHistoryChatPane[hidden],.aiHistoryEventPane[hidden]{display:none!important}
+.aiHistoryEventHint{font-size:12px;line-height:1.55;color:var(--muted);padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.04)}
+.aiRecentEventItem{padding:10px 11px;border:1px solid rgba(255,255,255,.09);border-radius:11px;background:rgba(255,255,255,.035)}
+.aiRecentEventTop{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.aiRecentEventTop b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aiRecentEventStatus{font-weight:900;font-size:12px;padding:3px 8px;border-radius:999px;background:rgba(148,163,184,.12);color:#cbd5e1}
+.aiRecentEventStatus.ok{background:rgba(34,197,94,.12);color:#4ade80}
+.aiRecentEventStatus.ng{background:rgba(239,68,68,.12);color:#f87171}
+.aiRecentEventMeta{margin-top:5px;color:var(--muted);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:900px){
+  .aiHistoryPanel{width:94%!important}
+}

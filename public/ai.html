@@ -11,7 +11,7 @@
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <script defer src="core.js?v=20260811-2"></script>
-<link href="ai.page.css?v=20261009-1" rel="stylesheet"/><link href="unified-sidebar.css" rel="stylesheet"/><link href="datetime-picker.css?v=20261006-1" rel="stylesheet"/><script defer src="datetime-picker.js?v=20261006-1"></script></head>
+<link href="ai.page.css?v=20261009-2" rel="stylesheet"/><link href="unified-sidebar.css" rel="stylesheet"/><link href="datetime-picker.css?v=20261006-1" rel="stylesheet"/><script defer src="datetime-picker.js?v=20261006-1"></script></head>
 <body>
 <div class="drawerOverlay" id="overlay"></div>
 <aside class="drawer" id="drawer">
@@ -59,11 +59,11 @@
 </div>
 </div>
 <section class="aiLayout">
-<div class="aiCard">
+<div class="aiCard aiChatCard">
 <div class="aiChatHeaderRow">
 <h2 class="ai-inline-style-3">🤖 問你的瑕疵系統</h2>
 <div class="aiChatHeaderActions">
-<button class="btn" id="aiHistoryBtn" type="button">🕘 對話紀錄</button>
+<button class="btn aiHistoryMenuBtn" id="aiHistoryBtn" type="button">☰ 紀錄</button>
 <button class="btn" id="aiNewChatBtn" type="button">＋ 新對話</button>
 </div>
 </div>
@@ -81,6 +81,29 @@
 <textarea id="messageInput" placeholder="輸入問題，例如：目前哪個產品 NG 最多？" required=""></textarea>
 <button class="btn btnPrimary sendBtn" id="sendBtn" type="submit">送出</button>
 </form>
+
+<div class="aiHistoryLocalOverlay" id="aiHistoryOverlay"></div>
+<aside class="aiHistoryPanel" id="aiHistoryPanel" aria-label="AI 紀錄">
+  <div class="aiHistoryHeader">
+    <div>
+      <b>AI 助理紀錄</b>
+      <span>對話紀錄與外部檢測資料分開顯示</span>
+    </div>
+    <button class="aiHistoryClose" id="aiHistoryClose" type="button" aria-label="關閉">×</button>
+  </div>
+  <div class="aiHistoryTabs" role="tablist">
+    <button class="aiHistoryTab active" id="aiHistoryChatTab" type="button">對話紀錄</button>
+    <button class="aiHistoryTab" id="aiHistoryEventTab" type="button">近期檢測資料</button>
+  </div>
+  <div class="aiHistoryChatPane" id="aiHistoryChatPane">
+    <button class="btn btnPrimary aiHistoryNew" id="aiHistoryNewBtn" type="button">＋ 開始新對話</button>
+    <div class="aiHistoryList" id="aiHistoryList"><div class="aiHistoryEmpty">載入中...</div></div>
+  </div>
+  <div class="aiHistoryEventPane" id="aiHistoryEventPane" hidden>
+    <div class="aiHistoryEventHint">這裡顯示 MongoDB 中最近的外部／MQTT 檢測事件，不是 AI 聊天內容。</div>
+    <div class="aiHistoryList" id="aiRecentEventList"><div class="aiHistoryEmpty">載入中...</div></div>
+  </div>
+</aside>
 </div>
 <aside class="aiCard">
 <h3 class="ai-inline-style-5">查詢篩選</h3>
@@ -126,22 +149,10 @@ Gemini 暫時無法使用或免費額度用完時，系統會自動切換成本�
 </section>
 </main>
 </div>
-<div class="aiHistoryOverlay" id="aiHistoryOverlay"></div>
-<aside class="aiHistoryPanel" id="aiHistoryPanel" aria-label="AI 對話紀錄">
-  <div class="aiHistoryHeader">
-    <div>
-      <b>AI 對話紀錄</b>
-      <span>只顯示目前登入帳號的紀錄</span>
-    </div>
-    <button class="aiHistoryClose" id="aiHistoryClose" type="button" aria-label="關閉">×</button>
-  </div>
-  <button class="btn btnPrimary aiHistoryNew" id="aiHistoryNewBtn" type="button">＋ 開始新對話</button>
-  <div class="aiHistoryList" id="aiHistoryList"><div class="aiHistoryEmpty">載入中...</div></div>
-</aside>
 <div class="ai-inline-style-6" id="errorBar"></div>
 <script defer="" src="vendor/marked.umd.js"></script>
 <script defer="" src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script>
-<script defer="" src="ai.js?v=20261009-1"></script>
+<script defer="" src="ai.js?v=20261009-2"></script>
 <script src="ai.handlers.js"></script>
 </body>
 </html>
