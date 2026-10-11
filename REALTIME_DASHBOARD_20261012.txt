@@ -1,0 +1,8 @@
+2026-10-12 即時更新修正
+
+1. 新增 GET /api/realtime（SSE）登入保護即時事件串流。
+2. MQTT factory/defect/report 完成 MongoDB 寫入後，立即將 defect 事件推送到有權限且目前查看相同 system_id 的瀏覽器。
+3. dashboard 收到事件後，不等 3 秒輪詢：立即更新四道分流卡片，並在 120 ms debounce 後更新總數、事件列表、良率與最新 MQTT。
+4. 原 3 秒輪詢保留為網路中斷 / SSE 重連期間的備援，不再是主要即時更新來源。
+5. EventSource 本身具有自動重連；切換機台時會重建串流，只接收目前機台資料。
+6. Service Worker cache version 升級，降低部署後仍讀到舊靜態檔的機率。

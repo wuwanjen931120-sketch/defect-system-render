@@ -871,6 +871,33 @@ let latestMqttMessage = null;
 let mqttClient = null;
 const processStartedAt = new Date();
 
+// Dashboard 即時事件串流（SSE）。
+// MQTT 寫入完成後直接推送給已登入且有權限查看該機台的瀏覽器，
+// 不再依賴使用者重新整理頁面。
+const realtimeClients = new Set();
+
+function canRealtimeClientAccess(client, tenantId, systemId) {
+  if (!client?.user) return false;
+  if (client.user.role === "super_admin") return !client.systemId || client.systemId === systemId;
+  if (client.user.tenant_id !== tenantId) return false;
+  if (client.user.role === "tenant_admin") return !client.systemId || client.systemId === systemId;
+  const allowed = userSystemIds(client.user);
+  if (!allowed.includes(systemId)) return false;
+  return !client.systemId || client.systemId === systemId;
+}
+
+function pushRealtimeEvent(eventName, payload, tenantId, systemId) {
+  const body = `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const client of [...realtimeClients]) {
+    if (!canRealtimeClientAccess(client, tenantId, systemId)) continue;
+    try {
+      client.res.write(body);
+    } catch {
+      realtimeClients.delete(client);
+    }
+  }
+}
+
 function healthSnapshot() {
   const databaseConnected = mongoose.connection.readyState === 1;
   const mqttConfigured = Boolean(process.env.MQTT_URL && process.env.HIVEMQ_USER && process.env.HIVEMQ_PASS);
@@ -1266,6 +1293,46 @@ app.get("/health", (req, res) => {
     database_connected: databaseConnected
   });
 });
+app.get("/api/realtime", auth, (req, res) => {
+  const requestedSystemId = cleanText(req.query.system_id, 100);
+
+  if (requestedSystemId && req.user.role !== "super_admin" && req.user.role !== "tenant_admin") {
+    if (!userSystemIds(req.user).includes(requestedSystemId)) {
+      return res.status(403).json({ message: "無權存取此機台" });
+    }
+  }
+
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+
+  const client = {
+    res,
+    user: { ...req.user, systems: [...(req.user.systems || [])] },
+    systemId: requestedSystemId || ""
+  };
+  realtimeClients.add(client);
+
+  res.write(`event: ready\ndata: ${JSON.stringify({ connected: true, system_id: requestedSystemId || null, at: new Date().toISOString() })}\n\n`);
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(`: keepalive ${Date.now()}\n\n`);
+    } catch {
+      clearInterval(heartbeat);
+      realtimeClients.delete(client);
+    }
+  }, 25000);
+  heartbeat.unref?.();
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    realtimeClients.delete(client);
+  });
+});
+
 app.get("/api/mqtt/latest", auth, (req, res) => {
   if (!latestMqttMessage) return res.json({ data: null });
   if (req.user.role === "super_admin") return res.json({ data: latestMqttMessage });
@@ -1880,12 +1947,44 @@ const normalized = normalizeDefectPayload(
       const result = await Defect.bulkWrite(operations, { ordered: false });
       const last = docs[docs.length - 1];
       latestMqttMessage = {
-        payload: { id: last.id, status: last.status, product: last.product, system_id: last.system_id, image_url: last.image_url },
+        payload: {
+          id: last.id,
+          event_id: last.event_id || last.id,
+          track_id: last.track_id || "",
+          status: last.status,
+          product: last.product,
+          system_id: last.system_id,
+          source: last.source || "vision",
+          robot_result: last.robot_result || "",
+          lane: last.lane || "",
+          image_url: last.image_url,
+          timestamp: last.timestamp || receivedAt
+        },
         tenant_id: last.tenant_id,
         timestamp: receivedAt,
+        receivedAt: receivedAt.toISOString(),
         inserted_count: Number(result.upsertedCount || 0),
         duplicate_count: Math.max(0, docs.length - Number(result.upsertedCount || 0))
       };
+
+      // 資料真正寫入 MongoDB 後再推播，避免前端先看到尚未落庫的事件。
+      // 一個 MQTT payload 若含多筆事件，就逐筆通知；首頁會立即更新對應 lane。
+      for (const doc of docs) {
+        pushRealtimeEvent("defect", {
+          id: doc.id,
+          event_id: doc.event_id || doc.id,
+          track_id: doc.track_id || "",
+          system_id: doc.system_id,
+          product: doc.product,
+          status: doc.status,
+          source: doc.source || "vision",
+          robot_result: doc.robot_result || "",
+          lane: doc.lane || "",
+          image_url: doc.image_url || "",
+          timestamp: doc.timestamp || receivedAt,
+          received_at: receivedAt.toISOString()
+        }, doc.tenant_id, doc.system_id);
+      }
       if (Number(result.upsertedCount || 0) > 0 && docs.some(value => value.status === "NG")) {
         await evaluateNgAlert(systemDoc.tenant_id, normalized.system_id);
       }
