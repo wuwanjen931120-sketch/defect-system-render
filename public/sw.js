@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "defect-cache-v9-dashboard-live";
+const CACHE_NAME = "defect-cache-v10-displayname-fix";
 const STATIC_ASSETS = [
   "./offline.html",
   "./style.css",

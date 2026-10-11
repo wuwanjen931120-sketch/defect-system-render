@@ -1,4 +1,4 @@
-const DASHBOARD_BUILD = "20261012-live-v3";
+const DASHBOARD_BUILD = "20261012-live-v4-displayname-fix";
 console.info("[Dashboard] build", DASHBOARD_BUILD);
 
 const API_BASE = window.location.origin;
@@ -1971,7 +1971,7 @@ renderYieldAlertSettings();
 
   if (titleSpan) {
     titleSpan.textContent =
-      `使用者：${displayName}｜系統：${getDisplaySystemName(getCurrentSystemId())}`;
+      `使用者：${identityText}｜系統：${getDisplaySystemName(getCurrentSystemId())}`;
   }
 
   if (dashboardTimer) clearInterval(dashboardTimer);
