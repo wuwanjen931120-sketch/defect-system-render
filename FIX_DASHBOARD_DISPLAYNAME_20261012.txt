@@ -1,0 +1,13 @@
+修正 Dashboard 初始化中斷問題
+
+原因：dashboard.inline-2.js 使用未宣告的 displayName，造成 DOMContentLoaded 初始化流程拋出 ReferenceError，後續 refreshDashboard、SSE、lane fallback 等初始化可能無法執行。
+
+修正：
+1. 使用已存在且安全建立的 identityText 取代 displayName。
+2. Dashboard build 更新為 20261012-live-v4-displayname-fix。
+3. dashboard.inline-2.js 查詢版本更新為 20261012-4。
+4. Service Worker cache 版本更新，避免舊 JS 殘留。
+
+部署後 Console 應看到：
+[Dashboard] build 20261012-live-v4-displayname-fix
+且不應再出現 displayName is not defined。
