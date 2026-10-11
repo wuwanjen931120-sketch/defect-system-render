@@ -137,7 +137,7 @@
     <span id="currentProductsText">網站自訂 0 種｜資料庫已出現 0 種</span>
     <button class="btn productManageBtn" id="dashboard-handler-15" type="button">管理產品</button>
 </div>
-<div class="productSourceHint">新增後會立即出現在「產品分類與良率」中；實際手臂／YOLO 是否能辨識該產品，仍需由現場辨識程式辨識成功並透過 MQTT 上報相同產品名稱。</div>
+<div class="productSourceHint">此處只管理網站要監控／統計的產品，不會控制四道分流。新增產品後會出現在「產品分類與良率」；真正第幾道由現場 YOLO／Python 辨識與分流結果透過 MQTT 回報 lane 後自動顯示。</div>
 <div class="productInputRow">
 <input id="productInput" placeholder="輸入要加入監控與統計的產品名稱"/>
 <button class="btn btnPrimary" id="dashboard-handler-7">加入產品</button>
@@ -145,13 +145,36 @@
 <div id="productList" class="productListCollapsed" aria-label="已加入產品清單"></div>
 </div>
 <section class="laneMappingCard" id="laneMappingCard">
-  <div class="laneMappingHeader"><div><b>四道分流映射</b><span>監控設定需與現場 Python／手臂控制程式一致；網站新增產品不會自動增加實體分流道。</span></div><button class="btn" id="saveLaneMappingBtn" type="button">儲存映射</button></div>
-  <div class="laneMappingGrid">
-    <label>第 1 道<input id="lane1Product" placeholder="產品，例如：立可帶"/><select id="lane1Status"><option value="OK">OK</option><option value="NG">NG</option></select></label>
-    <label>第 2 道<input id="lane2Product" placeholder="產品，例如：立可帶"/><select id="lane2Status"><option value="NG">NG</option><option value="OK">OK</option></select></label>
-    <label>第 3 道<input id="lane3Product" placeholder="產品，例如：橡皮擦"/><select id="lane3Status"><option value="OK">OK</option><option value="NG">NG</option></select></label>
-    <label>第 4 道<input id="lane4Product" placeholder="產品，例如：橡皮擦"/><select id="lane4Status"><option value="NG">NG</option><option value="OK">OK</option></select></label>
+  <div class="laneMappingHeader">
+    <div>
+      <b>四道分流狀態</b>
+      <span>此區只顯示現場實際分流結果，不由網站設定。YOLO／Python 辨識產品與 OK／NG，現場控制程式決定 lane，MQTT 回報後網站才更新第幾道。</span>
+    </div>
+    <span class="laneLiveBadge" id="laneLiveBadge">等待分流資料</span>
   </div>
+  <div class="laneMappingGrid laneReadonlyGrid">
+    <article class="laneReadonlyCard" id="laneCard1" data-lane="1">
+      <div class="laneReadonlyTop"><b>第 1 道</b><span class="laneStatusPill neutral" id="lane1StatusText">尚無結果</span></div>
+      <div class="laneProductText" id="lane1ProductText">等待辨識資料</div>
+      <div class="laneMetaText" id="lane1MetaText">尚未收到此分流道事件</div>
+    </article>
+    <article class="laneReadonlyCard" id="laneCard2" data-lane="2">
+      <div class="laneReadonlyTop"><b>第 2 道</b><span class="laneStatusPill neutral" id="lane2StatusText">尚無結果</span></div>
+      <div class="laneProductText" id="lane2ProductText">等待辨識資料</div>
+      <div class="laneMetaText" id="lane2MetaText">尚未收到此分流道事件</div>
+    </article>
+    <article class="laneReadonlyCard" id="laneCard3" data-lane="3">
+      <div class="laneReadonlyTop"><b>第 3 道</b><span class="laneStatusPill neutral" id="lane3StatusText">尚無結果</span></div>
+      <div class="laneProductText" id="lane3ProductText">等待辨識資料</div>
+      <div class="laneMetaText" id="lane3MetaText">尚未收到此分流道事件</div>
+    </article>
+    <article class="laneReadonlyCard" id="laneCard4" data-lane="4">
+      <div class="laneReadonlyTop"><b>第 4 道</b><span class="laneStatusPill neutral" id="lane4StatusText">尚無結果</span></div>
+      <div class="laneProductText" id="lane4ProductText">等待辨識資料</div>
+      <div class="laneMetaText" id="lane4MetaText">尚未收到此分流道事件</div>
+    </article>
+  </div>
+  <div class="laneReadonlyHint">資料關係：產品管理＝監控／統計清單；四道分流＝現場控制結果。流程：YOLO／辨識程式取得產品與 OK／NG → Python／手臂控制程式決定 lane → MQTT／後端回報 → 網站只讀顯示。沒有 lane 的事件不會被網站自行推測到任何一道。</div>
 </section>
 <div class="heroGrid">
 <section class="liveCard">

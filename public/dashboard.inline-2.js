@@ -12,21 +12,78 @@ let selectedGaugeProducts = new Set();
 let knownGaugeProducts = new Set();
 
 
-function laneMappingKey(){
-  const tenant = sessionStorage.getItem("tenant_id") || "default";
-  const system = sessionStorage.getItem("system_id") || "default";
-  return `laneMapping_${tenant}_${system}`;
+function normalizeLaneNumber(value){
+  const raw = String(value ?? "").trim();
+  const matched = raw.match(/[1-4]/);
+  return matched ? Number(matched[0]) : 0;
 }
-function loadLaneMapping(){
-  const defaults=[{product:"立可帶",status:"OK"},{product:"立可帶",status:"NG"},{product:"橡皮擦",status:"OK"},{product:"橡皮擦",status:"NG"}];
-  let rows=defaults;
-  try { const raw=localStorage.getItem(laneMappingKey()); if(raw) rows=JSON.parse(raw); } catch(e){}
-  rows.forEach((row,i)=>{ const p=document.getElementById(`lane${i+1}Product`); const st=document.getElementById(`lane${i+1}Status`); if(p)p.value=row?.product||""; if(st)st.value=row?.status||"OK"; });
+
+
+function formatLaneEventTime(value){
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("zh-TW", {
+    year:"numeric", month:"2-digit", day:"2-digit",
+    hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
+  });
 }
-function saveLaneMapping(){
-  const rows=[1,2,3,4].map(i=>({product:(document.getElementById(`lane${i}Product`)?.value||"").trim(),status:document.getElementById(`lane${i}Status`)?.value||"OK"}));
-  localStorage.setItem(laneMappingKey(),JSON.stringify(rows));
-  alert("已儲存四道分流映射。請確認現場 Python／手臂控制程式使用相同設定。");
+
+function renderLaneStatus(list = latestDashboardList){
+  const events = Array.isArray(list) ? [...list] : [];
+  events.sort((a,b) => new Date(b?.timestamp || 0).getTime() - new Date(a?.timestamp || 0).getTime());
+
+  const latestByLane = new Map();
+  for (const item of events) {
+    const status = String(item?.status || "").toUpperCase();
+    if (!["OK", "NG"].includes(status)) continue;
+    const lane = normalizeLaneNumber(item?.lane);
+    if (!lane || latestByLane.has(lane)) continue;
+    latestByLane.set(lane, item);
+  }
+
+  let activeCount = 0;
+  for (let lane = 1; lane <= 4; lane++) {
+    const item = latestByLane.get(lane);
+    const productEl = document.getElementById(`lane${lane}ProductText`);
+    const statusEl = document.getElementById(`lane${lane}StatusText`);
+    const metaEl = document.getElementById(`lane${lane}MetaText`);
+    const cardEl = document.getElementById(`laneCard${lane}`);
+    if (!productEl || !statusEl || !metaEl || !cardEl) continue;
+
+    if (!item) {
+      productEl.textContent = "等待辨識資料";
+      statusEl.textContent = "尚無結果";
+      statusEl.className = "laneStatusPill neutral";
+      metaEl.textContent = "尚未收到此分流道事件";
+      cardEl.classList.remove("laneOk", "laneNg");
+      continue;
+    }
+
+    activeCount++;
+    const status = String(item.status || "").toUpperCase();
+    const product = normalizeProductName(item.product || "未分類") || "未分類";
+    const eventId = item.event_id || item.id || "";
+    const timeText = formatLaneEventTime(item.timestamp);
+    const sourceText = String(item.source || "").trim();
+
+    productEl.textContent = product;
+    statusEl.textContent = status;
+    statusEl.className = `laneStatusPill ${status === "OK" ? "ok" : "ng"}`;
+    cardEl.classList.toggle("laneOk", status === "OK");
+    cardEl.classList.toggle("laneNg", status === "NG");
+    metaEl.textContent = [
+      timeText,
+      eventId ? `事件 ${eventId}` : "",
+      sourceText ? `來源 ${sourceText}` : ""
+    ].filter(Boolean).join("｜") || "已收到分流事件";
+  }
+
+  const badge = document.getElementById("laneLiveBadge");
+  if (badge) {
+    badge.textContent = activeCount ? `已取得 ${activeCount} 道分流資料` : "等待分流資料";
+    badge.classList.toggle("active", activeCount > 0);
+  }
 }
 
 const YIELD_ALERT_DEFAULTS = {
@@ -1037,6 +1094,7 @@ async function loadDashboardStats() {
     const data = await apiFetch(buildDefectsUrl());
     const list = Array.isArray(data) ? data : [];
     latestDashboardList = list;
+    renderLaneStatus(list);
 
 // 1. 先整理 MongoDB 裡實際存在的產品
 const dbProducts = [
@@ -1047,7 +1105,8 @@ const dbProducts = [
   )
 ];
 
-// 2. 畫面手動加入的產品 + MongoDB 已存在的產品，合併後去重
+// 2. 產品管理只影響監控／統計清單；不控制四道分流。
+//    手動加入的產品 + MongoDB 已存在的產品，合併後去重
 const displayProducts = [
   ...new Set([
     ...selectedProducts.map(p => normalizeProductName(p)),
@@ -1806,7 +1865,3 @@ if (typeof window.logout !== "function") {
 document.addEventListener("DOMContentLoaded", bindProductInputEnter);
 
 
-document.addEventListener("DOMContentLoaded",()=>{
-  loadLaneMapping();
-  document.getElementById("saveLaneMappingBtn")?.addEventListener("click", saveLaneMapping);
-});
