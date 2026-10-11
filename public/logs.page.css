@@ -532,3 +532,7 @@ td:first-child{
   .logsToolbarSpacer{display:none}
   .logsToolbarUnified .logProductSearch{flex:1 1 280px}
 }
+
+
+/* 2026-10-11：事件追溯欄位 */
+.logsScrollBox{overflow:auto}.logsScrollBox table{min-width:1180px}.logsScrollBox th,.logsScrollBox td{white-space:nowrap}.logsScrollBox td:nth-child(2){max-width:220px;overflow:hidden;text-overflow:ellipsis}

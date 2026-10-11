@@ -121,6 +121,8 @@ function getStatusClass(status) {
   const s = String(status || "").toUpperCase();
   if (s === "OK") return "status-ok";
   if (s === "NG") return "status-ng";
+  if (s === "PENDING") return "status-warn";
+  if (s === "UNMATCHED_DEFECT") return "status-warn";
   return "status-warn";
 }
 
@@ -128,6 +130,8 @@ function getRemark(item) {
   const status = String(item.status || "").toUpperCase();
   if (status === "NG") return "瑕疵分流";
   if (status === "OK") return "正常檢測";
+  if (status === "PENDING") return "待判定";
+  if (status === "UNMATCHED_DEFECT") return "未配對瑕疵";
   return "-";
 }
 
@@ -257,7 +261,7 @@ async function loadLogs() {
     if (filteredList.length === 0) {
       setSafeHtml(body, `
         <tr>
-          <td colspan="5" class="empty-row">目前沒有資料</td>
+          <td colspan="9" class="empty-row">目前沒有資料</td>
         </tr>
       `);
       return;
@@ -283,6 +287,15 @@ async function loadLogs() {
       timeCell.textContent = timeText;
       tr.appendChild(timeCell);
 
+      const eventCell = document.createElement("td");
+      eventCell.textContent = item.event_id || item.id || "-";
+      eventCell.title = `完整事件編號：${item.event_id || item.id || "-"}`;
+      tr.appendChild(eventCell);
+
+      const trackCell = document.createElement("td");
+      trackCell.textContent = item.track_id || "-";
+      tr.appendChild(trackCell);
+
       const statusCell = document.createElement("td");
       const statusBadge = document.createElement("span");
       statusBadge.className = getStatusClass(status);
@@ -294,9 +307,17 @@ async function loadLogs() {
       productCell.textContent = product;
       tr.appendChild(productCell);
 
-      const remarkCell = document.createElement("td");
-      remarkCell.textContent = getRemark(item);
-      tr.appendChild(remarkCell);
+      const sourceCell = document.createElement("td");
+      sourceCell.textContent = item.source || "vision";
+      tr.appendChild(sourceCell);
+
+      const robotCell = document.createElement("td");
+      robotCell.textContent = item.robot_result || "-";
+      tr.appendChild(robotCell);
+
+      const laneCell = document.createElement("td");
+      laneCell.textContent = item.lane || "-";
+      tr.appendChild(laneCell);
 
       const imageCell = document.createElement("td");
       imageCell.className = "imageCell";

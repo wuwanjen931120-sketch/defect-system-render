@@ -11,6 +11,24 @@ let latestProductStats = {};
 let selectedGaugeProducts = new Set();
 let knownGaugeProducts = new Set();
 
+
+function laneMappingKey(){
+  const tenant = sessionStorage.getItem("tenant_id") || "default";
+  const system = sessionStorage.getItem("system_id") || "default";
+  return `laneMapping_${tenant}_${system}`;
+}
+function loadLaneMapping(){
+  const defaults=[{product:"立可帶",status:"OK"},{product:"立可帶",status:"NG"},{product:"橡皮擦",status:"OK"},{product:"橡皮擦",status:"NG"}];
+  let rows=defaults;
+  try { const raw=localStorage.getItem(laneMappingKey()); if(raw) rows=JSON.parse(raw); } catch(e){}
+  rows.forEach((row,i)=>{ const p=document.getElementById(`lane${i+1}Product`); const st=document.getElementById(`lane${i+1}Status`); if(p)p.value=row?.product||""; if(st)st.value=row?.status||"OK"; });
+}
+function saveLaneMapping(){
+  const rows=[1,2,3,4].map(i=>({product:(document.getElementById(`lane${i}Product`)?.value||"").trim(),status:document.getElementById(`lane${i}Status`)?.value||"OK"}));
+  localStorage.setItem(laneMappingKey(),JSON.stringify(rows));
+  alert("已儲存四道分流映射。請確認現場 Python／手臂控制程式使用相同設定。");
+}
+
 const YIELD_ALERT_DEFAULTS = {
   yieldThreshold: 90,
   minSamples: 5,
@@ -1369,6 +1387,8 @@ async function loadSummary() {
     document.getElementById("summaryTotal").textContent = `總數：${data.total}`;
     document.getElementById("summaryOk").textContent = `OK：${data.okCount}`;
     document.getElementById("summaryNg").textContent = `NG：${data.ngCount}`;
+    const pendingEl = document.getElementById("summaryPending"); if (pendingEl) pendingEl.textContent = `待判：${data.pendingCount ?? 0}`;
+    const unmatchedEl = document.getElementById("summaryUnmatched"); if (unmatchedEl) unmatchedEl.textContent = `未配對瑕疵：${data.unmatchedCount ?? 0}`;
     document.getElementById("summaryYield").textContent = `良率：${data.yieldRate}%`;
     document.getElementById("summaryDefect").textContent = `瑕疵率：${data.defectRate}%`;
     document.getElementById("summaryLast20").textContent = `最近20筆異常：${data.last20Ng}`;
@@ -1629,10 +1649,10 @@ window.demoEstop = async function() {
       method: "POST",
       body: JSON.stringify({ tenant_id: getCurrentTenantId(), system_id: systemId })
     });
-    alert(result?.message || "緊急停止指令已送出");
+    alert(result?.message || "遠端停止指令已送出，請等待裝置 ACK／現場確認");
   } catch (e) {
     console.error(e);
-    showError(e.message || "急停失敗");
+    showError(e.message || "遠端停止失敗");
   }
 };
 
@@ -1784,3 +1804,9 @@ if (typeof window.logout !== "function") {
 
 
 document.addEventListener("DOMContentLoaded", bindProductInputEnter);
+
+
+document.addEventListener("DOMContentLoaded",()=>{
+  loadLaneMapping();
+  document.getElementById("saveLaneMappingBtn")?.addEventListener("click", saveLaneMapping);
+});

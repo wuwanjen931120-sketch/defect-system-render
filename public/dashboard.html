@@ -144,6 +144,15 @@
 </div>
 <div id="productList" class="productListCollapsed" aria-label="已加入產品清單"></div>
 </div>
+<section class="laneMappingCard" id="laneMappingCard">
+  <div class="laneMappingHeader"><div><b>四道分流映射</b><span>監控設定需與現場 Python／手臂控制程式一致；網站新增產品不會自動增加實體分流道。</span></div><button class="btn" id="saveLaneMappingBtn" type="button">儲存映射</button></div>
+  <div class="laneMappingGrid">
+    <label>第 1 道<input id="lane1Product" placeholder="產品，例如：立可帶"/><select id="lane1Status"><option value="OK">OK</option><option value="NG">NG</option></select></label>
+    <label>第 2 道<input id="lane2Product" placeholder="產品，例如：立可帶"/><select id="lane2Status"><option value="NG">NG</option><option value="OK">OK</option></select></label>
+    <label>第 3 道<input id="lane3Product" placeholder="產品，例如：橡皮擦"/><select id="lane3Status"><option value="OK">OK</option><option value="NG">NG</option></select></label>
+    <label>第 4 道<input id="lane4Product" placeholder="產品，例如：橡皮擦"/><select id="lane4Status"><option value="NG">NG</option><option value="OK">OK</option></select></label>
+  </div>
+</section>
 <div class="heroGrid">
 <section class="liveCard">
 <div class="liveTitle">即時檢測畫面</div>
@@ -154,7 +163,7 @@
               </div>
 </div>
 <div class="estopWrap">
-<button class="estopBig" id="dashboard-handler-8">緊急停止</button>
+<button class="estopBig" id="dashboard-handler-8">遠端停止輸送帶</button><div class="remoteStopHint">非安全級急停；僅送出 MQTT 遠端停止命令，需以裝置 ACK／現場狀態確認結果。</div>
 </div>
 <button class="btn" id="dashboard-handler-9">下載報表</button>
 <div class="defect-table" id="defect-list"></div>
@@ -202,6 +211,8 @@
 <div id="summaryTotal">總數：0</div>
 <div id="summaryOk">OK：0</div>
 <div id="summaryNg">NG：0</div>
+<div id="summaryPending">待判：0</div>
+<div id="summaryUnmatched">未配對瑕疵：0</div>
 <div id="summaryYield">良率：0%</div>
 <div id="summaryDefect">瑕疵率：0%</div>
 <div id="summaryLast20">最近20筆異常：0</div>

@@ -24,7 +24,7 @@ function formatMachineTime(value) {
 
 function estopStatusText(status) {
   if (!status || status === "none") {
-    return "無急停紀錄";
+    return "無遠端停止紀錄";
   }
 
   if (status === "pending_ack") {
@@ -194,7 +194,14 @@ function renderMachines() {
     const info = document.createElement("div");
     info.className = "machineInfo";
 
+    const components = machine.components || {};
+    const componentText = key => components[key]?.connected === true ? "🟢 已連線" : "⚪ 未連線／未回報";
+
     info.append(
+      createInfoRow("辨識程式", componentText("vision")),
+      createInfoRow("左側機械手臂", componentText("left_robot")),
+      createInfoRow("右側機械手臂", componentText("right_robot")),
+      createInfoRow("輸送帶控制器", componentText("conveyor_controller")),
       createInfoRow(
         "目前產品",
         machineText(machine.current_product) || "未設定"
@@ -235,7 +242,7 @@ function renderMachines() {
 
     const estopLabel = document.createElement("span");
     estopLabel.className = "machineEstopLabel";
-    estopLabel.textContent = "E-stop";
+    estopLabel.textContent = "遠端停止";
 
     const estopValue = document.createElement("span");
     estopValue.className = "machineEstopValue";

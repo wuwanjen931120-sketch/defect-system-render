@@ -1884,3 +1884,9 @@
   }
   #dynamicProductGaugeArea .gaugeBoxPlaceholder{display:none!important}
 }
+
+
+/* 2026-10-11：四道分流映射與遠端停止說明 */
+.remoteStopHint{margin-top:8px;text-align:center;color:var(--muted);font-size:12px;line-height:1.5}
+.laneMappingCard{margin:14px 0;padding:14px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(18,35,59,.72)}
+.laneMappingHeader{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}.laneMappingHeader b{display:block;font-size:18px}.laneMappingHeader span{display:block;color:var(--muted);font-size:12px;margin-top:4px}.laneMappingGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.laneMappingGrid label{display:grid;grid-template-columns:1fr 92px;gap:8px;align-items:center;padding:10px;border:1px solid rgba(255,255,255,.09);border-radius:12px;font-weight:800}.laneMappingGrid label::first-line{grid-column:1/-1}.laneMappingGrid input,.laneMappingGrid select{width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.18);color:var(--text);border-radius:10px;padding:9px}@media(max-width:1000px){.laneMappingGrid{grid-template-columns:repeat(2,1fr)}}@media(max-width:640px){.laneMappingGrid{grid-template-columns:1fr}.laneMappingHeader{align-items:flex-start;flex-direction:column}}

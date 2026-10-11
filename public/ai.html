@@ -51,7 +51,7 @@
 <button class="hamburger" id="ai-handler-5">☰</button>
 <div class="pageTitle">
 <b>AI 助理</b>
-<span>可詢問良率、NG率、瑕疵紀錄、MQTT 測試與系統操作</span>
+<span>可詢問良率、NG 分布、事件紀錄、產品與機台品質資料</span>
 </div>
 </div>
 <div class="rightTop">
@@ -67,15 +67,15 @@
 <button class="btn" id="aiNewChatBtn" type="button">＋ 新對話</button>
 </div>
 </div>
-<p class="helpText ai-inline-style-4">可以直接問：「目前良率多少？」、「哪個產品 NG 最多？」、「螺帽沒資料怎麼辦？」、「MQTT 測試資料要怎麼打？」</p>
+<p class="helpText ai-inline-style-4">可以直接問：「目前良率多少？」、「哪個產品 NG 最多？」、「最近有哪些異常？」、「這段時間橡皮擦的 NG 分布？」</p>
 <div class="quickBtns">
 <button class="quickBtn" data-q="目前總良率、OK、NG、NG率是多少？">看目前良率</button>
 <button class="quickBtn" data-q="幫我找出 NG 最多的產品，並給改善建議。">找 NG 最多產品</button>
 <button class="quickBtn" data-q="如果事件紀錄沒有資料，我應該檢查哪些地方？">紀錄沒資料怎麼辦</button>
-<button class="quickBtn" data-q="MQTT 測試資料格式要怎麼打？請給我 OK 與 NG 範例。">MQTT 範例</button>
+<button class="quickBtn" data-q="請整理目前查詢範圍內最近的異常事件，並指出需要優先確認的項目。">近期異常摘要</button>
 </div>
 <div class="chatBox" id="chatBox">
-<div class="msg bot">你好，我是這個瑕疵辨識網站的 AI 助理。你可以問我良率、NG率、事件紀錄、產品分類、機台資料或 MQTT 測試格式。</div>
+<div class="msg bot">你好，我是這個瑕疵辨識網站的 AI 品質資料助理。你可以問我良率、NG 分布、事件紀錄、產品分類與機台品質資料；回答會以目前篩選範圍的後端資料為依據。</div>
 </div>
 <form class="chatForm" id="chatForm">
 <textarea id="messageInput" placeholder="輸入問題，例如：目前哪個產品 NG 最多？" required=""></textarea>
@@ -152,7 +152,7 @@ Gemini 暫時無法使用或免費額度用完時，系統會自動切換成本�
 <div class="ai-inline-style-6" id="errorBar"></div>
 <script defer="" src="vendor/marked.umd.js"></script>
 <script defer="" src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script>
-<script defer="" src="ai.js?v=20261009-2"></script>
+<script defer="" src="ai.js?v=20261011-1"></script>
 <script src="ai.handlers.js"></script>
 </body>
 </html>
