@@ -148,8 +148,12 @@ app.use(express.static(publicDir, {
   maxAge: NODE_ENV === "production" ? "1h" : 0,
   setHeaders(res, filePath) {
     const name = path.basename(filePath).toLowerCase();
-    if (/\.html$/i.test(filePath) || new Set(["sw.js", "login.js", "auth-bootstrap.js", "manifest.webmanifest"]).has(name)) {
-      res.setHeader("Cache-Control", "no-store, max-age=0");
+    if (/\.(?:html|js|css)$/i.test(filePath) || new Set(["sw.js", "manifest.webmanifest"]).has(name)) {
+      // Dashboard and realtime code changes frequently during deployment.
+      // Do not allow a browser/CDN cache to keep an older JS file while HTML is already new.
+      res.setHeader("Cache-Control", "no-store, max-age=0, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
     }
   }
 }));

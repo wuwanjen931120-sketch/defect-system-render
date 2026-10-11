@@ -1,0 +1,6 @@
+修正重點：
+1. dashboard.inline-2.js 改新版 query version，避免 Chrome 沿用舊 JS。
+2. Express 對 HTML/JS/CSS 全部 no-store，部署後不再混用新 HTML + 舊 JS。
+3. Service Worker 對所有同源 JS/CSS 採 Network First。
+4. 分頁重新取得焦點時立即 refreshDashboard + loadLaneStatus。
+5. Console 可看到 [Dashboard] build 20261012-live-v3，方便確認前端是否真的載入新版。
