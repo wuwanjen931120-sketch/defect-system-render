@@ -1,3 +1,5 @@
+const DASHBOARD_BUILD = "20261012-live-v3";
+console.info("[Dashboard] build", DASHBOARD_BUILD);
 
 const API_BASE = window.location.origin;
 let dashboardTimer = null;
@@ -1989,6 +1991,20 @@ renderYieldAlertSettings();
   await startCamera();
   await loadMachineRanking(true);
   window.addEventListener("resize", () => renderYieldTrend());
+
+  // 瀏覽器分頁從背景切回前景時立即同步一次。Chrome 可能節流背景計時器，
+  // 因此不能只依賴 setInterval。
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      window.refreshDashboard();
+      loadLaneStatus();
+    }
+  });
+  window.addEventListener("focus", () => {
+    window.refreshDashboard();
+    loadLaneStatus();
+  });
+
   window.addEventListener("beforeunload", stopDashboardRealtime, { once: true });
 });
 

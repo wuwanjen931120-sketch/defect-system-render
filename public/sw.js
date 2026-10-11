@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "defect-cache-v8-realtime-lane";
+const CACHE_NAME = "defect-cache-v9-dashboard-live";
 const STATIC_ASSETS = [
   "./offline.html",
   "./style.css",
@@ -56,16 +56,17 @@ self.addEventListener("fetch", event => {
     return;
   }
 
-  const isStaticAsset = STATIC_ASSETS.some(
-    asset =>
-      new URL(asset, self.location.href).pathname === url.pathname
+  const isListedStaticAsset = STATIC_ASSETS.some(
+    asset => new URL(asset, self.location.href).pathname === url.pathname
   );
+  const isCodeAsset = /\.(?:js|css)$/i.test(url.pathname);
 
-  if (!isStaticAsset) {
+  if (!isListedStaticAsset && !isCodeAsset) {
     return;
   }
 
-  // JS / CSS / 靜態資源改成 Network First。
+  // 所有同源 JS / CSS 都採 Network First。這包含 dashboard.inline-2.js，
+  // 避免部署新版後瀏覽器仍執行舊的即時更新程式。
   // 有網路時取得最新版並更新快取；
   // 只有網路失敗時才使用舊快取。
   event.respondWith(
