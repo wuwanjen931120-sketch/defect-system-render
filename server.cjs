@@ -164,8 +164,13 @@ const defectSchema = new mongoose.Schema({
   user_id: { type: String, default: "unknown", trim: true },
   system_id: { type: String, required: true, trim: true },
   id: { type: String, required: true, trim: true },
-  status: { type: String, enum: ["OK", "NG"], required: true, uppercase: true },
+  event_id: { type: String, default: "", trim: true },
+  track_id: { type: String, default: "", trim: true },
+  status: { type: String, enum: ["OK", "NG", "PENDING", "UNMATCHED_DEFECT"], required: true, uppercase: true },
   product: { type: String, default: "未分類", trim: true },
+  source: { type: String, default: "vision", trim: true },
+  robot_result: { type: String, default: "", trim: true },
+  lane: { type: String, default: "", trim: true },
   image_url: { type: String, default: "", trim: true },
   timestamp: { type: Date, default: Date.now, index: true }
 }, { versionKey: false });
@@ -309,9 +314,9 @@ async function buildScopedDefectQuery(user, params = {}) {
     const escaped = productSearch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     query.product = { $regex: escaped, $options: "i" };
   }
-  const status = cleanText(params.status, 10).toUpperCase();
+  const status = cleanText(params.status, 30).toUpperCase();
   if (status) {
-    if (!new Set(["OK", "NG"]).has(status)) throw Object.assign(new Error("status 只能是 OK 或 NG"), { status: 400 });
+    if (!new Set(["OK", "NG", "PENDING", "UNMATCHED_DEFECT"]).has(status)) throw Object.assign(new Error("status 只能是 OK、NG、PENDING 或 UNMATCHED_DEFECT"), { status: 400 });
     query.status = status;
   }
   const tenant = cleanText(params.tenant_id, 100);
@@ -1056,6 +1061,25 @@ app.post("/api/device/robot-heartbeat", deviceAuth, asyncHandler(async (req, res
   });
 }));
 
+app.post("/api/device/component-heartbeat", deviceAuth, asyncHandler(async (req, res) => {
+  const system_id = cleanText(req.body.system_id, 100);
+  const component = cleanText(req.body.component, 40).toLowerCase();
+  const allowed = new Set(["vision", "left_robot", "right_robot", "conveyor_controller"]);
+  if (!system_id || !allowed.has(component)) return res.status(400).json({ message: "component 必須是 vision、left_robot、right_robot 或 conveyor_controller" });
+  const connected = req.body.connected === true;
+  const status = cleanText(req.body.status || (connected ? "connected" : "disconnected"), 60);
+  const reportedAt = req.body.timestamp ? new Date(req.body.timestamp) : new Date();
+  if (Number.isNaN(reportedAt.getTime())) return res.status(400).json({ message: "timestamp 格式不正確" });
+  const setDoc = {};
+  setDoc[`components.${component}.connected`] = connected;
+  setDoc[`components.${component}.status`] = status;
+  setDoc[`components.${component}.last_heartbeat_at`] = reportedAt;
+  setDoc[`components.${component}.received_at`] = new Date();
+  const result = await mongoose.connection.collection("systems").updateOne({ system_id }, { $set: setDoc });
+  if (!result.matchedCount) return res.status(404).json({ message: "找不到機台" });
+  return res.json({ success: true, system_id, component, connected, status, received_at: new Date().toISOString() });
+}));
+
 app.get("/api/machine-status", auth, asyncHandler(async (req, res) => {
   const requestedTenant = cleanText(req.query.tenant_id, 100);
 
@@ -1169,7 +1193,22 @@ app.get("/api/machine-status", auth, asyncHandler(async (req, res) => {
         .sort({ createdAt: -1 })
         .lean();
 
+      const componentTimeoutMs = ROBOT_HEARTBEAT_TIMEOUT_SECONDS * 1000;
+      const componentStatus = {};
+      for (const key of ["vision", "left_robot", "right_robot", "conveyor_controller"]) {
+        const component = system.components?.[key] || {};
+        const at = component.last_heartbeat_at ? new Date(component.last_heartbeat_at) : null;
+        const fresh = at && !Number.isNaN(at.getTime()) && now - at.getTime() <= componentTimeoutMs;
+        componentStatus[key] = {
+          connected: Boolean(component.connected === true && fresh),
+          reported_connected: component.connected === true,
+          status: component.status || "never_reported",
+          last_heartbeat_at: component.last_heartbeat_at || null
+        };
+      }
+
       return {
+        components: componentStatus,
         tenant_id: system.tenant_id,
         system_id: system.system_id,
         name: system.name || "未命名機台",
@@ -1250,17 +1289,21 @@ app.get("/api/defects/export.csv", auth, asyncHandler(async (req, res) => {
   const rows = await Defect.find(query)
     .sort({ timestamp: -1 })
     .limit(limit)
-    .select("tenant_id system_id id status product image_url timestamp")
+    .select("tenant_id system_id id event_id track_id status product source robot_result lane image_url timestamp")
     .lean();
-  const header = ["tenant_id", "system_id", "id", "status", "product", "image_url", "timestamp"];
+  const header = ["tenant_id", "system_id", "event_id", "track_id", "status", "product", "source", "robot_result", "lane", "image_url", "timestamp"];
   const csv = [
     header.map(csvCell).join(","),
     ...rows.map(row => [
       row.tenant_id,
       row.system_id,
-      row.id,
+      row.event_id || row.id,
+      row.track_id || "",
       row.status,
       row.product,
+      row.source || "",
+      row.robot_result || "",
+      row.lane || "",
       row.image_url || "",
       row.timestamp ? new Date(row.timestamp).toISOString() : ""
     ].map(csvCell).join(","))
@@ -1280,33 +1323,59 @@ app.get("/api/predict", auth, aiLimiter, asyncHandler(async (req, res) => {
 app.get("/api/summary", auth, asyncHandler(async (req, res) => {
   const query = await buildScopedDefectQuery(req.user, req.query);
   const [facet = {}] = await Defect.aggregate([{ $match: query }, { $facet: {
-    totals: [{ $group: { _id: null, total: { $sum: 1 }, okCount: { $sum: { $cond: [{ $eq: ["$status", "OK"] }, 1, 0] } }, ngCount: { $sum: { $cond: [{ $eq: ["$status", "NG"] }, 1, 0] } } } }],
-    byProduct: [{ $group: { _id: { $ifNull: ["$product", "未分類"] }, total: { $sum: 1 }, ok: { $sum: { $cond: [{ $eq: ["$status", "OK"] }, 1, 0] } }, ng: { $sum: { $cond: [{ $eq: ["$status", "NG"] }, 1, 0] } } } }],
+    totals: [{ $group: {
+      _id: null,
+      total: { $sum: 1 },
+      okCount: { $sum: { $cond: [{ $eq: ["$status", "OK"] }, 1, 0] } },
+      ngCount: { $sum: { $cond: [{ $eq: ["$status", "NG"] }, 1, 0] } },
+      pendingCount: { $sum: { $cond: [{ $eq: ["$status", "PENDING"] }, 1, 0] } },
+      unmatchedCount: { $sum: { $cond: [{ $eq: ["$status", "UNMATCHED_DEFECT"] }, 1, 0] } }
+    } }],
+    byProduct: [{ $group: {
+      _id: { $ifNull: ["$product", "未分類"] }, total: { $sum: 1 },
+      ok: { $sum: { $cond: [{ $eq: ["$status", "OK"] }, 1, 0] } },
+      ng: { $sum: { $cond: [{ $eq: ["$status", "NG"] }, 1, 0] } },
+      pending: { $sum: { $cond: [{ $eq: ["$status", "PENDING"] }, 1, 0] } },
+      unmatched: { $sum: { $cond: [{ $eq: ["$status", "UNMATCHED_DEFECT"] }, 1, 0] } }
+    } }],
     recent: [{ $sort: { timestamp: -1 } }, { $limit: 20 }, { $project: { status: 1 } }]
   } }]);
-  const totals = facet.totals?.[0] || { total: 0, okCount: 0, ngCount: 0 };
+  const totals = facet.totals?.[0] || { total: 0, okCount: 0, ngCount: 0, pendingCount: 0, unmatchedCount: 0 };
+  const classifiedTotal = Number(totals.okCount || 0) + Number(totals.ngCount || 0);
   const byProduct = {};
-  for (const item of facet.byProduct || []) byProduct[item._id] = { total: item.total, ok: item.ok, ng: item.ng };
-  return res.json({ total: totals.total, okCount: totals.okCount, ngCount: totals.ngCount, yieldRate: totals.total ? ((totals.okCount / totals.total) * 100).toFixed(1) : "0.0", defectRate: totals.total ? ((totals.ngCount / totals.total) * 100).toFixed(1) : "0.0", last20Ng: (facet.recent || []).filter(v => v.status === "NG").length, byProduct });
+  for (const item of facet.byProduct || []) byProduct[item._id] = { total: item.total, ok: item.ok, ng: item.ng, pending: item.pending, unmatched: item.unmatched };
+  return res.json({
+    total: totals.total, classifiedTotal, okCount: totals.okCount, ngCount: totals.ngCount,
+    pendingCount: totals.pendingCount, unmatchedCount: totals.unmatchedCount,
+    yieldRate: classifiedTotal ? ((totals.okCount / classifiedTotal) * 100).toFixed(1) : "0.0",
+    defectRate: classifiedTotal ? ((totals.ngCount / classifiedTotal) * 100).toFixed(1) : "0.0",
+    last20Ng: (facet.recent || []).filter(v => v.status === "NG").length, byProduct
+  });
 }));
 
 function summarizeDefectsForAi(defects) {
   const total = defects.length;
   const okCount = defects.filter(v => v.status === "OK").length;
   const ngCount = defects.filter(v => v.status === "NG").length;
+  const pendingCount = defects.filter(v => v.status === "PENDING").length;
+  const unmatchedCount = defects.filter(v => v.status === "UNMATCHED_DEFECT").length;
+  const classifiedTotal = okCount + ngCount;
   const byProduct = {}, bySystem = {};
   for (const d of defects) {
     const p = d.product || "未分類", s = d.system_id || "未指定機台";
-    byProduct[p] ||= { total: 0, ok: 0, ng: 0, yieldRate: 0, defectRate: 0 };
-    bySystem[s] ||= { total: 0, ok: 0, ng: 0, yieldRate: 0, defectRate: 0 };
-    for (const x of [byProduct[p], bySystem[s]]) { x.total++; if (d.status === "OK") x.ok++; if (d.status === "NG") x.ng++; }
+    byProduct[p] ||= { total: 0, ok: 0, ng: 0, pending: 0, unmatched: 0, yieldRate: 0, defectRate: 0 };
+    bySystem[s] ||= { total: 0, ok: 0, ng: 0, pending: 0, unmatched: 0, yieldRate: 0, defectRate: 0 };
+    for (const x of [byProduct[p], bySystem[s]]) { x.total++; if (d.status === "OK") x.ok++; if (d.status === "NG") x.ng++; if (d.status === "PENDING") x.pending++; if (d.status === "UNMATCHED_DEFECT") x.unmatched++; }
   }
-  for (const group of [byProduct, bySystem]) for (const x of Object.values(group)) { x.yieldRate = x.total ? Number((x.ok / x.total * 100).toFixed(1)) : 0; x.defectRate = x.total ? Number((x.ng / x.total * 100).toFixed(1)) : 0; }
-  return { total, okCount, ngCount, yieldRate: total ? Number((okCount / total * 100).toFixed(1)) : 0, defectRate: total ? Number((ngCount / total * 100).toFixed(1)) : 0, last20Ng: defects.slice(0, 20).filter(v => v.status === "NG").length, byProduct, bySystem, recent: defects.slice(0, 12).map(d => ({ time: d.timestamp, product: d.product || "未分類", status: d.status, system_id: d.system_id, case_id: d.id })) };
+  for (const group of [byProduct, bySystem]) for (const x of Object.values(group)) { const classified = x.ok + x.ng; x.yieldRate = classified ? Number((x.ok / classified * 100).toFixed(1)) : 0; x.defectRate = classified ? Number((x.ng / classified * 100).toFixed(1)) : 0; }
+  return { total, classifiedTotal, okCount, ngCount, pendingCount, unmatchedCount, yieldRate: classifiedTotal ? Number((okCount / classifiedTotal * 100).toFixed(1)) : 0, defectRate: classifiedTotal ? Number((ngCount / classifiedTotal * 100).toFixed(1)) : 0, last20Ng: defects.slice(0, 20).filter(v => v.status === "NG").length, byProduct, bySystem, recent: defects.slice(0, 12).map(d => ({ time: d.timestamp, product: d.product || "未分類", status: d.status, system_id: d.system_id, event_id: d.event_id || d.id, track_id: d.track_id || "", source: d.source || "", robot_result: d.robot_result || "", lane: d.lane || "" })) };
 }
-function buildLocalAiReply(message, summary) {
+function buildLocalAiReply(message, summary, scope = {}) {
   const text = String(message || "").toLowerCase();
-  const lines = [`目前資料總數 ${summary.total} 筆，OK ${summary.okCount} 筆，NG ${summary.ngCount} 筆。`, `良率 ${summary.yieldRate}%；NG 率 ${summary.defectRate}%。`];
+  const machine = scope.system_id || "全部可查看機台";
+  const product = scope.products || "全部產品";
+  const range = `${scope.date_from || "不限"} ～ ${scope.date_to || "不限"}`;
+  const lines = [`【分析範圍】機台：${machine}｜產品：${product}｜時間：${range}｜資料：${summary.total} 筆`, `目前 OK ${summary.okCount} 筆，NG ${summary.ngCount} 筆，待判 ${summary.pendingCount || 0} 筆，未配對瑕疵 ${summary.unmatchedCount || 0} 筆。`, `良率 ${summary.yieldRate}%；NG 率 ${summary.defectRate}%。`];
   if (text.includes("mqtt") || text.includes("payload") || text.includes("格式")) lines.push(`Topic：${MQTT_REPORT_TOPIC}`, '{"system_id":"S001","id":"case_001","status":"OK","product":"螺帽"}', '{"system_id":"S001","id":"case_002","status":"NG","product":"螺帽"}');
   if (!summary.total) lines.push("目前沒有符合條件的檢測紀錄，請確認 MQTT payload、system_id 與 MongoDB 寫入狀態。");
   if (text.includes("ng") || text.includes("異常") || text.includes("瑕疵")) lines.push(`最近 20 筆有 ${summary.last20Ng} 筆 NG；建議依序檢查光源、鏡頭、治具位置與產品分類。`);
@@ -1384,7 +1453,7 @@ app.post("/api/ai/chat", auth, aiLimiter, asyncHandler(async (req, res) => {
   const summary = summarizeDefectsForAi(defects);
   const requestedConversationId = cleanText(req.body.conversation_id, 100);
   if (!process.env.GEMINI_API_KEY) {
-    const reply = buildLocalAiReply(message, summary);
+    const reply = buildLocalAiReply(message, summary, req.body || {});
     const conversation_id = await saveAiConversationTurn(req.user, requestedConversationId, message, reply);
     return res.json({ mode: "local-summary", provider: "local", reply, summary, conversation_id });
   }
@@ -1403,8 +1472,8 @@ app.post("/api/ai/chat", auth, aiLimiter, asyncHandler(async (req, res) => {
   }
   try {
     const response = await axios.post(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      systemInstruction: { parts: [{ text: "你是瑕疵辨識與分流系統的 AI 品質資料助理。請使用繁體中文，先給結論，再提供最多 5 個可操作步驟。只能根據後端提供的統計與事件摘要回答；資料不足時必須明確說明。不得因為存在歷史檢測資料、MQTT Broker 已連線或 system_id 出現，就推論實體機械手臂、相機或輸送帶目前在線或正在運轉。除非資料中明確提供設備連線狀態，否則只能描述品質資料，不得宣稱設備連線正常。" }] },
-      contents: [{ role: "user", parts: [{ text: `使用者問題：${message}\n\n目前統計資料：\n${JSON.stringify(summary).slice(0, 12000)}` }] }],
+      systemInstruction: { parts: [{ text: "你是瑕疵辨識與分流系統的 AI 品質資料助理。請使用繁體中文。每次回答第一段先列出「分析範圍（機台、產品、時間、資料筆數）」；再給結論與最多 5 個可操作步驟。只能根據後端提供的統計與事件摘要回答；資料不足時必須明確說明。不得因為存在歷史檢測資料、MQTT Broker 已連線或 system_id 出現，就推論實體機械手臂、相機或輸送帶目前在線或正在運轉。除非資料中明確提供設備連線狀態，否則只能描述品質資料，不得宣稱設備連線正常。" }] },
+      contents: [{ role: "user", parts: [{ text: `使用者問題：${message}\n\n查詢範圍：\n${JSON.stringify({ tenant_id: req.user.tenant_id || "", system_id: req.body.system_id || "全部可查看機台", products: req.body.products || "全部產品", date_from: req.body.date_from || "不限", date_to: req.body.date_to || "不限", count: summary.total }).slice(0, 3000)}\n\n目前統計資料：\n${JSON.stringify(summary).slice(0, 12000)}` }] }],
       generationConfig: { temperature: 0.2, maxOutputTokens: 500 }
     }, { headers: { "x-goog-api-key": process.env.GEMINI_API_KEY, "Content-Type": "application/json" }, timeout: 30000, maxContentLength: 1048576, maxBodyLength: 1048576, proxy: false });
     const reply = extractGeminiText(response.data);
@@ -1412,7 +1481,7 @@ app.post("/api/ai/chat", auth, aiLimiter, asyncHandler(async (req, res) => {
     return res.json({ mode: "gemini", provider: "gemini", tier: "free", model, reply, summary, conversation_id });
   } catch (error) {
     const reason = error?.response?.status === 429 ? "Gemini 免費額度或速率限制已達上限" : "Gemini 暫時無法連線";
-    const reply = `${reason}，已自動切換成本機統計模式。\n\n${buildLocalAiReply(message, summary)}`;
+    const reply = `${reason}，已自動切換成本機統計模式。\n\n${buildLocalAiReply(message, summary, req.body || {})}`;
     const conversation_id = await saveAiConversationTurn(req.user, requestedConversationId, message, reply);
     return res.json({ mode: "local-summary-fallback", provider: "local", model, warning: `${reason}，已自動切換成本機統計模式。`, reply, summary, conversation_id });
   }
@@ -1434,7 +1503,7 @@ app.get("/api/estop/:command_id", auth, requireRole("super_admin", "tenant_admin
   const query = { command_id, action: "machine.estop" };
   if (req.user.role === "tenant_admin") query.tenant_id = req.user.tenant_id;
   let log = await AuditLog.findOne(query).sort({ createdAt: -1 }).lean();
-  if (!log) return res.status(404).json({ message: "找不到急停指令" });
+  if (!log) return res.status(404).json({ message: "找不到遠端停止指令" });
 
   const state = commandStatus(log, ESTOP_ACK_TIMEOUT_SECONDS);
   if (state.timedOut) {
@@ -1463,7 +1532,7 @@ app.post("/api/estop", auth, requireRole("super_admin", "tenant_admin"), asyncHa
   if (!system_id) return res.status(400).json({ message: "請先選擇要停止的機台" });
   const access = await systemAccess(req.user, system_id, tenant_id || undefined);
   if (!access.allowed) return res.status(access.status).json({ message: access.message });
-  if (!mqttClient || !isMqttConnected) return res.status(503).json({ message: "MQTT 尚未連線，無法發送急停指令" });
+  if (!mqttClient || !isMqttConnected) return res.status(503).json({ message: "MQTT 尚未連線，無法發送遠端停止指令" });
 
   const command_id = crypto.randomUUID();
   const requestedAt = new Date();
@@ -1770,8 +1839,13 @@ const normalized = normalizeDefectPayload(
         user_id: owner?.username || owner?.email || "unknown",
         system_id: normalized.system_id,
         id: item.id,
+        event_id: item.event_id || item.id,
+        track_id: item.track_id || "",
         status: item.status,
         product: item.product,
+        source: item.source || "vision",
+        robot_result: item.robot_result || "",
+        lane: item.lane || "",
         image_url: item.image_url || "",
         timestamp: item.timestamp || receivedAt
       }));
