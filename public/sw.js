@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "defect-cache-v6";
+const CACHE_NAME = "defect-cache-v7-realtime";
 const STATIC_ASSETS = [
   "./offline.html",
   "./style.css",

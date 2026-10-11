@@ -1,6 +1,9 @@
 
 const API_BASE = window.location.origin;
 let dashboardTimer = null;
+let dashboardRealtimeSource = null;
+let dashboardRealtimeRefreshTimer = null;
+let dashboardRealtimeConnected = false;
 let selectedProducts = [];
 let latestDashboardList = [];
 let latestTrendProducts = [];
@@ -27,6 +30,79 @@ function formatLaneEventTime(value){
     year:"numeric", month:"2-digit", day:"2-digit",
     hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:false
   });
+}
+
+function upsertRealtimeDefect(item){
+  if (!item || typeof item !== "object") return;
+  const incomingId = String(item.event_id || item.id || "").trim();
+  if (!incomingId) return;
+
+  const next = Array.isArray(latestDashboardList) ? [...latestDashboardList] : [];
+  const index = next.findIndex(row => String(row?.event_id || row?.id || "").trim() === incomingId);
+  if (index >= 0) next[index] = { ...next[index], ...item };
+  else next.unshift(item);
+
+  next.sort((a,b) => new Date(b?.timestamp || b?.received_at || 0).getTime() - new Date(a?.timestamp || a?.received_at || 0).getTime());
+  latestDashboardList = next.slice(0, 1000);
+  renderLaneStatus(latestDashboardList);
+}
+
+function scheduleRealtimeDashboardRefresh(){
+  if (dashboardRealtimeRefreshTimer) clearTimeout(dashboardRealtimeRefreshTimer);
+  dashboardRealtimeRefreshTimer = setTimeout(async () => {
+    dashboardRealtimeRefreshTimer = null;
+    await Promise.allSettled([
+      loadDashboardStats(),
+      loadDefects(),
+      loadSummary(),
+      loadLatestMqtt()
+    ]);
+  }, 120);
+}
+
+function stopDashboardRealtime(){
+  if (dashboardRealtimeSource) {
+    dashboardRealtimeSource.close();
+    dashboardRealtimeSource = null;
+  }
+  dashboardRealtimeConnected = false;
+}
+
+function startDashboardRealtime(){
+  stopDashboardRealtime();
+  if (!("EventSource" in window)) {
+    console.warn("此瀏覽器不支援 EventSource，將使用備援輪詢。");
+    return;
+  }
+
+  const params = new URLSearchParams();
+  const systemId = getCurrentSystemId();
+  if (systemId) params.set("system_id", systemId);
+  params.set("_", String(Date.now()));
+
+  const source = new EventSource(`/api/realtime?${params.toString()}`);
+  dashboardRealtimeSource = source;
+
+  source.addEventListener("ready", () => {
+    dashboardRealtimeConnected = true;
+  });
+
+  source.addEventListener("defect", event => {
+    try {
+      const item = JSON.parse(event.data || "{}");
+      if (getCurrentSystemId() && item.system_id && item.system_id !== getCurrentSystemId()) return;
+      dashboardRealtimeConnected = true;
+      upsertRealtimeDefect(item);
+      scheduleRealtimeDashboardRefresh();
+    } catch (error) {
+      console.error("即時事件解析失敗", error);
+    }
+  });
+
+  source.onerror = () => {
+    dashboardRealtimeConnected = false;
+    // EventSource 會自動重連；下方 3 秒輪詢仍保留作為備援。
+  };
 }
 
 function renderLaneStatus(list = latestDashboardList){
@@ -1823,6 +1899,7 @@ renderYieldAlertSettings();
 
   await loadSiteConfig();
   await window.refreshDashboard();
+  startDashboardRealtime();
   await startCamera();
   await loadMachineRanking(true);
 });
@@ -1844,9 +1921,11 @@ renderYieldAlertSettings();
 
   await loadSiteConfig();
   await window.refreshDashboard();
+  startDashboardRealtime();
   await startCamera();
   await loadMachineRanking(true);
   window.addEventListener("resize", () => renderYieldTrend());
+  window.addEventListener("beforeunload", stopDashboardRealtime, { once: true });
 });
 
 
