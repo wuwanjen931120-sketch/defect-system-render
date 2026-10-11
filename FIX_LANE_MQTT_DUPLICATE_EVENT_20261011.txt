@@ -1,0 +1,13 @@
+修正內容：MQTT 四道分流 lane 補送不更新問題
+日期：2026-10-11
+
+原因：
+原後端對相同 tenant_id + system_id + id 使用 MongoDB upsert + $setOnInsert。
+如果第一次已經建立 EVT-TEST-0001，之後再用相同 event_id/id 補送 lane=4，MongoDB 會判定為既有事件，因此 lane 不會更新。
+
+修正：
+- event_id / id 等身份欄位第一次建立後保留。
+- status、product、source、robot_result、lane、image_url、timestamp 改為允許相同事件後續更新。
+- 因此同一物件可先回報辨識，再補上 lane / 手臂執行結果。
+
+測試：npm test -> 52/52 passed。

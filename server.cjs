@@ -1849,10 +1849,31 @@ const normalized = normalizeDefectPayload(
         image_url: item.image_url || "",
         timestamp: item.timestamp || receivedAt
       }));
+      // 同一 event/id 可能在現場流程中由「辨識」繼續補上「分流 lane／手臂結果」。
+      // 不能只用 $setOnInsert，否則 MQTT 以相同 event_id 補送 lane 時，既有事件永遠不會更新。
+      // 身分欄位只在第一次建立；可變動的辨識／分流欄位允許後續回報覆寫。
       const operations = docs.map(doc => ({
         updateOne: {
           filter: { tenant_id: doc.tenant_id, system_id: doc.system_id, id: doc.id },
-          update: { $setOnInsert: doc },
+          update: {
+            $setOnInsert: {
+              tenant_id: doc.tenant_id,
+              user_id: doc.user_id,
+              system_id: doc.system_id,
+              id: doc.id,
+              event_id: doc.event_id,
+              track_id: doc.track_id
+            },
+            $set: {
+              status: doc.status,
+              product: doc.product,
+              source: doc.source,
+              robot_result: doc.robot_result,
+              lane: doc.lane,
+              image_url: doc.image_url,
+              timestamp: doc.timestamp
+            }
+          },
           upsert: true
         }
       }));
