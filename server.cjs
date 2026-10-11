@@ -892,6 +892,7 @@ function pushRealtimeEvent(eventName, payload, tenantId, systemId) {
     if (!canRealtimeClientAccess(client, tenantId, systemId)) continue;
     try {
       client.res.write(body);
+      client.res.flush?.();
     } catch {
       realtimeClients.delete(client);
     }
@@ -1316,10 +1317,12 @@ app.get("/api/realtime", auth, (req, res) => {
   realtimeClients.add(client);
 
   res.write(`event: ready\ndata: ${JSON.stringify({ connected: true, system_id: requestedSystemId || null, at: new Date().toISOString() })}\n\n`);
+  res.flush?.();
 
   const heartbeat = setInterval(() => {
     try {
       res.write(`: keepalive ${Date.now()}\n\n`);
+      res.flush?.();
     } catch {
       clearInterval(heartbeat);
       realtimeClients.delete(client);
@@ -1332,6 +1335,33 @@ app.get("/api/realtime", auth, (req, res) => {
     realtimeClients.delete(client);
   });
 });
+
+// Lightweight dashboard lane snapshot. Used as a 1-second safety-net poll in addition
+// to SSE so the four lane cards keep updating even if a proxy/browser delays an SSE frame.
+app.get("/api/lane-status", auth, asyncHandler(async (req, res) => {
+  const query = await buildScopedDefectQuery(req.user, req.query);
+  query.status = { $in: ["OK", "NG"] };
+  query.lane = { $in: ["1", "2", "3", "4"] };
+
+  const rows = await Defect.find(query)
+    .sort({ timestamp: -1 })
+    .limit(100)
+    .select("id event_id track_id tenant_id system_id product status source robot_result lane image_url timestamp")
+    .lean();
+
+  const latestByLane = new Map();
+  for (const row of rows) {
+    const lane = String(row.lane || "").trim();
+    if (!latestByLane.has(lane)) latestByLane.set(lane, row);
+    if (latestByLane.size >= 4) break;
+  }
+
+  res.setHeader("Cache-Control", "no-store, max-age=0");
+  return res.json({
+    updated_at: new Date().toISOString(),
+    lanes: [1, 2, 3, 4].map(lane => latestByLane.get(String(lane)) || null)
+  });
+}));
 
 app.get("/api/mqtt/latest", auth, (req, res) => {
   if (!latestMqttMessage) return res.json({ data: null });
