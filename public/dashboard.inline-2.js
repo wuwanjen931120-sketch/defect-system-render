@@ -4,6 +4,8 @@ let dashboardTimer = null;
 let dashboardRealtimeSource = null;
 let dashboardRealtimeRefreshTimer = null;
 let dashboardRealtimeConnected = false;
+let dashboardLaneTimer = null;
+let dashboardHealthTimer = null;
 let selectedProducts = [];
 let latestDashboardList = [];
 let latestTrendProducts = [];
@@ -65,6 +67,14 @@ function stopDashboardRealtime(){
     dashboardRealtimeSource.close();
     dashboardRealtimeSource = null;
   }
+  if (dashboardLaneTimer) {
+    clearInterval(dashboardLaneTimer);
+    dashboardLaneTimer = null;
+  }
+  if (dashboardHealthTimer) {
+    clearInterval(dashboardHealthTimer);
+    dashboardHealthTimer = null;
+  }
   dashboardRealtimeConnected = false;
 }
 
@@ -85,6 +95,8 @@ function startDashboardRealtime(){
 
   source.addEventListener("ready", () => {
     dashboardRealtimeConnected = true;
+    loadLaneStatus();
+    loadHealth();
   });
 
   source.addEventListener("defect", event => {
@@ -160,6 +172,42 @@ function renderLaneStatus(list = latestDashboardList){
     badge.textContent = activeCount ? `已取得 ${activeCount} 道分流資料` : "等待分流資料";
     badge.classList.toggle("active", activeCount > 0);
   }
+}
+
+async function loadLaneStatus(){
+  try {
+    const params = new URLSearchParams();
+    const tenantId = getCurrentTenantId();
+    const systemId = getCurrentSystemId();
+    if (tenantId) params.set("tenant_id", tenantId);
+    if (systemId) params.set("system_id", systemId);
+    params.set("_", String(Date.now()));
+
+    const data = await apiFetch(`/api/lane-status?${params.toString()}`, { cache: "no-store" });
+    const lanes = Array.isArray(data?.lanes) ? data.lanes.filter(Boolean) : [];
+    if (!lanes.length) {
+      renderLaneStatus([]);
+      return;
+    }
+
+    // Merge with the normal dashboard list so SSE and polling always paint the same cards.
+    for (const item of lanes) upsertRealtimeDefect(item);
+    renderLaneStatus(lanes);
+  } catch (error) {
+    console.warn("四道分流即時狀態讀取失敗，等待下一次重試", error);
+  }
+}
+
+function startLaneRealtimeFallback(){
+  if (dashboardLaneTimer) clearInterval(dashboardLaneTimer);
+  loadLaneStatus();
+  dashboardLaneTimer = setInterval(loadLaneStatus, 1000);
+}
+
+function startHealthHeartbeat(){
+  if (dashboardHealthTimer) clearInterval(dashboardHealthTimer);
+  loadHealth();
+  dashboardHealthTimer = setInterval(loadHealth, 5000);
 }
 
 const YIELD_ALERT_DEFAULTS = {
@@ -1130,17 +1178,25 @@ function updateMqttStatus(ok, textMsg = "") {
 }
 
 async function loadHealth() {
-  const data = await apiFetch("/api/health");
-  if (!data) return;
+  try {
+    const data = await apiFetch(`/api/health?_=${Date.now()}`, { cache: "no-store" });
+    if (!data) {
+      updateMqttStatus(false, "MQTT 狀態無法取得");
+      return;
+    }
 
-  const mqttConnected =
-    data?.mqtt_connected === true ||
-    data?.mqttConnected === true;
+    const mqttConnected =
+      data?.mqtt_connected === true ||
+      data?.mqttConnected === true;
 
-  updateMqttStatus(
-    mqttConnected,
-    mqttConnected ? "後端 MQTT 已連線" : "後端 MQTT 未連線"
-  );
+    updateMqttStatus(
+      mqttConnected,
+      mqttConnected ? "後端 MQTT 已連線" : "後端 MQTT 未連線"
+    );
+  } catch (error) {
+    console.warn("健康狀態讀取失敗", error);
+    updateMqttStatus(false, "MQTT 狀態讀取失敗");
+  }
 }
 
 function buildDefectsUrl(){
@@ -1794,6 +1850,10 @@ window.demoEstop = async function() {
 document.addEventListener("DOMContentLoaded", async () => {
   forceCloseErrorOverlay();
 
+  // Do not leave the header stuck on "狀態讀取中" while tenant/system lists are loading.
+  updateMqttStatus(false, "正在檢查 MQTT...");
+  startHealthHeartbeat();
+
   const titleSpan = document.getElementById("pageSubTitle");
   const userChip = document.getElementById("userChip");
   const systemSelect = document.getElementById("systemSelect");
@@ -1900,6 +1960,8 @@ renderYieldAlertSettings();
   await loadSiteConfig();
   await window.refreshDashboard();
   startDashboardRealtime();
+  startLaneRealtimeFallback();
+  startHealthHeartbeat();
   await startCamera();
   await loadMachineRanking(true);
 });
@@ -1922,6 +1984,8 @@ renderYieldAlertSettings();
   await loadSiteConfig();
   await window.refreshDashboard();
   startDashboardRealtime();
+  startLaneRealtimeFallback();
+  startHealthHeartbeat();
   await startCamera();
   await loadMachineRanking(true);
   window.addEventListener("resize", () => renderYieldTrend());
