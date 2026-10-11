@@ -1,0 +1,1 @@
+修正：MQTT payload 現在可只送 event_id，不必再重複送 id/case_id。lane 僅允許 1~4。

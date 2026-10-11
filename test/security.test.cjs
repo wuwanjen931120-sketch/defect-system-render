@@ -31,6 +31,30 @@ test("MQTT payload rejects invalid status and image URL", () => {
   assert.throws(() => security.normalizeDefectPayload({ system_id: "S1", id: "A1", status: "NG", image_url: "javascript:alert(1)" }));
 });
 
+test("MQTT payload accepts event_id as the event key and preserves lane", () => {
+  const result = security.normalizeDefectPayload({
+    system_id: "S1780383304915",
+    event_id: "EVT-TEST-0002",
+    product: "橡皮擦",
+    status: "NG",
+    lane: 4,
+    source: "MQTT_TEST"
+  });
+  assert.equal(result.items[0].id, "EVT-TEST-0002");
+  assert.equal(result.items[0].event_id, "EVT-TEST-0002");
+  assert.equal(result.items[0].lane, "4");
+  assert.equal(result.items[0].product, "橡皮擦");
+});
+
+test("MQTT payload rejects invalid lane", () => {
+  assert.throws(() => security.normalizeDefectPayload({
+    system_id: "S1",
+    event_id: "EVT-BAD-LANE",
+    status: "NG",
+    lane: 5
+  }));
+});
+
 test("OTP hash is normalized", () => {
   assert.equal(
     security.hashOtp("A@B.COM", "123456", "secret"),
