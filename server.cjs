@@ -174,6 +174,7 @@ const defectSchema = new mongoose.Schema({
   status: { type: String, enum: ["OK", "NG", "PENDING", "UNMATCHED_DEFECT"], required: true, uppercase: true },
   product: { type: String, default: "未分類", trim: true },
   source: { type: String, default: "", trim: true },
+  data_mode: { type: String, enum: ["TEST", "PRODUCTION", "LEGACY"], default: "LEGACY", index: true },
   robot_result: { type: String, default: "", trim: true },
   lane: { type: String, default: "", trim: true },
   image_url: { type: String, default: "", trim: true },
@@ -282,6 +283,26 @@ async function auth(req, res, next) {
 }
 function requireRole(...roles) { return (req, res, next) => roles.includes(req.user?.role) ? next() : res.status(403).json({ message: "權限不足" }); }
 
+// Server-owned mode. Missing legacy events are never silently classified as production.
+const DATA_MODES = new Set(["TEST", "PRODUCTION"]);
+const isDataAdmin = user => ["super_admin", "tenant_admin"].includes(user?.role);
+async function configuredMachineMode(tenant_id, system_id) {
+  const record = await mongoose.connection.collection("machine_data_modes").findOne({ tenant_id, system_id });
+  return DATA_MODES.has(record?.mode) ? record.mode : "TEST";
+}
+function dataModeFilter(user, params = {}) {
+  const requested = cleanText(params.data_mode, 20).toUpperCase();
+  if (!isDataAdmin(user)) {
+    if (requested && requested !== "PRODUCTION") throw Object.assign(new Error("只有管理員可以查看測試或未分類資料"), { status: 403 });
+    return { data_mode: "PRODUCTION" };
+  }
+  if (!requested || requested === "PRODUCTION") return { data_mode: "PRODUCTION" };
+  if (requested === "TEST") return { data_mode: "TEST" };
+  if (requested === "LEGACY") return { $or: [{ data_mode: "LEGACY" }, { data_mode: { $exists: false } }] };
+  if (requested === "ALL") return {};
+  throw Object.assign(new Error("data_mode 只能是 PRODUCTION、TEST、LEGACY 或 ALL"), { status: 400 });
+}
+
 function deviceAuth(req, res, next) {
   if (!DEVICE_API_KEY) {
     return res.status(503).json({ message: "DEVICE_API_KEY 尚未設定，裝置整合 API 已停用" });
@@ -308,7 +329,7 @@ async function systemAccess(user, systemId, requestedTenantId) {
 }
 
 async function buildScopedDefectQuery(user, params = {}) {
-  const query = {};
+  const query = { ...dataModeFilter(user, params) };
   const products = cleanText(params.products, 1000);
   if (products) {
     const list = products.split(",").map(v => cleanText(v, 100)).filter(Boolean).slice(0, 30);
@@ -720,7 +741,7 @@ app.get("/api/yield-alert-events", auth, asyncHandler(async(req,res) => {
 async function evaluateYieldAlerts(tenant_id,system_id) {
   const settings = await mongoose.connection.collection("yield_alert_settings").findOne({tenant_id,system_id});
   const cfg = settings || YIELD_SETTINGS_DEFAULTS;
-  const docs = await Defect.find({tenant_id,system_id,status:{$in:["OK","NG"]}}).sort({timestamp:-1,_id:-1}).select({status:1}).lean();
+  const docs = await Defect.find({tenant_id,system_id,data_mode:"PRODUCTION",status:{$in:["OK","NG"]}}).sort({timestamp:-1,_id:-1}).select({status:1}).lean();
   const total = docs.length;
   if (!total) return;
   const ng = docs.filter(x=>x.status==="NG").length;
@@ -932,6 +953,25 @@ const ProductCatalog = mongoose.model("ProductCatalog", productCatalogSchema);
 function productTenant(req) {
   return req.user.role === "super_admin" ? cleanText(req.query.tenant_id || req.body?.tenant_id, 100) : req.user.tenant_id;
 }
+// Only authenticated administrators may change or inspect an individual machine's mode.
+app.get("/api/admin/data-mode", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async(req,res) => {
+  const access = await systemAccess(req.user, req.query.system_id, cleanText(req.query.tenant_id,100));
+  if (!access.allowed) return res.status(access.status).json({message:access.message});
+  const {tenant_id, system_id} = access.system;
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({tenant_id, system_id, mode: await configuredMachineMode(tenant_id, system_id)});
+}));
+app.put("/api/admin/data-mode", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async(req,res) => {
+  const access = await systemAccess(req.user, req.body.system_id, cleanText(req.body.tenant_id,100));
+  if (!access.allowed) return res.status(access.status).json({message:access.message});
+  const mode = cleanText(req.body.mode,20).toUpperCase();
+  if (!DATA_MODES.has(mode)) return res.status(400).json({message:"模式只能為 TEST 或 PRODUCTION"});
+  const {tenant_id, system_id} = access.system;
+  await mongoose.connection.collection("machine_data_modes").updateOne({tenant_id,system_id},{$set:{mode,updated_at:new Date(),updated_by:req.user.id}},{upsert:true});
+  await writeAudit(req,"machine.data_mode.updated",{tenant_id,system_id,details:{mode}});
+  res.json({success:true,tenant_id,system_id,mode});
+}));
+
 app.get("/api/product-catalog", auth, asyncHandler(async (req,res) => {
   const tenant = productTenant(req);
   if (!tenant) return res.status(400).json({ message: "缺少客戶 ID" });
@@ -1257,6 +1297,17 @@ app.get("/api/images/:id", auth, asyncHandler(async (req, res) => {
     }
   }
 
+  // A direct image URL must not bypass test-data permissions.
+  if (!isDataAdmin(req.user)) {
+    const visible = await Defect.exists({
+      tenant_id: meta.tenant_id,
+      system_id: meta.system_id,
+      image_url: `/api/images/${imageId}`,
+      data_mode: "PRODUCTION"
+    });
+    if (!visible) return res.status(404).json({ message: "找不到正式資料圖片" });
+  }
+
   res.setHeader("Content-Type", file.contentType || "image/jpeg");
   res.setHeader("Cache-Control", "private, max-age=300");
   const stream = bucket.openDownloadStream(_id);
@@ -1376,7 +1427,8 @@ app.get("/api/machine-status", auth, asyncHandler(async (req, res) => {
     systems.map(async system => {
       const defectQuery = {
         tenant_id: system.tenant_id,
-        system_id: system.system_id
+        system_id: system.system_id,
+        data_mode: "PRODUCTION"
       };
 
       const [summary] = await Defect.aggregate([
@@ -1585,6 +1637,7 @@ app.get("/api/lane-status", auth, asyncHandler(async (req, res) => {
 
 app.get("/api/mqtt/latest", auth, (req, res) => {
   if (!latestMqttMessage) return res.json({ data: null });
+  if (latestMqttMessage.data_mode !== "PRODUCTION") return res.json({ data: null });
   if (req.user.role === "super_admin") return res.json({ data: latestMqttMessage });
   if (latestMqttMessage.tenant_id !== req.user.tenant_id) return res.json({ data: null });
   if (req.user.role === "tenant_admin") return res.json({ data: latestMqttMessage });
@@ -1606,9 +1659,9 @@ app.get("/api/defects/export.csv", auth, asyncHandler(async (req, res) => {
   const rows = await Defect.find(query)
     .sort({ timestamp: -1 })
     .limit(limit)
-    .select("tenant_id system_id id event_id track_id status product source robot_result lane image_url timestamp")
+    .select("tenant_id system_id id event_id track_id status product source data_mode robot_result lane image_url timestamp")
     .lean();
-  const header = ["tenant_id", "system_id", "event_id", "track_id", "status", "product", "source", "robot_result", "lane", "image_url", "timestamp"];
+  const header = ["tenant_id", "system_id", "event_id", "track_id", "status", "product", "source", "data_mode", "robot_result", "lane", "image_url", "timestamp"];
   const csv = [
     header.map(csvCell).join(","),
     ...rows.map(row => [
@@ -1619,6 +1672,7 @@ app.get("/api/defects/export.csv", auth, asyncHandler(async (req, res) => {
       row.status,
       row.product,
       row.source || "",
+      row.data_mode || "LEGACY",
       row.robot_result || "",
       row.lane || "",
       row.image_url || "",
@@ -1888,7 +1942,7 @@ async function evaluateNgAlert(tenant_id, system_id) {
   const sys = await mongoose.connection.collection("systems").findOne({tenant_id,system_id});
   const threshold = machineThresholds(sys).ngThreshold;
   // 按接收的檢測事件計算「連續 NG」，OK 會中斷連續次數；去重事件由上游 UPSERT 保證。
-  const recent = await Defect.find({tenant_id,system_id,status:{$in:["OK","NG"]}})
+  const recent = await Defect.find({tenant_id,system_id,data_mode:"PRODUCTION",status:{$in:["OK","NG"]}})
     .sort({timestamp:-1,_id:-1}).limit(threshold).select({status:1}).lean();
   const count = recent.findIndex(e=>e.status!=="NG") === -1 ? recent.length : recent.findIndex(e=>e.status!=="NG");
   if (count < threshold) return;
@@ -2120,6 +2174,7 @@ function createMqttClient() {
 if (!systemDoc) throw new Error("找不到機台");
 
 const receivedAt = new Date();
+const ingestDataMode = await configuredMachineMode(systemDoc.tenant_id, systemId);
 
 await mongoose.connection.collection("systems").updateOne(
   {
@@ -2159,6 +2214,7 @@ const normalized = normalizeDefectPayload(
         status: item.status,
         product: classMap.get(String(item.product || "").toLowerCase()) || item.product,
         source: item.source || "",
+        data_mode: ingestDataMode,
         robot_result: item.robot_result || "",
         lane: item.lane || "",
         image_url: item.image_url || "",
@@ -2177,7 +2233,8 @@ const normalized = normalizeDefectPayload(
               system_id: doc.system_id,
               id: doc.id,
               event_id: doc.event_id,
-              track_id: doc.track_id
+              track_id: doc.track_id,
+              data_mode: doc.data_mode
             },
             $set: {
               status: doc.status,
@@ -2203,12 +2260,14 @@ const normalized = normalizeDefectPayload(
           product: last.product,
           system_id: last.system_id,
           source: last.source || "",
+          data_mode: ingestDataMode,
           robot_result: last.robot_result || "",
           lane: last.lane || "",
           image_url: last.image_url,
           timestamp: last.timestamp || receivedAt
         },
         tenant_id: last.tenant_id,
+        data_mode: ingestDataMode,
         timestamp: receivedAt,
         receivedAt: receivedAt.toISOString(),
         inserted_count: Number(result.upsertedCount || 0),
@@ -2218,6 +2277,7 @@ const normalized = normalizeDefectPayload(
       // 資料真正寫入 MongoDB 後再推播，避免前端先看到尚未落庫的事件。
       // 一個 MQTT payload 若含多筆事件，就逐筆通知；首頁會立即更新對應 lane。
       for (const doc of docs) {
+        if (ingestDataMode !== "PRODUCTION") continue;
         pushRealtimeEvent("defect", {
           id: doc.id,
           event_id: doc.event_id || doc.id,
@@ -2226,6 +2286,7 @@ const normalized = normalizeDefectPayload(
           product: doc.product,
           status: doc.status,
           source: doc.source || "",
+          data_mode: doc.data_mode,
           robot_result: doc.robot_result || "",
           lane: doc.lane || "",
           image_url: doc.image_url || "",
@@ -2233,7 +2294,7 @@ const normalized = normalizeDefectPayload(
           received_at: receivedAt.toISOString()
         }, doc.tenant_id, doc.system_id);
       }
-      if (Number(result.upsertedCount || 0) > 0 && docs.some(value => value.status === "NG")) {
+      if (ingestDataMode === "PRODUCTION" && Number(result.upsertedCount || 0) > 0 && docs.some(value => value.status === "NG")) {
         await evaluateNgAlert(systemDoc.tenant_id, normalized.system_id);
         await evaluateYieldAlerts(systemDoc.tenant_id, normalized.system_id);
       }
