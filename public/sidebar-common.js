@@ -5,14 +5,17 @@
 // =====================================================
 (function () {
   const NAV_ITEMS = [
-  { href: "dashboard.html", icon: "🏠", label: "首頁", pill: "Dashboard" },
-  { href: "logs.html", icon: "📋", label: "事件紀錄", pill: "Logs" },
-  { href: "settings.html", icon: "⚙️", label: "系統設定", pill: "Settings" },
-  { href: "ai.html", icon: "🤖", label: "AI 助理", pill: "AI" },
-  { href: "health.html", icon: "🩺", label: "系統健康", pill: "Health" },
-  { href: "user-manage.html", icon: "👥", label: "角色機台管理", pill: "Users", adminOnly: true },
-  { href: "admin.html", icon: "🧑‍💼", label: "管理後台", pill: "Admin", adminOnly: true }
-];
+    { href: "dashboard.html", icon: "🏠", label: "首頁", pill: "Dashboard" },
+    { href: "machine-status.html", icon: "🖥️", label: "機台狀態", pill: "Machines" },
+    { href: "alerts.html", icon: "🚨", label: "告警中心", pill: "Alerts" },
+    { href: "logs.html", icon: "🧾", label: "事件紀錄", pill: "Logs" },
+    { href: "image-trace.html", icon: "🖼️", label: "圖片追溯", pill: "Images" },
+    { href: "report.html", icon: "📊", label: "報表中心", pill: "Reports" },
+    { href: "ai.html", icon: "🤖", label: "AI 助理", pill: "AI" },
+    { href: "health.html", icon: "🩺", label: "系統健康", pill: "Health" },
+    { href: "user-manage.html", icon: "👥", label: "角色機台", pill: "Users", adminOnly: true },
+    { href: "settings.html", icon: "⚙️", label: "系統設定", pill: "Settings" }
+  ];
 
   function getCurrentPage() {
     const name = location.pathname.split("/").pop() || "dashboard.html";

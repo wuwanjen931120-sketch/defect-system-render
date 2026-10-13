@@ -1670,44 +1670,65 @@ async function getCurrentSystemInfo() {
   return (Array.isArray(systems) ? systems : []).find(x => x.system_id === systemId) || null;
 }
 
+// Render 不能直接讀取插在現場 Windows 電腦的 USB Webcam。
+// 從已登入的同源 API 讀取 Python 上傳的 YOLOv8 JPEG 辨識畫面。
+let visionFrameTimer = null;
+let visionFrameBusy = false;
+let visionFrameObjectUrl = null;
+let visionFrameGeneration = 0;
 async function startCamera() {
+  if (visionFrameTimer) clearInterval(visionFrameTimer);
+  visionFrameTimer = null;
+  visionFrameGeneration += 1;
+  const generation = visionFrameGeneration;
   const img = document.getElementById("camera");
   const hint = document.getElementById("liveHint");
-
   if (!img) return;
-
-  try {
-    const systemInfo = await getCurrentSystemInfo();
-
-    if (!systemInfo) {
-      img.removeAttribute("src");
-      if (hint) hint.textContent = "找不到機台設定";
-      return;
-    }
-
-    if (!systemInfo.cam_ip) {
-      img.removeAttribute("src");
-      if (hint) hint.textContent = "此機台尚未連接 ESP32-CAM";
-      return;
-    }
-
-    const camUrl = `http://${systemInfo.cam_ip}:81/stream`;
-
-    img.onload = () => {
-      if (hint) hint.textContent = `CAM 即時畫面連線成功（${systemInfo.system_id}）`;
-    };
-
-    img.onerror = () => {
-      img.removeAttribute("src");
-      if (hint) hint.textContent = `CAM 連線失敗：${systemInfo.cam_ip}`;
-    };
-
-    img.src = camUrl;
-  } catch (e) {
-    console.error(e);
-    img.removeAttribute("src");
-    if (hint) hint.textContent = "CAM 啟動失敗";
+  img.removeAttribute("src");
+  if (visionFrameObjectUrl) URL.revokeObjectURL(visionFrameObjectUrl);
+  visionFrameObjectUrl = null;
+  if (hint) hint.textContent = "正在檢查現場 USB Webcam／YOLOv8 影像來源...";
+  const systemId = getCurrentSystemId();
+  if (!systemId) {
+    if (hint) hint.textContent = "請先選擇機台；尚未連接鏡頭";
+    return;
   }
+  const updateFrame = async () => {
+    if (generation !== visionFrameGeneration || visionFrameBusy || document.hidden) return;
+    visionFrameBusy = true;
+    try {
+      const status = await apiFetch(`/api/vision-frame/status?system_id=${encodeURIComponent(systemId)}`);
+      if (generation !== visionFrameGeneration) return;
+      if (!status?.online) {
+        img.removeAttribute("src");
+        if (visionFrameObjectUrl) URL.revokeObjectURL(visionFrameObjectUrl);
+        visionFrameObjectUrl = null;
+        if (hint) hint.textContent = "未連線：尚未收到現場 Python／YOLOv8 即時影像（或影像已逾時）";
+        return;
+      }
+      const response = await fetch(`/api/vision-frame/image?system_id=${encodeURIComponent(systemId)}`, { credentials: "same-origin", cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const blob = await response.blob();
+      if (generation !== visionFrameGeneration) return;
+      if (blob.type !== "image/jpeg") throw new Error("非 JPEG 影像");
+      const nextUrl = URL.createObjectURL(blob);
+      const previousUrl = visionFrameObjectUrl;
+      visionFrameObjectUrl = nextUrl;
+      img.src = nextUrl;
+      if (previousUrl) URL.revokeObjectURL(previousUrl);
+      if (hint) hint.textContent = `現場影像已連線｜鏡頭 ${status.camera_id}｜YOLOv8 辨識畫面`;
+    } catch (error) {
+      img.removeAttribute("src");
+      if (visionFrameObjectUrl) URL.revokeObjectURL(visionFrameObjectUrl);
+      visionFrameObjectUrl = null;
+      if (hint) hint.textContent = "即時影像讀取失敗：請檢查現場 Python 與網路連線";
+      console.warn("YOLOv8 即時影像讀取失敗", error);
+    } finally {
+      visionFrameBusy = false;
+    }
+  };
+  await updateFrame();
+  if (generation === visionFrameGeneration) visionFrameTimer = setInterval(updateFrame, 1200);
 }
 
 async function loadSystemOptionsByTenant(tenantId) {

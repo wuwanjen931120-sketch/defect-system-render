@@ -12,7 +12,7 @@
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
 <script src="auth-bootstrap.js?v=20260723-3"></script><script defer="" src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script>
-<script defer src="core.js?v=20260811-2"></script>
+<script defer src="core.js?v=20261013-navorder-1"></script>
 <link href="settings.page.css" rel="stylesheet"/><link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
 <body>
 <div class="settings-inline-style-1" id="errorBar"></div>
@@ -69,7 +69,7 @@
 <button class="hamburger" id="settings-handler-2">☰</button>
 <div class="pageTitle">
 <b>系統設定</b>
-<span>輸入驗證示範（避免輸入資料導致崩潰）</span>
+<span>管理機台名稱、品質門檻與真實辨識 FPS 警戒</span>
 </div>
 </div>
 <div class="rightTop settings-inline-style-4">
@@ -79,10 +79,11 @@
 </div>
 </div>
 <section class="grid"><div class="card span-12"><h3>機台基本資料</h3><p>畫面主要顯示「機台名稱」，MQTT 與後端仍使用唯一的「機台 ID」。建議命名格式採「功能＋站別」，例如「AI 視覺分流站 A」、「AI 視覺分流站 B」或「瑕疵檢測站 A」。</p><div class="machine-create-row"><input id="newSystemId" placeholder="機台 ID，例如 LINE_A_01"><input id="newSystemName" placeholder="顯示名稱，例如 AI 視覺分流站 A"><button class="btn btnPrimary" id="createSystemBtn" type="button">新增機台</button></div><div id="machineCreateStatus"></div></div><div class="card span-12"><h3>修改機台顯示名稱</h3><p>每個客戶的設備可以不同，不需要使用一長串數字當名稱。系統 ID 保留給程式辨識；使用者看到的是專業名稱。</p><div class="machine-create-row"><select id="renameSystemSelect"><option value="">請選擇機台</option></select><input id="renameSystemName" placeholder="新的機台顯示名稱"><button class="btn btnPrimary" id="renameSystemBtn" type="button">儲存名稱</button><button class="btn" id="applyProfessionalNamesBtn" type="button">套用建議名稱</button></div><div id="machineRenameStatus"></div><p class="muted">「套用建議名稱」只會修改未命名或名稱仍為「預設機台」的設備，依序命名為 AI 視覺分流站 A、B、C…，不會更改 system_id。</p></div>
+<div class="card span-12"><h3>機台監控門檻</h3><p class="muted">請先選擇機台，設定會儲存至 MongoDB；不同機台可以有不同門檻。</p><select id="thresholdSystemSelect"><option value="">請選擇機台</option></select><p id="thresholdStatus" class="muted" aria-live="polite">尚未選擇機台</p></div>
 <div class="card span-6">
 <h3>瑕疵連續次數門檻</h3>
 <div class="settings-inline-style-5">
-            連續判定 NG 達到此值 → 觸發通知（展示）
+            連續 NG 達門檻時，由後端依實際檢測事件建立站內告警
           </div>
 <input id="ngThreshold" placeholder="例如 3"/>
 <div class="settings-inline-style-6">允許範圍：1 ~ 20</div>
@@ -90,18 +91,15 @@
 <div class="card span-6">
 <h3>FPS 下限警戒</h3>
 <div class="settings-inline-style-5">
-            FPS 低於此值 → 顯示警告（展示）
+            現場 YOLOv8 Python 回報實測 FPS 低於此值時建立站內告警
           </div>
 <input id="fpsMin" placeholder="例如 12"/>
 <div class="settings-inline-style-6">允許範圍：5 ~ 60</div>
 </div>
-<div class="card span-12">
-<h3>目前設定（預覽）</h3>
-<div class="settings-inline-style-7" id="previewBox"></div>
-</div>
+<div class="card span-12"><h3>即時 FPS 狀態</h3><p id="fpsLiveState" class="muted">無資料（尚未接收現場 Python FPS 回報）</p><p class="muted">未回報或逾時顯示「無資料」，不視為正常；裝置端須使用 /api/device/vision-fps 回報。</p></div>
 </section></main></div>
 <div class="settings-inline-style-1" id="errorBar"></div>
-<script src="settings.inline-1.js?v=20261007-7"></script>
+<script src="settings.inline-1.js?v=20261013-monitor-1"></script>
 <div class="settings-inline-style-1" id="errorBar"></div>
 <script src="settings.handlers.js"></script>
 </body>

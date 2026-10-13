@@ -1928,3 +1928,38 @@
   line-height:1.65;
   color:var(--muted);
 }
+
+/* 2026-10-13：總覽卡片排版修正 — 統計內容不溢出、NG 數字置中 */
+.statusTopRow .gaugeCard,
+.statusTopRow .defectMiniCard,
+.statusTopRow .summaryMiniCard{
+  height:auto!important;
+  min-height:272px!important;
+}
+.statusTopRow .summaryMiniCard{
+  display:flex;
+  flex-direction:column;
+  overflow-wrap:anywhere;
+  overflow:visible;
+}
+.statusTopRow .summaryMiniCard .summaryText{
+  margin-top:10px!important;
+  padding-bottom:0!important;
+  line-height:1.55!important;
+  font-size:13px!important;
+}
+.statusTopRow .defectMiniCard .defectInfoBody{
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0!important;
+  text-align:center;
+}
+.statusTopRow .defectMiniCard .defectInfoValue,
+.statusTopRow .defectMiniCard .defectInfoLabel{
+  text-align:center;
+}
+@media(max-width:1100px){
+  .statusTopRow .gaugeCard,
+  .statusTopRow .defectMiniCard,
+  .statusTopRow .summaryMiniCard{height:auto!important;min-height:230px!important;}
+}

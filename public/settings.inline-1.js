@@ -34,110 +34,53 @@ function handleHardReset(e){
 
 
 
-    const KEY = "aiot_settings_v2"; // ✅ 版本 bump，避免舊快取格式污染
-
-
-    function validateInt(value, min, max, name) {
-  const text = String(value ?? "").trim();
-
-  if (text === "") {
-    return { ok: false, message: `${name} 不可為空` };
-  }
-
-  const n = Number(text);
-
-  if (!Number.isInteger(n)) {
-    return { ok: false, message: `${name} 必須是整數` };
-  }
-
-  if (n < min || n > max) {
-    return { ok: false, message: `${name} 必須介於 ${min} ~ ${max}` };
-  }
-
-  return { ok: true, value: n };
-}
-
-
-  function saveSettings(e) {
-  if (e) e.preventDefault();
-
-  const ngInput = document.getElementById("ngThreshold");
-  const fpsInput = document.getElementById("fpsMin"); // ✅ 修正
-
-  const ng = validateInt(ngInput.value, 1, 20, "瑕疵門檻");
-  if (!ng.ok) {
-    alert(ng.message);
-    return;
-  }
-
-  const fps = validateInt(fpsInput.value, 5, 60, "FPS 下限");
-  if (!fps.ok) {
-    alert(fps.message);
-    return;
-  }
-
-  const data = {
-    ngThreshold: ng.value,
-    fpsMin: fps.value,
-    updatedAt: Date.now()
-  };
-
-  // ✅ 真正存進 localStorage
-  localStorage.setItem(KEY, JSON.stringify(data));
-
-  renderPreview(data);
-
-toast("設定已儲存", "OK");
-}
-
-  function loadSettings(showMessage = true){
-  try{
-    const raw = localStorage.getItem(KEY);
-
-    if(!raw){
-      document.getElementById("ngThreshold").value = "";
-      document.getElementById("fpsMin").value = "";
-
-      renderPreview({
-        ngThreshold: "-",
-        fpsMin: "-",
-        updatedAt: Date.now()
-      });
-
-      if (showMessage) {
-        alert("目前沒有已儲存的設定");
-      }
-      return;
+    function validateInt(value,min,max,name) {
+      const n=Number(String(value??"").trim());
+      if(!Number.isInteger(n)||n<min||n>max) return {ok:false,message:`${name} 必須是 ${min}～${max} 的整數`};
+      return {ok:true,value:n};
     }
-
-    const data = JSON.parse(raw);
-
-    document.getElementById("ngThreshold").value = data.ngThreshold ?? "";
-    document.getElementById("fpsMin").value = data.fpsMin ?? "";
-
-    renderPreview(data);
-
-    if (showMessage) {
-      alert("✅ 設定已載入");
+    async function saveSettings(e) {
+      e?.preventDefault?.();
+      const system_id=document.getElementById("thresholdSystemSelect")?.value;
+      if(!system_id){alert("請先選擇機台");return;}
+      const ng=validateInt(document.getElementById("ngThreshold").value,1,20,"連續 NG 門檻");
+      const fps=validateInt(document.getElementById("fpsMin").value,5,60,"FPS 下限");
+      if(!ng.ok||!fps.ok){alert(!ng.ok?ng.message:fps.message);return;}
+      const status=document.getElementById("thresholdStatus");
+      try{
+        const r=await fetch("/api/machine-settings",{method:"PUT",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({system_id,ngThreshold:ng.value,fpsMin:fps.value})});
+        const d=await r.json();if(!r.ok)throw Error(d.message||"儲存失敗");
+        status.textContent="設定已保存至 MongoDB（"+system_id+"）";
+        toast("設定已儲存至後端","OK");
+        await loadSettings(false);
+      }catch(err){status.textContent="儲存失敗："+err.message;alert(err.message);}
     }
-
-  }catch(e){
-    console.error(e);
-    showError("載入失敗");
-  }
-}
-
-    function renderPreview(data){
-      const box = document.getElementById("previewBox");
-      if(!box) return;
-      box.textContent =
-        `瑕疵門檻：${safeText(data.ngThreshold)}\n` +
-        `FPS 下限：${safeText(data.fpsMin)}\n` +
-        `更新時間：${new Date(data.updatedAt || Date.now()).toLocaleString("zh-TW")}`;
+    async function loadSettings(showMessage=true) {
+      const system_id=document.getElementById("thresholdSystemSelect")?.value;
+      const status=document.getElementById("thresholdStatus");
+      const live=document.getElementById("fpsLiveState");
+      if(!system_id){if(status)status.textContent="請先選擇機台";if(live)live.textContent="無資料";return;}
+      try {
+        const r=await fetch("/api/machine-settings?system_id="+encodeURIComponent(system_id),{credentials:"include",cache:"no-store"});
+        const d=await r.json();if(!r.ok)throw Error(d.message||"載入失敗");
+        document.getElementById("ngThreshold").value=d.ngThreshold;
+        document.getElementById("fpsMin").value=d.fpsMin;
+        if(status)status.textContent="目前機台："+system_id+"（設定取自 MongoDB）";
+        if(live)live.textContent=d.fps_state==="no_data"?"無資料（尚無近期現場 FPS 回報）":`實測 FPS：${d.fps} ｜ ${d.fps_state==="low"?"低於警戒門檻":"正常"} ｜ 下限 ${d.fpsMin}`;
+        if(showMessage)toast("已載入機台設定","OK");
+      }catch(err){if(status)status.textContent="載入失敗："+err.message;if(live)live.textContent="無資料";}
     }
-
-
-
+    async function loadThresholdMachines(){
+      const sel=document.getElementById("thresholdSystemSelect");if(!sel)return;
+      try{
+        const r=await fetch("/api/systems?limit=500",{credentials:"include"});
+        const list=await r.json();if(!r.ok)throw Error(list.message||"機台取得失敗");
+        sel.replaceChildren(new Option("請選擇機台",""));
+        for(const x of (Array.isArray(list)?list:[])){if(x.system_id)sel.add(new Option(`${x.name||x.system_id} (${x.system_id})`,x.system_id));}
+        sel.addEventListener("change",()=>loadSettings(false));
+        if(sel.options.length===2){sel.selectedIndex=1;await loadSettings(false);}
+      }catch(err){document.getElementById("thresholdStatus").textContent="機台清單取得失敗："+err.message;}
+    }
 
     window.addEventListener("load", () => {
   if ("serviceWorker" in navigator) {
@@ -166,7 +109,7 @@ window.addEventListener("unhandledrejection", e => {
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  loadSettings(false); // 自動載入，但不跳提示
+  loadThresholdMachines(); // 按機台載入 MongoDB 門檻
 });
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -257,3 +200,6 @@ async function applyProfessionalNames(){
 }
 
 document.addEventListener("DOMContentLoaded",loadRenameSystems);
+
+// 輕量更新觀測值，不刷新表單；避免覆蓋操作人員尚未儲存的編輯。
+setInterval(async()=>{const id=document.getElementById("thresholdSystemSelect")?.value;if(!id)return;try{const r=await fetch("/api/machine-settings?system_id="+encodeURIComponent(id),{credentials:"include",cache:"no-store"});if(!r.ok)return;const d=await r.json();const el=document.getElementById("fpsLiveState");if(el)el.textContent=d.fps_state==="no_data"?"無資料（尚無近期現場 FPS 回報）":`實測 FPS：${d.fps} ｜ ${d.fps_state==="low"?"低於警戒門檻":"正常"} ｜ 下限 ${d.fpsMin}`;}catch(_){}},10000);

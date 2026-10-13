@@ -237,23 +237,22 @@
 
       const nav = document.createElement("div");
       nav.className = "nav";
+      // 依實際使用流程排序：監控 → 品質追溯 → 分析 → 系統管理。
       nav.append(
-  createNavLink("dashboard.html", "🏠 首頁", "Dashboard"),
-  createNavLink("logs.html", "🧾 事件紀錄", "Logs"),
-  createNavLink("settings.html", "⚙️ 系統設定", "Settings"),
-  createNavLink("ai.html", "🤖 AI 助理", "AI"),
-  createNavLink("health.html", "🩺 系統健康", "Health"),
-  createNavLink("alerts.html", "🚨 告警中心", "Alerts"),
-  createNavLink("machine-status.html", "🖥️ 機台狀態", "Machines"),
-  createNavLink("report.html", "📊 報表中心", "Reports"),
-  createNavLink("image-trace.html", "🖼️ 圖片追溯", "Images")
-);
-
-if (canAdmin) {
-  nav.append(
-    createNavLink("user-manage.html", "👥 角色機台", "Users")
-  );
-}      const footer = document.createElement("div");
+        createNavLink("dashboard.html", "🏠 首頁", "Dashboard"),
+        createNavLink("machine-status.html", "🖥️ 機台狀態", "Machines"),
+        createNavLink("alerts.html", "🚨 告警中心", "Alerts"),
+        createNavLink("logs.html", "🧾 事件紀錄", "Logs"),
+        createNavLink("image-trace.html", "🖼️ 圖片追溯", "Images"),
+        createNavLink("report.html", "📊 報表中心", "Reports"),
+        createNavLink("ai.html", "🤖 AI 助理", "AI"),
+        createNavLink("health.html", "🩺 系統健康", "Health")
+      );
+      if (canAdmin) {
+        nav.append(createNavLink("user-manage.html", "👥 角色機台", "Users"));
+      }
+      nav.append(createNavLink("settings.html", "⚙️ 系統設定", "Settings"));
+      const footer = document.createElement("div");
       footer.className = "side-footer";
       const resetButton = document.createElement("button");
       resetButton.className = "btn";
