@@ -141,6 +141,7 @@ app.use(express.json({ limit: "256kb", strict: true }));
 app.use(express.urlencoded({ extended: false, limit: "64kb" }));
 
 const publicDir = path.join(__dirname, "public");
+app.get("/favicon.ico", (req,res) => res.redirect(302,"/icon-192.png"));
 app.use(express.static(publicDir, {
   dotfiles: "deny",
   etag: true,
@@ -172,7 +173,7 @@ const defectSchema = new mongoose.Schema({
   track_id: { type: String, default: "", trim: true },
   status: { type: String, enum: ["OK", "NG", "PENDING", "UNMATCHED_DEFECT"], required: true, uppercase: true },
   product: { type: String, default: "未分類", trim: true },
-  source: { type: String, default: "vision", trim: true },
+  source: { type: String, default: "", trim: true },
   robot_result: { type: String, default: "", trim: true },
   lane: { type: String, default: "", trim: true },
   image_url: { type: String, default: "", trim: true },
@@ -681,6 +682,71 @@ app.get("/api/admin/tenants", auth, requireRole("super_admin"), asyncHandler(asy
   res.setHeader("X-Page", String(page));
   return res.json(await col.find({}).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).toArray());
 }));
+
+// 良率警報以機台為單位持久化；前端只呈現，正式告警由後端寫入 MongoDB。
+const YIELD_SETTINGS_DEFAULTS = { yieldThreshold: 90, minSamples: 5, consecutiveNg: 3 };
+function validateYieldSettings(body) {
+  const a = Number(body?.yieldThreshold), b = Number(body?.minSamples), c = Number(body?.consecutiveNg);
+  if (![a,b,c].every(Number.isFinite) || a < 0 || a > 100 ||
+      !Number.isInteger(b) || b < 1 || b > 100000 ||
+      !Number.isInteger(c) || c < 1 || c > 1000) return null;
+  return { yieldThreshold:a, minSamples:b, consecutiveNg:c };
+}
+app.get("/api/yield-alert-settings", auth, asyncHandler(async(req,res) => {
+  const access = await systemAccess(req.user, req.query.system_id, cleanText(req.query.tenant_id,100));
+  if (!access.allowed) return res.status(access.status).json({message:access.message});
+  const {tenant_id,system_id} = access.system;
+  const saved = await mongoose.connection.collection("yield_alert_settings").findOne({tenant_id,system_id});
+  res.json({settings:saved ? {yieldThreshold:saved.yieldThreshold,minSamples:saved.minSamples,consecutiveNg:saved.consecutiveNg} : YIELD_SETTINGS_DEFAULTS});
+}));
+app.put("/api/yield-alert-settings", auth, requireRole("super_admin","tenant_admin"), asyncHandler(async(req,res) => {
+  const access = await systemAccess(req.user, req.body.system_id, cleanText(req.body.tenant_id,100));
+  if (!access.allowed) return res.status(access.status).json({message:access.message});
+  const values = validateYieldSettings(req.body);
+  if (!values) return res.status(400).json({message:"良率須在 0–100%，最少筆數 1–100000，連續 NG 1–1000"});
+  const {tenant_id,system_id} = access.system;
+  await mongoose.connection.collection("yield_alert_settings").updateOne({tenant_id,system_id},{$set:{...values,updatedAt:new Date()}},{upsert:true});
+  await writeAudit(req,"yield_alert.settings.updated",{tenant_id,system_id,details:values});
+  res.json({success:true,settings:values});
+}));
+app.get("/api/yield-alert-events", auth, asyncHandler(async(req,res) => {
+  const access = await systemAccess(req.user, req.query.system_id, cleanText(req.query.tenant_id,100));
+  if (!access.allowed) return res.status(access.status).json({message:access.message});
+  const {tenant_id,system_id} = access.system;
+  const rows = await mongoose.connection.collection("alerts").find({tenant_id,system_id,type:{$in:["yield_low","yield_consecutive"]}}).sort({createdAt:-1}).limit(30).toArray();
+  res.json({alerts:rows.map(row=>({id:String(row._id),message:row.message,time:row.createdAt,status:row.status}))});
+}));
+
+async function evaluateYieldAlerts(tenant_id,system_id) {
+  const settings = await mongoose.connection.collection("yield_alert_settings").findOne({tenant_id,system_id});
+  const cfg = settings || YIELD_SETTINGS_DEFAULTS;
+  const docs = await Defect.find({tenant_id,system_id,status:{$in:["OK","NG"]}}).sort({timestamp:-1,_id:-1}).select({status:1}).lean();
+  const total = docs.length;
+  if (!total) return;
+  const ng = docs.filter(x=>x.status==="NG").length;
+  const ngRun = docs.findIndex(x=>x.status!=="NG");
+  const consecutive = ngRun === -1 ? total : ngRun;
+  const problems = [];
+  if (total >= cfg.minSamples && (total-ng)*100/total < cfg.yieldThreshold)
+    problems.push({type:"yield_low", message:`機台 ${system_id} 良率 ${((total-ng)*100/total).toFixed(1)}%，低於設定的 ${cfg.yieldThreshold}%。`});
+  if (consecutive >= cfg.consecutiveNg)
+    problems.push({type:"yield_consecutive",message:`機台 ${system_id} 連續 ${consecutive} 筆 NG，達到 ${cfg.consecutiveNg} 筆門檻。`});
+  const states = mongoose.connection.collection("alert_states"), alerts = mongoose.connection.collection("alerts"), now = new Date();
+  for (const p of problems) {
+    const key = `${tenant_id}:${system_id}:${p.type}`;
+    const state = await states.findOne({key});
+    if (state?.cooldownUntil && new Date(state.cooldownUntil)>now) continue;
+    // 以單一 key 原子更新避免並行事件重複建警報；失敗不得伪造成功狀態。
+    const claim = await states.updateOne({key,$or:[{cooldownUntil:{$lte:now}},{cooldownUntil:{$exists:false}}]},{$set:{key,tenant_id,system_id,cooldownUntil:new Date(now.getTime()+ALERT_COOLDOWN_MINUTES*60000)}},{upsert:false});
+    if (!claim.modifiedCount) {
+      if (state) continue;
+      try { await states.insertOne({key,tenant_id,system_id,cooldownUntil:new Date(now.getTime()+ALERT_COOLDOWN_MINUTES*60000)}); }
+      catch(e) { if(e.code===11000) continue; throw e; }
+    }
+    await alerts.insertOne({tenant_id,system_id,type:p.type,severity:"medium",source:"server",message:p.message,status:"open",createdAt:now,updatedAt:now});
+  }
+}
+
 app.get("/api/alerts", auth, asyncHandler(async (req, res) => {
   const page = clampInt(req.query.page, 1, 1, 100000);
   const limit = clampInt(req.query.limit, 100, 1, 500);
@@ -1890,7 +1956,7 @@ async function evaluateNgAlert(tenant_id, system_id) {
       source: "mqtt",
       count,
       threshold,
-      
+
       createdAt: now,
       updatedAt: now
     });
@@ -1965,7 +2031,7 @@ async function evaluateNgAlert(tenant_id, system_id) {
     status: "success",
     details: {
       count,
-      
+
       threshold,
       email_status: emailStatus
     },
@@ -2092,7 +2158,7 @@ const normalized = normalizeDefectPayload(
         track_id: item.track_id || "",
         status: item.status,
         product: classMap.get(String(item.product || "").toLowerCase()) || item.product,
-        source: item.source || "vision",
+        source: item.source || "",
         robot_result: item.robot_result || "",
         lane: item.lane || "",
         image_url: item.image_url || "",
@@ -2136,7 +2202,7 @@ const normalized = normalizeDefectPayload(
           status: last.status,
           product: last.product,
           system_id: last.system_id,
-          source: last.source || "vision",
+          source: last.source || "",
           robot_result: last.robot_result || "",
           lane: last.lane || "",
           image_url: last.image_url,
@@ -2159,7 +2225,7 @@ const normalized = normalizeDefectPayload(
           system_id: doc.system_id,
           product: doc.product,
           status: doc.status,
-          source: doc.source || "vision",
+          source: doc.source || "",
           robot_result: doc.robot_result || "",
           lane: doc.lane || "",
           image_url: doc.image_url || "",
@@ -2169,6 +2235,7 @@ const normalized = normalizeDefectPayload(
       }
       if (Number(result.upsertedCount || 0) > 0 && docs.some(value => value.status === "NG")) {
         await evaluateNgAlert(systemDoc.tenant_id, normalized.system_id);
+        await evaluateYieldAlerts(systemDoc.tenant_id, normalized.system_id);
       }
     } catch (error) {
       logger.warn("MQTT message rejected", { topic, error: error.message, payload_bytes: buffer.length });
