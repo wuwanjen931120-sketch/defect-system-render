@@ -207,7 +207,7 @@ setInterval(async()=>{const id=document.getElementById("thresholdSystemSelect")?
 // Admin-only server-controlled data mode selector.
 (() => {
   const role = sessionStorage.getItem("role");
-  if (!["super_admin", "tenant_admin"].includes(role)) return;
+  if (role !== "super_admin") return;
   const panel=document.getElementById("machineDataModePanel"), machine=document.getElementById("thresholdSystemSelect");
   const sel=document.getElementById("machineDataMode"), status=document.getElementById("machineDataModeStatus"),save=document.getElementById("saveMachineDataMode");
   if(!panel||!machine||!sel||!save) return;

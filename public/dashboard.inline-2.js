@@ -80,6 +80,44 @@ function stopDashboardRealtime(){
   dashboardRealtimeConnected = false;
 }
 
+// 平台總管理員可以查看測試（含所有舊資料）；客戶只能讀正式資料。
+function dashboardDataMode(){
+  return sessionStorage.getItem("role") === "super_admin"
+    ? (document.getElementById("adminDashboardDataMode")?.value || "PRODUCTION")
+    : "PRODUCTION";
+}
+function addDashboardDataMode(params){
+  if (sessionStorage.getItem("role") === "super_admin") {
+    params.set("data_mode", dashboardDataMode());
+  }
+  return params;
+}
+function initAdminDashboardDataMode(){
+  if(sessionStorage.getItem("role") !== "super_admin") return;
+  if(document.getElementById("adminDashboardDataMode")) return;
+  const wrap=document.createElement("div");
+  wrap.id="adminDashboardDataModeContainer";
+  wrap.style.cssText="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0;padding:12px 16px;background:#102139;border:1px solid #395574;border-radius:12px;color:#e6f0ff";
+  const label=document.createElement("label");label.htmlFor="adminDashboardDataMode";label.textContent="平台總管理員資料檢視：";
+  const select=document.createElement("select");select.id="adminDashboardDataMode";
+  select.style.cssText="background:#0b182b;color:#fff;border:1px solid #56739a;border-radius:7px;padding:7px 12px;min-width:180px";
+  for(const [value,text] of [["PRODUCTION","正式資料"],["TEST","測試資料（包含全部舊資料）"],["ALL","全部資料"]]){
+    const option=document.createElement("option");option.value=value;option.textContent=text;select.appendChild(option);
+  }
+  wrap.append(label,select);
+  const target=document.querySelector("main")||document.querySelector(".dashboard-content")||document.body;
+  target.insertBefore(wrap,target.firstChild);
+  select.addEventListener("change",async()=>{
+    stopDashboardRealtime();
+    latestDashboardList=[];
+    renderLaneStatus([]);
+    if(typeof window.refreshDashboard==="function") await window.refreshDashboard();
+    await loadLaneStatus();
+    await loadMachineRanking(true);
+    startDashboardRealtime();
+  });
+}
+
 function startDashboardRealtime(){
   stopDashboardRealtime();
   if (!("EventSource" in window)) {
@@ -92,6 +130,7 @@ function startDashboardRealtime(){
   if (systemId) params.set("system_id", systemId);
   params.set("_", String(Date.now()));
 
+  addDashboardDataMode(params);
   const source = new EventSource(`/api/realtime?${params.toString()}`);
   dashboardRealtimeSource = source;
 
@@ -105,6 +144,9 @@ function startDashboardRealtime(){
     try {
       const item = JSON.parse(event.data || "{}");
       if (getCurrentSystemId() && item.system_id && item.system_id !== getCurrentSystemId()) return;
+      const activeMode = dashboardDataMode();
+      const eventMode = item.data_mode === "PRODUCTION" ? "PRODUCTION" : "TEST";
+      if(activeMode !== "ALL" && activeMode !== eventMode) return;
       dashboardRealtimeConnected = true;
       upsertRealtimeDefect(item);
       scheduleRealtimeDashboardRefresh();
@@ -185,6 +227,7 @@ async function loadLaneStatus(){
     if (systemId) params.set("system_id", systemId);
     params.set("_", String(Date.now()));
 
+    addDashboardDataMode(params);
     const data = await apiFetch(`/api/lane-status?${params.toString()}`, { cache: "no-store" });
     const lanes = Array.isArray(data?.lanes) ? data.lanes.filter(Boolean) : [];
     if (!lanes.length) {
@@ -745,6 +788,7 @@ async function loadMachineRanking(force = false){
 
       let data = [];
       try {
+        addDashboardDataMode(params);
         const result = await apiFetch(`/api/defects?${params.toString()}`);
         data = Array.isArray(result) ? result : [];
       } catch (e) {
@@ -1149,6 +1193,7 @@ function buildDefectsUrl(){
     if (systemId) params.append("system_id", systemId);
   }
 
+  addDashboardDataMode(params);
   return `/api/defects?${params.toString()}`;
 }
 
@@ -1479,6 +1524,11 @@ async function loadDefects() {
 
 async function loadLatestMqtt() {
   try {
+    if (dashboardDataMode() !== "PRODUCTION") {
+      const hint = document.querySelector(".liveHint");
+      if (hint) hint.textContent = "目前檢視歷史／測試資料；即時 MQTT 提示只對正式模式顯示";
+      return;
+    }
     const result = await apiFetch("/api/mqtt/latest");
     const liveHint = document.querySelector(".liveHint");
     if (!liveHint) return;
@@ -1504,6 +1554,7 @@ async function loadSummary() {
     if (tenantId) params.append("tenant_id", tenantId);
     if (systemId) params.append("system_id", systemId);
 
+    addDashboardDataMode(params);
     const data = await apiFetch(`/api/summary?${params.toString()}`);
     if (!data) return;
 
@@ -1934,6 +1985,7 @@ await syncYieldAlertSettings();
   renderProductList();
   syncYieldAlertSettings();
 
+  initAdminDashboardDataMode();
   await loadSiteConfig();
   await window.refreshDashboard();
   startDashboardRealtime();

@@ -277,3 +277,11 @@ input:focus{
     width:100%;
   }
 }
+
+.loginHelp a.textAction{display:inline-block;text-decoration:none;margin-right:12px;color:#93c5fd}
+.loginHelp a.textAction:hover{text-decoration:underline}
+.resetForm{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+.resetForm input{width:100%;box-sizing:border-box}
+.resetLinks{margin-top:18px}
+.resetLinks a{color:#93c5fd;text-decoration:none}
+.resetLinks a:hover{text-decoration:underline}
