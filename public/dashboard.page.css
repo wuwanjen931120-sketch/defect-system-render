@@ -20,6 +20,38 @@
       padding: 12px;
     }
 
+    .liveHeader {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin: 2px 0 10px;
+    }
+    .liveHeader .liveTitle {
+      margin: 0;
+      min-width: 0;
+    }
+    .visionCameraPicker {
+      box-sizing: border-box;
+      max-width: 100%;
+      width: 190px;
+      min-height: 36px;
+      margin-left: auto;
+      padding: 7px 10px;
+      border: 1px solid #425a78;
+      border-radius: 8px;
+      background: #0e1d30;
+      color: #fff;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    @media (max-width: 520px) {
+      .liveHeader { align-items: flex-start; }
+      .visionCameraPicker { margin-left: 0; width: 100%; }
+    }
+
     .liveTitle{
       font-weight:800;
       font-size:18px;

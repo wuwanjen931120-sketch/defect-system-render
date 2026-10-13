@@ -15,7 +15,7 @@
 <meta content="yes" name="apple-mobile-web-app-capable"/>
 <meta content="yes" name="mobile-web-app-capable"/>
 <meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
-<link href="dashboard.page.css?v=20261009-2" rel="stylesheet"/><link href="unified-sidebar.css?v=20261007-4" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
+<link href="dashboard.page.css?v=20261014-camera-layout-1" rel="stylesheet"/><link href="unified-sidebar.css?v=20261007-4" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
 <body>
 <div class="drawerOverlay" id="overlay"></div>
 <aside class="drawer" id="drawer">
@@ -179,7 +179,12 @@
 </section>
 <div class="heroGrid">
 <section class="liveCard">
-<div class="liveTitle">即時檢測畫面（USB Webcam／YOLOv8）</div>
+<div class="liveHeader">
+  <div class="liveTitle">即時檢測畫面（USB Webcam／YOLOv8）</div>
+  <select id="visionCameraPicker" class="visionCameraPicker" aria-label="選擇現場 USB 攝影機">
+    <option value="">自動顯示最新畫面</option>
+  </select>
+</div>
 <div class="liveFrame">
 <img id="camera"/>
 <div class="liveHint" id="liveHint">
@@ -363,7 +368,7 @@
       </div>
 </main>
 </div>
-<script src="dashboard.inline-2.js?v=20261012-4"></script>
+<script src="dashboard.inline-2.js?v=20261014-camera-layout-1"></script>
 <script src="dashboard.handlers.js?v=20261012-1"></script>
 </body>
 </html>

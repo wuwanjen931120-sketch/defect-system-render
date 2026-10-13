@@ -1608,17 +1608,16 @@ let visionFrameObjectUrl = null;
 let visionFrameGeneration = 0;
 let chosenCameraId = "";
 function ensureCameraPicker() {
-  let picker = document.getElementById("visionCameraPicker");
-  if (picker) return picker;
-  const hint = document.getElementById("liveHint");
-  if (!hint) return null;
-  picker = document.createElement("select");
-  picker.id = "visionCameraPicker";
-  picker.setAttribute("aria-label", "選擇現場 USB 攝影機");
-  picker.style.cssText = "max-width:240px;margin:5px 0;padding:7px;border:1px solid #425a78;border-radius:8px;background:#0e1d30;color:white";
-  picker.innerHTML = '<option value="">自動選擇最新相機</option>';
-  picker.addEventListener("change", () => { chosenCameraId = picker.value; startCamera(); });
-  hint.parentNode.insertBefore(picker,hint);
+  // 選單固定放在標題列中，不插入即時畫面內。
+  const picker = document.getElementById("visionCameraPicker");
+  if (!picker) return null;
+  if (!picker.dataset.cameraPickerReady) {
+    picker.dataset.cameraPickerReady = "1";
+    picker.addEventListener("change", () => {
+      chosenCameraId = picker.value;
+      startCamera();
+    });
+  }
   return picker;
 }
 async function startCamera() {
@@ -1649,7 +1648,7 @@ async function startCamera() {
         if (chosenCameraId && !ids.includes(chosenCameraId)) ids.push(chosenCameraId);
         const oldIds = [...picker.options].slice(1).map(o => o.value);
         if (JSON.stringify(ids) !== JSON.stringify(oldIds)) {
-          picker.replaceChildren(new Option("自動選擇最新相機", ""), ...ids.map(id => new Option(id, id)));
+          picker.replaceChildren(new Option("自動顯示最新畫面", ""), ...ids.map(id => new Option(id, id)));
           picker.value = chosenCameraId;
         }
       }
