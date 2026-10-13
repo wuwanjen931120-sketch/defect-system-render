@@ -853,6 +853,115 @@ app.get("/api/site-config", auth, asyncHandler(async (req, res) => {
   return res.json({ success: true, data: { site_title: tenant.company || "瑕疵辨識與分流系統", site_subtitle: "即時檢測畫面 + 系統狀態與數據" } });
 }));
 
+// 現場 USB Webcam / YOLOv8 辨識畫面：Python 主動推送 JPEG；不提供虛構影像。
+// 影格暫存在此 Node.js 行程記憶體中，重啟或無新影格時即顯示離線。
+const liveVisionFrames = new Map();
+const LIVE_VISION_TTL_MS = 10000;
+const LIVE_VISION_MAX_FRAMES = 80;
+app.post("/api/device/vision-frame", express.raw({ type: "image/jpeg", limit: "512kb" }), deviceAuth, asyncHandler(async (req, res) => {
+  const systemId = cleanText(req.headers["x-system-id"], 100);
+  const cameraId = cleanText(req.headers["x-camera-id"], 40);
+  if (!systemId || !cameraId || !/^[-_a-zA-Z0-9]{1,40}$/.test(cameraId)) return res.status(400).json({ message: "缺少或無效的機台／鏡頭識別" });
+  const content = req.body;
+  if (!Buffer.isBuffer(content) || content.length < 4 || content[0] !== 0xff || content[1] !== 0xd8 || content[content.length-2] !== 0xff || content[content.length-1] !== 0xd9) {
+    return res.status(400).json({ message: "僅接受完整 JPEG 影格" });
+  }
+  const system = await mongoose.connection.collection("systems").findOne({ system_id: systemId }, { projection: { _id: 0, system_id: 1 } });
+  if (!system) return res.status(404).json({ message: "無此機台，請先至網站建立機台" });
+  liveVisionFrames.set(systemId, { cameraId, content, at: Date.now() });
+  // 避免多機台時無限累積記憶體
+  for (const [key, value] of liveVisionFrames) if (Date.now() - value.at > LIVE_VISION_TTL_MS) liveVisionFrames.delete(key);
+  if (liveVisionFrames.size > LIVE_VISION_MAX_FRAMES) liveVisionFrames.delete(liveVisionFrames.keys().next().value);
+  res.json({ success: true, system_id: systemId, camera_id: cameraId });
+}));
+app.get("/api/vision-frame/status", auth, asyncHandler(async (req, res) => {
+  const systemId = cleanText(req.query.system_id, 100);
+  const access = await systemAccess(req.user, systemId);
+  if (!access.allowed) return res.status(access.status).json({ message: access.message });
+  const frame = liveVisionFrames.get(systemId);
+  const online = Boolean(frame && Date.now() - frame.at <= LIVE_VISION_TTL_MS);
+  res.setHeader("Cache-Control", "no-store, private");
+  res.json({ online, camera_id: online ? frame.cameraId : null, age_ms: online ? Date.now() - frame.at : null });
+}));
+app.get("/api/vision-frame/image", auth, asyncHandler(async (req, res) => {
+  const systemId = cleanText(req.query.system_id, 100);
+  const access = await systemAccess(req.user, systemId);
+  if (!access.allowed) return res.status(access.status).json({ message: access.message });
+  const frame = liveVisionFrames.get(systemId);
+  if (!frame || Date.now() - frame.at > LIVE_VISION_TTL_MS) return res.status(404).json({ message: "現場尚未上傳即時辨識影格" });
+  res.setHeader("Cache-Control", "no-store, private");
+  res.type("image/jpeg").send(frame.content);
+}));
+
+// 機台專屬的品質與視覺效能門檻（保存於 MongoDB systems）。
+const DEFAULT_MACHINE_THRESHOLDS = Object.freeze({ ngThreshold: 3, fpsMin: 12 });
+function machineThresholds(system) {
+  const cfg = system?.monitor_settings || {};
+  return {
+    ngThreshold: clampInt(cfg.ngThreshold, DEFAULT_MACHINE_THRESHOLDS.ngThreshold, 1, 20),
+    fpsMin: clampInt(cfg.fpsMin, DEFAULT_MACHINE_THRESHOLDS.fpsMin, 5, 60)
+  };
+}
+app.get("/api/machine-settings", auth, asyncHandler(async (req,res) => {
+  const access = await systemAccess(req.user, req.query.system_id, cleanText(req.query.tenant_id,100));
+  if (!access.allowed) return res.status(access.status).json({ message: access.message });
+  const sys = await mongoose.connection.collection("systems").findOne({ system_id: access.system.system_id, tenant_id: access.system.tenant_id });
+  const cfg = machineThresholds(sys);
+  const hb = sys?.components?.vision;
+  const age = hb?.received_at ? Date.now() - new Date(hb.received_at).getTime() : Infinity;
+  const online = hb?.connected === true && age >= 0 && age <= 30000;
+  const fps = online && typeof hb.fps === "number" && Number.isFinite(hb.fps) ? hb.fps : null;
+  res.setHeader("Cache-Control","no-store");
+  return res.json({ system_id: sys.system_id, ...cfg, fps, fps_state: fps === null ? "no_data" : fps < cfg.fpsMin ? "low" : "normal", fps_received_at: online ? hb.received_at : null });
+}));
+app.put("/api/machine-settings", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req,res) => {
+  const access = await systemAccess(req.user, req.body.system_id, cleanText(req.body.tenant_id,100));
+  if (!access.allowed) return res.status(access.status).json({ message: access.message });
+  const ngThreshold = Number(req.body.ngThreshold);
+  const fpsMin = Number(req.body.fpsMin);
+  if (!Number.isInteger(ngThreshold) || ngThreshold < 1 || ngThreshold > 20 || !Number.isInteger(fpsMin) || fpsMin < 5 || fpsMin > 60) {
+    return res.status(400).json({ message: "NG 門檻須為 1～20 整數；FPS 下限須為 5～60 整數" });
+  }
+  await mongoose.connection.collection("systems").updateOne(
+    { tenant_id: access.system.tenant_id, system_id: access.system.system_id },
+    { $set: { monitor_settings: { ngThreshold, fpsMin, updatedAt: new Date() } } }
+  );
+  return res.json({ success: true, system_id: access.system.system_id, ngThreshold, fpsMin });
+}));
+// 現場辨識程式回報實測 FPS。必須提供正確的 x-device-key，不接受網站手動假回報。
+app.post("/api/device/vision-fps", deviceAuth, asyncHandler(async (req,res) => {
+  const system_id = cleanText(req.body.system_id,100);
+  const fps = req.body.fps;
+  if (!system_id || typeof fps !== "number" || !Number.isFinite(fps) || fps < 0 || fps > 240) {
+    return res.status(400).json({ message: "請提供 system_id 與有效的數字 fps（0～240）" });
+  }
+  const col = mongoose.connection.collection("systems");
+  const sys = await col.findOne({ system_id });
+  if (!sys) return res.status(404).json({message:"找不到機台"});
+  const now = new Date();
+  await col.updateOne({ _id: sys._id }, { $set: {
+    "components.vision.connected": true,
+    "components.vision.status": "running",
+    "components.vision.fps": fps,
+    "components.vision.received_at": now,
+    "components.vision.last_heartbeat_at": now
+  }});
+  const cfg = machineThresholds(sys);
+  const key = `${sys.tenant_id}:${system_id}:fps-low`;
+  const states = mongoose.connection.collection("alert_states");
+  if (fps >= cfg.fpsMin) {
+    await states.updateOne({key}, {$set:{active:false, recoveredAt:now}}, {upsert:true});
+  } else {
+    const old = await states.findOne({key});
+    if (!old?.active) {
+      const message = `機台 ${system_id} 實際辨識 FPS ${fps}，低於下限 ${cfg.fpsMin}。`;
+      await mongoose.connection.collection("alerts").insertOne({ tenant_id:sys.tenant_id, system_id, type:"fps_low", severity:"medium", message, status:"open", source:"vision_fps", fps, threshold:cfg.fpsMin, createdAt:now, updatedAt:now });
+    }
+    await states.updateOne({key}, {$set:{active:true,lastFps:fps,lastEvaluatedAt:now}}, {upsert:true});
+  }
+  return res.json({success:true, system_id, fps, threshold:cfg.fpsMin, state:fps < cfg.fpsMin ? "low" : "normal"});
+}));
+
 app.get("/api/systems", auth, asyncHandler(async (req, res) => {
   const requested = cleanText(req.query.tenant_id, 100);
   const page = clampInt(req.query.page, 1, 1, 100000);
@@ -1669,20 +1778,17 @@ app.post("/api/estop", auth, requireRole("super_admin", "tenant_admin"), asyncHa
 
 async function evaluateNgAlert(tenant_id, system_id) {
   const now = new Date();
-  const since = new Date(now.getTime() - ALERT_WINDOW_MINUTES * 60000);
-
-  const count = await Defect.countDocuments({
-    tenant_id,
-    system_id,
-    status: "NG",
-    timestamp: { $gte: since }
-  });
-
-  if (count < ALERT_THRESHOLD) return;
+  const sys = await mongoose.connection.collection("systems").findOne({tenant_id,system_id});
+  const threshold = machineThresholds(sys).ngThreshold;
+  // 按接收的檢測事件計算「連續 NG」，OK 會中斷連續次數；去重事件由上游 UPSERT 保證。
+  const recent = await Defect.find({tenant_id,system_id,status:{$in:["OK","NG"]}})
+    .sort({timestamp:-1,_id:-1}).limit(threshold).select({status:1}).lean();
+  const count = recent.findIndex(e=>e.status!=="NG") === -1 ? recent.length : recent.findIndex(e=>e.status!=="NG");
+  if (count < threshold) return;
 
   const stateCollection = mongoose.connection.collection("alert_states");
   const alertsCollection = mongoose.connection.collection("alerts");
-  const key = `${tenant_id}:${system_id}:ng-window`;
+  const key = `${tenant_id}:${system_id}:ng-consecutive`;
   const cooldownUntil = new Date(
     now.getTime() + ALERT_COOLDOWN_MINUTES * 60000
   );
@@ -1729,22 +1835,21 @@ async function evaluateNgAlert(tenant_id, system_id) {
   }
 
   const message =
-    `機台 ${system_id} 在最近 ${ALERT_WINDOW_MINUTES} 分鐘內有 ` +
-    `${count} 筆 NG，已達門檻 ${ALERT_THRESHOLD} 筆。`;
+    `機台 ${system_id} 已連續 ${count} 筆 NG，達到門檻 ${threshold} 筆。`;
 
   try {
     // 站內告警不依賴 Email。
     await alertsCollection.insertOne({
       tenant_id,
       system_id,
-      type: "ng_window",
+      type: "ng_consecutive",
       severity: "high",
       message,
       status: "open",
       source: "mqtt",
       count,
-      threshold: ALERT_THRESHOLD,
-      window_minutes: ALERT_WINDOW_MINUTES,
+      threshold,
+      
       createdAt: now,
       updatedAt: now
     });
@@ -1819,8 +1924,8 @@ async function evaluateNgAlert(tenant_id, system_id) {
     status: "success",
     details: {
       count,
-      window_minutes: ALERT_WINDOW_MINUTES,
-      threshold: ALERT_THRESHOLD,
+      
+      threshold,
       email_status: emailStatus
     },
     createdAt: now
