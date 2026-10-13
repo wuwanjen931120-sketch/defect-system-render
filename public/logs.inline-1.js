@@ -308,7 +308,7 @@ async function loadLogs() {
       tr.appendChild(productCell);
 
       const sourceCell = document.createElement("td");
-      sourceCell.textContent = item.source || "vision";
+      sourceCell.textContent = item.source || "未提供來源";
       tr.appendChild(sourceCell);
 
       const robotCell = document.createElement("td");

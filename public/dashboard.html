@@ -2,6 +2,7 @@
 
 <html lang="zh-TW">
 <head>
+<link rel="icon" type="image/png" href="/icon-192.png">
 <meta charset="utf-8"/>
 <script src="auth-bootstrap.js?v=20260723-3"></script><script src="dashboard.inline-1.js?v=20261012-1"></script>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
@@ -227,7 +228,7 @@
 <div class="areaTop">
 <div>
 <div class="areaName">真實統計分析</div>
-<div class="areaSub">依 MongoDB 即時資料計算</div>
+
 </div>
 </div>
 <div class="summaryText">
@@ -300,7 +301,7 @@
 <section class="yieldAlertCard">
 <div class="productTitleLine yieldAlertTitle">🚨 良率過低自動警報</div>
 <div class="yieldAlertHint">
-              符合警戒條件後，首頁會自動顯示紅色警報。設定依不同客戶與機台分開保存。
+              符合警戒條件後，首頁會自動顯示紅色警報。設定與正式告警紀錄由 MongoDB 依機台保存。
             </div>
 <div class="yieldAlertSettings">
 <div class="yieldAlertField">
@@ -319,7 +320,7 @@
 <div class="yieldAlertActions">
 <button class="btn btnPrimary" id="dashboard-handler-10" type="button">儲存警報設定</button>
 <button class="btn" id="dashboard-handler-11" type="button">允許瀏覽器通知</button>
-<button class="btn" id="dashboard-handler-12" type="button">清除警報紀錄</button>
+<button class="btn" id="dashboard-handler-12" type="button">重新載入警報紀錄</button>
 </div>
 <div class="yieldAlertBanner dashboard-inline-style-2" id="yieldAlertBanner"></div>
 <div class="yieldAlertLogList" id="yieldAlertLogList"></div>

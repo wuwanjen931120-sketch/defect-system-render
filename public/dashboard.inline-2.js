@@ -221,20 +221,16 @@ const YIELD_ALERT_DEFAULTS = {
 let lastYieldAlertSignature = "";
 let lastYieldAlertTime = 0;
 
-function getYieldAlertStoragePrefix(){
-  const tenantId = getCurrentTenantId?.() || sessionStorage.getItem("tenant_id") || "defaultTenant";
-  const systemId = getCurrentSystemId?.() || sessionStorage.getItem("system_id") || "defaultSystem";
-  return `yieldAlert_${tenantId}_${systemId}`;
+// 設定與告警紀錄以 MongoDB 為準；切換機台時重新讀取。
+let currentYieldSettings = { ...YIELD_ALERT_DEFAULTS };
+let currentYieldLogs = [];
+function yieldApiParams() {
+  const tenant = getCurrentTenantId?.() || sessionStorage.getItem("tenant_id") || "";
+  const system = getCurrentSystemId?.() || sessionStorage.getItem("system_id") || "";
+  if (!system) return null;
+  return {tenant_id:tenant, system_id:system};
 }
-
-function getYieldAlertSettingsKey(){
-  return `${getYieldAlertStoragePrefix()}_settings`;
-}
-
-function getYieldAlertLogsKey(){
-  return `${getYieldAlertStoragePrefix()}_logs`;
-}
-
+function yieldApiQuery(p) { return new URLSearchParams(p).toString(); }
 function clampNumber(value, min, max, fallback){
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
@@ -242,22 +238,20 @@ function clampNumber(value, min, max, fallback){
   return Math.max(n, min);
 }
 
-function loadYieldAlertSettings(){
+function loadYieldAlertSettings(){ return currentYieldSettings; }
+async function syncYieldAlertSettings(){
+  const p=yieldApiParams();
+  if(!p){ currentYieldSettings={...YIELD_ALERT_DEFAULTS};currentYieldLogs=[];renderYieldAlertSettings();return; }
   try {
-    const raw = localStorage.getItem(getYieldAlertSettingsKey());
-    const saved = raw ? JSON.parse(raw) : null;
-    if (!saved) return null;
-
-    return {
-      yieldThreshold: clampNumber(saved.yieldThreshold, 0, 100, YIELD_ALERT_DEFAULTS.yieldThreshold),
-      minSamples: Math.round(clampNumber(saved.minSamples, 1, null, YIELD_ALERT_DEFAULTS.minSamples)),
-      consecutiveNg: Math.round(clampNumber(saved.consecutiveNg, 1, null, YIELD_ALERT_DEFAULTS.consecutiveNg))
-    };
-  } catch (e) {
-    return null;
-  }
+    const [cfg,logs]=await Promise.all([
+      apiFetch("/api/yield-alert-settings?"+yieldApiQuery(p)),
+      apiFetch("/api/yield-alert-events?"+yieldApiQuery(p))
+    ]);
+    if(cfg?.settings) currentYieldSettings=cfg.settings;
+    currentYieldLogs=Array.isArray(logs?.alerts)?logs.alerts:[];
+    renderYieldAlertSettings();
+  }catch(e){ console.error("讀取警報設定或紀錄失敗",e); }
 }
-
 function renderYieldAlertSettings(){
   const settings = loadYieldAlertSettings();
 
@@ -274,20 +268,23 @@ function renderYieldAlertSettings(){
   renderYieldAlertLogs();
 }
 
-function saveYieldAlertSettingsFromUI(){
-  const settings = {
-    yieldThreshold: clampNumber(document.getElementById("alertYieldThreshold")?.value, 0, 100, YIELD_ALERT_DEFAULTS.yieldThreshold),
-    minSamples: Math.round(clampNumber(document.getElementById("alertMinSamples")?.value, 1, null, YIELD_ALERT_DEFAULTS.minSamples)),
-    consecutiveNg: Math.round(clampNumber(document.getElementById("alertConsecutiveNg")?.value, 1, null, YIELD_ALERT_DEFAULTS.consecutiveNg))
+async function saveYieldAlertSettingsFromUI(){
+  const p=yieldApiParams();
+  if(!p){alert("請先選擇要設定的機台");return;}
+  const settings={
+    yieldThreshold:clampNumber(document.getElementById("alertYieldThreshold")?.value,0,100,YIELD_ALERT_DEFAULTS.yieldThreshold),
+    minSamples:Math.round(clampNumber(document.getElementById("alertMinSamples")?.value,1,100000,YIELD_ALERT_DEFAULTS.minSamples)),
+    consecutiveNg:Math.round(clampNumber(document.getElementById("alertConsecutiveNg")?.value,1,1000,YIELD_ALERT_DEFAULTS.consecutiveNg))
   };
-
-  localStorage.setItem(getYieldAlertSettingsKey(), JSON.stringify(settings));
-  renderYieldAlertSettings();
-
-  alert(`已儲存警報設定：良率低於 ${settings.yieldThreshold}%、至少 ${settings.minSamples} 筆、連續 NG ${settings.consecutiveNg} 件。`);
-  window.refreshDashboard?.();
+  try{
+    const result=await apiFetch("/api/yield-alert-settings",{method:"PUT",body:JSON.stringify({...p,...settings})});
+    if(!result?.success) throw new Error("儲存失敗");
+    currentYieldSettings=result.settings;
+    renderYieldAlertSettings();
+    alert("設定已儲存至 MongoDB，正式警報由後端依實際事件建立。");
+    window.refreshDashboard?.();
+  }catch(e){alert("儲存警報設定失敗："+(e.message||"未知錯誤"));}
 }
-
 async function requestBrowserNotification(){
   if (!("Notification" in window)) {
     alert("這個瀏覽器不支援通知功能");
@@ -302,67 +299,13 @@ async function requestBrowserNotification(){
   }
 }
 
-function getYieldAlertLogs(){
-  try {
-    const raw = localStorage.getItem(getYieldAlertLogsKey());
-    const logs = raw ? JSON.parse(raw) : [];
-    return Array.isArray(logs) ? logs : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveYieldAlertLogs(logs){
-  localStorage.setItem(getYieldAlertLogsKey(), JSON.stringify(logs.slice(0, 30)));
-}
-
+function getYieldAlertLogs(){ return currentYieldLogs; }
 function notifyYieldAlert(message){
-  try {
-    if ("Notification" in window && Notification.permission === "granted") {
-      new Notification("良率過低自動警報", {
-        body: message,
-        tag: "yield-alert"
-      });
-    }
-  } catch (e) {
-    console.warn("通知送出失敗", e);
-  }
+  try { if("Notification" in window && Notification.permission==="granted")
+    new Notification("良率警報",{body:message,tag:"yield-alert"}); } catch(e){console.warn(e);}
 }
-
-function addYieldAlertLog(message){
-  const logs = getYieldAlertLogs();
-  const now = new Date().toISOString();
-
-  const latestSame = logs.find(x => x.message === message);
-  if (latestSame) {
-    const diff = Date.now() - new Date(latestSame.time).getTime();
-    if (diff < 60000) return;
-  }
-
-  logs.unshift({
-    message,
-    time: now
-  });
-
-  saveYieldAlertLogs(logs);
-  renderYieldAlertLogs();
-  notifyYieldAlert(message);
-}
-
-function clearYieldAlertLogs(){
-  localStorage.removeItem(getYieldAlertLogsKey());
-  lastYieldAlertSignature = "";
-  lastYieldAlertTime = 0;
-
-  const banner = document.getElementById("yieldAlertBanner");
-  if (banner) {
-    banner.style.display = "none";
-    banner.replaceChildren();
-  }
-
-  renderYieldAlertLogs();
-}
-
+// 警報是後端正式歷史紀錄，不允許只清除單一瀏覽器的資料。
+async function clearYieldAlertLogs(){ await syncYieldAlertSettings(); }
 function renderYieldAlertLogs(){
   const list = document.getElementById("yieldAlertLogList");
   if (!list) return;
@@ -389,7 +332,7 @@ function renderYieldAlertLogs(){
 
     return `
       <div class="yieldAlertLogItem">
-        <div class="yieldAlertLogMain"><b>⚠️ 警報中</b><br>${escapeHtml(log.message)}</div>
+        <div class="yieldAlertLogMain"><b>⚠️ ${escapeHtml(log.status === "resolved" ? "已解決" : log.status === "acknowledged" ? "已確認" : "警報中")}</b><br>${escapeHtml(log.message)}</div>
         <div class="yieldAlertTime">${escapeHtml(timeText)}</div>
       </div>
     `;
@@ -458,14 +401,8 @@ function checkYieldAlerts(filteredList, productStats, totalOK, totalNG){
 
   updateYieldAlertBanner(messages);
 
-  const signature = messages.join("|");
-  const now = Date.now();
+  // 前端只更新提示；正式持久化記錄由 MQTT 入庫後的後端評估建立。
 
-  if (signature && (signature !== lastYieldAlertSignature || now - lastYieldAlertTime > 60000)) {
-    messages.forEach(addYieldAlertLog);
-    lastYieldAlertSignature = signature;
-    lastYieldAlertTime = now;
-  }
 }
 
 
@@ -1843,7 +1780,7 @@ list.forEach(t => {
 
   await loadSelectedProducts();
   renderProductList();
-  renderYieldAlertSettings();
+  syncYieldAlertSettings();
 
   await loadSiteConfig();
   await startCamera();
@@ -1950,7 +1887,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 await loadSelectedProducts();
 renderProductList();
-renderYieldAlertSettings();
+await syncYieldAlertSettings();
 
   const productGaugePickerBtn = document.getElementById("productGaugePickerBtn");
   const productGaugePicker = document.getElementById("productGaugePicker");
@@ -1996,7 +1933,7 @@ renderYieldAlertSettings();
 
   await loadSelectedProducts();
   renderProductList();
-  renderYieldAlertSettings();
+  syncYieldAlertSettings();
 
   await loadSiteConfig();
   await window.refreshDashboard();
