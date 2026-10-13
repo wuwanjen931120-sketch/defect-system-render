@@ -853,6 +853,43 @@ app.get("/api/site-config", auth, asyncHandler(async (req, res) => {
   return res.json({ success: true, data: { site_title: tenant.company || "瑕疵辨識與分流系統", site_subtitle: "即時檢測畫面 + 系統狀態與數據" } });
 }));
 
+// 每個租戶獨立的產品目錄。新增名稱不代表 YOLO 已學會辨識該產品。
+const productCatalogSchema = new mongoose.Schema({
+  tenant_id: { type: String, required: true, index: true },
+  name: { type: String, required: true, trim: true },
+  yolo_class: { type: String, default: "", trim: true },
+  created_at: { type: Date, default: Date.now }
+}, { versionKey: false });
+productCatalogSchema.index({ tenant_id: 1, name: 1 }, { unique: true });
+productCatalogSchema.index({ tenant_id: 1, yolo_class: 1 }, { unique: true, partialFilterExpression: { yolo_class: { $type: "string", $gt: "" } } });
+const ProductCatalog = mongoose.model("ProductCatalog", productCatalogSchema);
+function productTenant(req) {
+  return req.user.role === "super_admin" ? cleanText(req.query.tenant_id || req.body?.tenant_id, 100) : req.user.tenant_id;
+}
+app.get("/api/product-catalog", auth, asyncHandler(async (req,res) => {
+  const tenant = productTenant(req);
+  if (!tenant) return res.status(400).json({ message: "缺少客戶 ID" });
+  res.json({ products: await ProductCatalog.find({ tenant_id: tenant }).sort({ name: 1 }).lean() });
+}));
+app.post("/api/product-catalog", auth, requireRole("super_admin","tenant_admin"), asyncHandler(async (req,res) => {
+  const tenant = productTenant(req);
+  const name = cleanText(req.body.name, 90);
+  const yolo_class = cleanText(req.body.yolo_class || "", 90);
+  if (!tenant || !name || name === "未分類") return res.status(400).json({ message: "請輸入正確客戶與產品名稱" });
+  if (yolo_class && !/^[a-zA-Z0-9_\- ]{1,90}$/.test(yolo_class)) return res.status(400).json({ message: "YOLO 類別只能使用英數字、底線與連字號" });
+  try {
+    const item = await ProductCatalog.findOneAndUpdate({ tenant_id: tenant, name }, { $set: { yolo_class } }, { upsert: true, new: true, runValidators: true });
+    res.json({ success: true, product: item });
+  } catch (e) { if (e.code === 11000) return res.status(409).json({ message: "此 YOLO 類別已對應另一產品" }); throw e; }
+}));
+app.delete("/api/product-catalog", auth, requireRole("super_admin","tenant_admin"), asyncHandler(async (req,res) => {
+  const tenant = productTenant(req);
+  const name = cleanText(req.body.name, 90);
+  if (!tenant || !name) return res.status(400).json({ message: "缺少產品資料" });
+  await ProductCatalog.deleteOne({ tenant_id: tenant, name });
+  res.json({ success: true });
+}));
+
 // 現場 USB Webcam / YOLOv8 辨識畫面：Python 主動推送 JPEG；不提供虛構影像。
 // 影格暫存在此 Node.js 行程記憶體中，重啟或無新影格時即顯示離線。
 const liveVisionFrames = new Map();
@@ -868,7 +905,7 @@ app.post("/api/device/vision-frame", express.raw({ type: "image/jpeg", limit: "5
   }
   const system = await mongoose.connection.collection("systems").findOne({ system_id: systemId }, { projection: { _id: 0, system_id: 1 } });
   if (!system) return res.status(404).json({ message: "無此機台，請先至網站建立機台" });
-  liveVisionFrames.set(systemId, { cameraId, content, at: Date.now() });
+  liveVisionFrames.set(`${systemId}::${cameraId}`, { cameraId, content, at: Date.now() });
   // 避免多機台時無限累積記憶體
   for (const [key, value] of liveVisionFrames) if (Date.now() - value.at > LIVE_VISION_TTL_MS) liveVisionFrames.delete(key);
   if (liveVisionFrames.size > LIVE_VISION_MAX_FRAMES) liveVisionFrames.delete(liveVisionFrames.keys().next().value);
@@ -878,16 +915,20 @@ app.get("/api/vision-frame/status", auth, asyncHandler(async (req, res) => {
   const systemId = cleanText(req.query.system_id, 100);
   const access = await systemAccess(req.user, systemId);
   if (!access.allowed) return res.status(access.status).json({ message: access.message });
-  const frame = liveVisionFrames.get(systemId);
+  const requestedCamera = cleanText(req.query.camera_id, 40);
+  const candidates = [...liveVisionFrames.entries()].filter(([key]) => key.startsWith(`${systemId}::`)).map(([, value]) => value);
+  const cameras = candidates.filter(v => Date.now() - v.at <= LIVE_VISION_TTL_MS).map(v => ({ camera_id: v.cameraId, age_ms: Date.now() - v.at }));
+  const frame = requestedCamera ? liveVisionFrames.get(`${systemId}::${requestedCamera}`) : candidates.sort((a,b) => b.at - a.at)[0];
   const online = Boolean(frame && Date.now() - frame.at <= LIVE_VISION_TTL_MS);
   res.setHeader("Cache-Control", "no-store, private");
-  res.json({ online, camera_id: online ? frame.cameraId : null, age_ms: online ? Date.now() - frame.at : null });
+  res.json({ online, camera_id: online ? frame.cameraId : null, age_ms: online ? Date.now() - frame.at : null, cameras });
 }));
 app.get("/api/vision-frame/image", auth, asyncHandler(async (req, res) => {
   const systemId = cleanText(req.query.system_id, 100);
   const access = await systemAccess(req.user, systemId);
   if (!access.allowed) return res.status(access.status).json({ message: access.message });
-  const frame = liveVisionFrames.get(systemId);
+  const requestedCamera = cleanText(req.query.camera_id, 40);
+  const frame = requestedCamera ? liveVisionFrames.get(`${systemId}::${requestedCamera}`) : [...liveVisionFrames.entries()].filter(([key]) => key.startsWith(`${systemId}::`)).map(([, v]) => v).sort((a,b)=>b.at-a.at)[0];
   if (!frame || Date.now() - frame.at > LIVE_VISION_TTL_MS) return res.status(404).json({ message: "現場尚未上傳即時辨識影格" });
   res.setHeader("Cache-Control", "no-store, private");
   res.type("image/jpeg").send(frame.content);
@@ -2040,6 +2081,8 @@ const normalized = normalizeDefectPayload(
         { tenant_id: systemDoc.tenant_id },
         { projection: { username: 1, email: 1 } }
       );
+      const products = await ProductCatalog.find({ tenant_id: systemDoc.tenant_id }).lean();
+      const classMap = new Map(products.filter(p => p.yolo_class).map(p => [p.yolo_class.toLowerCase(), p.name]));
       const docs = normalized.items.map(item => ({
         tenant_id: systemDoc.tenant_id,
         user_id: owner?.username || owner?.email || "unknown",
@@ -2048,7 +2091,7 @@ const normalized = normalizeDefectPayload(
         event_id: item.event_id || item.id,
         track_id: item.track_id || "",
         status: item.status,
-        product: item.product,
+        product: classMap.get(String(item.product || "").toLowerCase()) || item.product,
         source: item.source || "vision",
         robot_result: item.robot_result || "",
         lane: item.lane || "",
@@ -2074,9 +2117,9 @@ const normalized = normalizeDefectPayload(
               status: doc.status,
               product: doc.product,
               source: doc.source,
-              robot_result: doc.robot_result,
-              lane: doc.lane,
-              image_url: doc.image_url,
+              ...(doc.robot_result ? { robot_result: doc.robot_result } : {}),
+              ...(doc.lane ? { lane: doc.lane } : {}),
+              ...(doc.image_url ? { image_url: doc.image_url } : {}),
               timestamp: doc.timestamp
             }
           },
