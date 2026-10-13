@@ -285,7 +285,7 @@ function requireRole(...roles) { return (req, res, next) => roles.includes(req.u
 
 // Server-owned mode. Missing legacy events are never silently classified as production.
 const DATA_MODES = new Set(["TEST", "PRODUCTION"]);
-const isDataAdmin = user => ["super_admin", "tenant_admin"].includes(user?.role);
+const isDataAdmin = user => user?.role === "super_admin";
 async function configuredMachineMode(tenant_id, system_id) {
   const record = await mongoose.connection.collection("machine_data_modes").findOne({ tenant_id, system_id });
   return DATA_MODES.has(record?.mode) ? record.mode : "TEST";
@@ -293,14 +293,13 @@ async function configuredMachineMode(tenant_id, system_id) {
 function dataModeFilter(user, params = {}) {
   const requested = cleanText(params.data_mode, 20).toUpperCase();
   if (!isDataAdmin(user)) {
-    if (requested && requested !== "PRODUCTION") throw Object.assign(new Error("只有管理員可以查看測試或未分類資料"), { status: 403 });
+    if (requested && requested !== "PRODUCTION") throw Object.assign(new Error("只有平台總管理員可以查看測試資料"), { status: 403 });
     return { data_mode: "PRODUCTION" };
   }
   if (!requested || requested === "PRODUCTION") return { data_mode: "PRODUCTION" };
-  if (requested === "TEST") return { data_mode: "TEST" };
-  if (requested === "LEGACY") return { $or: [{ data_mode: "LEGACY" }, { data_mode: { $exists: false } }] };
+  if (requested === "TEST") return { $or: [{ data_mode: "TEST" }, { data_mode: "LEGACY" }, { data_mode: { $exists: false } }, { data_mode: null }] };
   if (requested === "ALL") return {};
-  throw Object.assign(new Error("data_mode 只能是 PRODUCTION、TEST、LEGACY 或 ALL"), { status: 400 });
+  throw Object.assign(new Error("data_mode 只能是 PRODUCTION、TEST 或 ALL"), { status: 400 });
 }
 
 function deviceAuth(req, res, next) {
@@ -515,6 +514,56 @@ app.post("/api/register", registerLimiter, asyncHandler(async (req, res) => {
   const session=await mongoose.startSession(); try{await session.withTransaction(async()=>{await mongoose.connection.collection("tenants").insertOne({tenant_id,company,createdAt:new Date()},{session});await users.insertOne({username,email:username,name,company,password:await bcrypt.hash(password,12),tenant_id,role:"tenant_admin",systems:[],session_version:0,disabled:false,createdAt:new Date()},{session});});}finally{await session.endSession();}
   await otpCol.deleteOne({email:username,challengeId}); await writeAudit(req,"tenant.register",{tenant_id,target:username});
   return res.status(201).json({success:true,tenant_id});
+}));
+
+// Password recovery uses hashed single-use tokens stored in MongoDB. Never expose account existence.
+const passwordResetLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, standardHeaders: "draft-8", legacyHeaders: false, message: { message: "操作太頻繁，請稍後再試" } });
+const PASSWORD_RESET_TTL_MS = 20 * 60 * 1000;
+function passwordResetDigest(token) { return crypto.createHash("sha256").update(String(token)).digest("hex"); }
+function passwordResetUrl(token) {
+  const configured = String(process.env.PUBLIC_BASE_URL || "").trim();
+  const base = configured && /^https:\/\/[^\s/]+(?:\/[^\s]*)?$/.test(configured)
+    ? configured.replace(/\/$/, "")
+    : (NODE_ENV === "production" ? "https://defect-system-render.onrender.com" : `http://localhost:${PORT}`);
+  return `${base}/reset-password.html?token=${encodeURIComponent(token)}`;
+}
+app.post("/api/password-reset/request", passwordResetLimiter, asyncHandler(async (req,res) => {
+  res.setHeader("Cache-Control", "no-store");
+  const response = { message: "如果信箱已有帳號且寄信服務可用，重設密碼連結將寄到信箱，請檢查收件匣及垃圾郵件。" };
+  const email = normalizeEmail(req.body?.email);
+  if (!isValidEmail(email)) return res.json(response);
+  if (!mailEnabled || !isMailReady) return res.status(503).json({message:"目前無法寄送重設密碼郵件，請稍後再試或聯絡管理員"});
+  const user = await mongoose.connection.collection("users").findOne({$or:[{email},{username:email}],disabled:{$ne:true}});
+  if (user) {
+    const token = crypto.randomBytes(32).toString("hex"), now = new Date();
+    const col = mongoose.connection.collection("password_reset_tokens");
+    await col.deleteMany({user_id:user._id});
+    await col.insertOne({user_id:user._id,token_hash:passwordResetDigest(token),createdAt:now,expiresAt:new Date(now.getTime()+PASSWORD_RESET_TTL_MS),usedAt:null});
+    try {
+      await transporter.sendMail({from:MAIL_FROM,to:email,subject:"瑕疵辨識與分流系統－重設密碼",text:`您收到一筆重設密碼申請。請於 20 分鐘內使用下方連結設定新密碼：\n${passwordResetUrl(token)}\n\n如果不是您申請，請忽略此郵件。請勿將連結轉寄給其他人。`});
+    } catch(e) {
+      await col.deleteOne({token_hash:passwordResetDigest(token)});
+      logger.error("Password reset email delivery failed",{error:e.message});
+    }
+  }
+  return res.json(response);
+}));
+app.post("/api/password-reset/confirm", passwordResetLimiter, asyncHandler(async(req,res)=>{
+  res.setHeader("Cache-Control", "no-store");
+  const token=String(req.body?.token||"");
+  const password=String(req.body?.password||"");
+  if(!/^[a-f0-9]{64}$/.test(token)) return res.status(400).json({message:"連結無效或已失效，請重新申請"});
+  const check=validatePassword(password);
+  if(!check.valid) return res.status(400).json({message:check.errors.join("；")});
+  const now=new Date();
+  const col=mongoose.connection.collection("password_reset_tokens");
+  const claimed=await col.findOneAndUpdate({token_hash:passwordResetDigest(token),usedAt:null,expiresAt:{$gt:now}},{$set:{usedAt:now}},{returnDocument:"before"});
+  if(!claimed) return res.status(400).json({message:"連結無效或已失效，請重新申請"});
+  const result=await mongoose.connection.collection("users").updateOne({_id:claimed.user_id,disabled:{$ne:true}},{$set:{password:await bcrypt.hash(password,12),passwordChangedAt:now},$unset:{passwordHash:"",password_hash:""},$inc:{session_version:1}});
+  await col.deleteMany({user_id:claimed.user_id});
+  if(!result.matchedCount) return res.status(400).json({message:"帳號已停用或不存在，請聯絡管理員"});
+  await writeAudit(req,"security.password.reset",{actor_id:String(claimed.user_id)});
+  return res.json({message:"密碼已更新，請使用新密碼重新登入"});
 }));
 
 app.get("/api/login/status", (req,res)=>res.json({ database_connected:mongoose.connection.readyState===1, registration_enabled:ALLOW_PUBLIC_REGISTRATION, registration_requires_invite:false, registration_email_ready:mailEnabled&&isMailReady, two_factor_required:false }));
@@ -954,14 +1003,14 @@ function productTenant(req) {
   return req.user.role === "super_admin" ? cleanText(req.query.tenant_id || req.body?.tenant_id, 100) : req.user.tenant_id;
 }
 // Only authenticated administrators may change or inspect an individual machine's mode.
-app.get("/api/admin/data-mode", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async(req,res) => {
+app.get("/api/admin/data-mode", auth, requireRole("super_admin"), asyncHandler(async(req,res) => {
   const access = await systemAccess(req.user, req.query.system_id, cleanText(req.query.tenant_id,100));
   if (!access.allowed) return res.status(access.status).json({message:access.message});
   const {tenant_id, system_id} = access.system;
   res.setHeader("Cache-Control", "no-store");
   return res.json({tenant_id, system_id, mode: await configuredMachineMode(tenant_id, system_id)});
 }));
-app.put("/api/admin/data-mode", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async(req,res) => {
+app.put("/api/admin/data-mode", auth, requireRole("super_admin"), asyncHandler(async(req,res) => {
   const access = await systemAccess(req.user, req.body.system_id, cleanText(req.body.tenant_id,100));
   if (!access.allowed) return res.status(access.status).json({message:access.message});
   const mode = cleanText(req.body.mode,20).toUpperCase();
