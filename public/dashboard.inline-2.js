@@ -81,19 +81,22 @@ function stopDashboardRealtime(){
 }
 
 // 平台總管理員可以查看測試（含所有舊資料）；客戶只能讀正式資料。
+function isDashboardDataAdmin(){
+  return window.authState?.user?.role === "super_admin";
+}
 function dashboardDataMode(){
-  return sessionStorage.getItem("role") === "super_admin"
+  return isDashboardDataAdmin()
     ? (document.getElementById("adminDashboardDataMode")?.value || "PRODUCTION")
     : "PRODUCTION";
 }
 function addDashboardDataMode(params){
-  if (sessionStorage.getItem("role") === "super_admin") {
+  if (isDashboardDataAdmin()) {
     params.set("data_mode", dashboardDataMode());
   }
   return params;
 }
 function initAdminDashboardDataMode(){
-  if(sessionStorage.getItem("role") !== "super_admin") return;
+  if(!isDashboardDataAdmin()) return;
   if(document.getElementById("adminDashboardDataMode")) return;
   const wrap=document.createElement("div");
   wrap.id="adminDashboardDataModeContainer";
@@ -1876,6 +1879,11 @@ window.demoEstop = async function() {
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
+  // 等待後端 /api/session 驗證完成，再用伺服器確認的角色初始化管理員控制項。
+  if (window.authReady) {
+    const verifiedSession = await window.authReady;
+    if (!verifiedSession) return;
+  }
   forceCloseErrorOverlay();
 
   // Do not leave the header stuck on "狀態讀取中" while tenant/system lists are loading.
@@ -1935,6 +1943,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       await loadSystemOptionsByTenant(tenantId);
     }
   }
+// 首次進入首頁就建立平台總管理員專用檢視；原版錯放在機台 change 事件內。
+initAdminDashboardDataMode();
 await loadSelectedProducts();
 renderProductList();
 await syncYieldAlertSettings();
