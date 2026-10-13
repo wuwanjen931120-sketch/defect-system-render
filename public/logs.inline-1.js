@@ -23,6 +23,8 @@ function buildDefectsParams(){
     params.append("product_search", productSearchText);
   }
 
+  const choice=document.getElementById("adminDataModeFilter");
+  if(choice && choice.value) params.set("data_mode",choice.value);
   return params;
 }
 
@@ -518,3 +520,17 @@ function forceReload(e) {
   if (e) e.preventDefault();
   window.location.reload();
 }
+
+// Display-only admin control; server still enforces access on every request.
+(() => {
+ const role=sessionStorage.getItem("role");
+ if(!["super_admin","tenant_admin"].includes(role))return;
+ const container=document.createElement("div");container.style.cssText="margin:12px 0;padding:10px;border:1px solid #385171;border-radius:9px";
+ const label=document.createElement("label");label.textContent="管理員資料檢視： ";label.htmlFor="adminDataModeFilter";
+ const select=document.createElement("select");select.id="adminDataModeFilter";
+ for(const [v,n] of [["PRODUCTION","正式資料"],["TEST","測試資料"],["LEGACY","舊資料（未分類）"],["ALL","全部資料（管理員）"]]){const o=document.createElement("option");o.value=v;o.textContent=n;select.appendChild(o);}
+ container.append(label,select);
+ const target=document.querySelector("main")||document.querySelector(".main-content")||document.body;
+ target.insertBefore(container,target.firstChild);
+ select.addEventListener("change",()=>{if(typeof loadLogs==='function')loadLogs();else window.location.reload();});
+})();

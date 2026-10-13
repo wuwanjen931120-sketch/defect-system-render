@@ -203,3 +203,24 @@ document.addEventListener("DOMContentLoaded",loadRenameSystems);
 
 // 輕量更新觀測值，不刷新表單；避免覆蓋操作人員尚未儲存的編輯。
 setInterval(async()=>{const id=document.getElementById("thresholdSystemSelect")?.value;if(!id)return;try{const r=await fetch("/api/machine-settings?system_id="+encodeURIComponent(id),{credentials:"include",cache:"no-store"});if(!r.ok)return;const d=await r.json();const el=document.getElementById("fpsLiveState");if(el)el.textContent=d.fps_state==="no_data"?"無資料（尚無近期現場 FPS 回報）":`實測 FPS：${d.fps} ｜ ${d.fps_state==="low"?"低於警戒門檻":"正常"} ｜ 下限 ${d.fpsMin}`;}catch(_){}},10000);
+
+// Admin-only server-controlled data mode selector.
+(() => {
+  const role = sessionStorage.getItem("role");
+  if (!["super_admin", "tenant_admin"].includes(role)) return;
+  const panel=document.getElementById("machineDataModePanel"), machine=document.getElementById("thresholdSystemSelect");
+  const sel=document.getElementById("machineDataMode"), status=document.getElementById("machineDataModeStatus"),save=document.getElementById("saveMachineDataMode");
+  if(!panel||!machine||!sel||!save) return;
+  panel.hidden=false;
+  async function load(){
+    const id=machine.value; if(!id){status.textContent="請先選擇機台";return;}
+    try{const r=await fetch("/api/admin/data-mode?system_id="+encodeURIComponent(id),{credentials:"include",cache:"no-store"});const d=await r.json();if(!r.ok)throw new Error(d.message||"讀取失敗");sel.value=d.mode;status.textContent="目前機台："+id+"｜模式："+d.mode;}catch(e){status.textContent=e.message;}
+  }
+  machine.addEventListener("change",load);
+  save.addEventListener("click",async()=>{
+    if(!machine.value){status.textContent="請先選擇機台";return;}
+    if(sel.value==="PRODUCTION"&&!confirm("確定啟用正式模式？此機台後續的新事件將計入正式統計，請先確認 MQTT 模擬程式已停止。"))return;
+    try{const r=await fetch("/api/admin/data-mode",{method:"PUT",credentials:"include",headers:{"Content-Type":"application/json"},body:JSON.stringify({system_id:machine.value,mode:sel.value})});const d=await r.json();if(!r.ok)throw new Error(d.message||"儲存失敗");status.textContent="已儲存至 MongoDB："+d.mode;}catch(e){status.textContent=e.message;}
+  });
+  setTimeout(load,1200);
+})();
