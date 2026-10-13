@@ -873,23 +873,20 @@ function getProductStorageKey() {
   return `selectedProducts_${tenantId}`;
 }
 
-function saveSelectedProducts() {
-  localStorage.setItem(
-    getProductStorageKey(),
-    JSON.stringify(selectedProducts)
-  );
-}
-
-function loadSelectedProducts() {
+let productCatalogEntries = [];
+function saveSelectedProducts() { /* 已改由 MongoDB 保存，避免 localStorage 分歧 */ }
+async function loadSelectedProducts() {
   try {
-    const raw = localStorage.getItem(getProductStorageKey());
-    selectedProducts = raw ? JSON.parse(raw) : [];
-
-    if (!Array.isArray(selectedProducts)) {
-      selectedProducts = [];
-    }
+    const tenant = getCurrentTenantId() || sessionStorage.getItem("tenant_id") || "";
+    const data = await apiFetch(`/api/product-catalog?tenant_id=${encodeURIComponent(tenant)}`);
+    productCatalogEntries = Array.isArray(data?.products) ? data.products : [];
+    selectedProducts = productCatalogEntries.map(p => p.name);
+    renderProductList();
   } catch (e) {
+    console.warn("產品目錄讀取失敗", e);
     selectedProducts = [];
+    productCatalogEntries = [];
+    renderProductList();
   }
 }
 
@@ -1080,32 +1077,27 @@ function showError(msg) {
   el.textContent = msg || "";
 }
 
-function addProduct() {
+async function addProduct() {
   const input = document.getElementById("productInput");
-  const name = input.value.trim();
-
+  const name = (input?.value || "").trim();
   if (!name) return;
-
   const normalized = normalizeProductName(name);
-
-  if (!selectedProducts.includes(normalized)) {
-    selectedProducts.push(normalized);
-  }
-
-  saveSelectedProducts();
-
-  input.value = "";
-  renderProductList();
-  window.refreshDashboard();
+  const yoloClass = window.prompt("請輸入 YOLOv8 模型的類別名稱（尚未訓練可留空，稍後再設定）：", "");
+  if (yoloClass === null) return;
+  try {
+    await apiFetch("/api/product-catalog", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ tenant_id:getCurrentTenantId(), name:normalized, yolo_class:yoloClass.trim() }) });
+    if (input) input.value = "";
+    await loadSelectedProducts();
+    await window.refreshDashboard();
+  } catch(e) { showError(e.message || "新增產品失敗"); }
 }
-
-function removeProduct(name){
-  selectedProducts = selectedProducts.filter(p => p !== name);
-
-  saveSelectedProducts();
-
-  renderProductList();
-  window.refreshDashboard();
+async function removeProduct(name) {
+  if (!window.confirm(`要將「${name}」從產品清單移除嗎？歷史事件不會刪除。`)) return;
+  try {
+    await apiFetch("/api/product-catalog", { method:"DELETE", headers:{"Content-Type":"application/json"}, body:JSON.stringify({tenant_id:getCurrentTenantId(),name}) });
+    await loadSelectedProducts();
+    await window.refreshDashboard();
+  } catch(e) { showError(e.message || "移除產品失敗"); }
 }
 function renderProductList() {
   const div = document.getElementById("productList");
@@ -1126,7 +1118,8 @@ function renderProductList() {
   selectedProducts.forEach(product => {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.textContent = `${product} ❌`;
+    const matched = productCatalogEntries.find(p => p.name === product);
+    chip.textContent = `${product}｜${matched?.yolo_class ? `YOLO: ${matched.yolo_class}` : "待設定辨識模型"} ❌`;
     chip.setAttribute("aria-label", `移除產品 ${product}`);
     Object.assign(chip.style, {
       display: "inline-block",
@@ -1676,6 +1669,21 @@ let visionFrameTimer = null;
 let visionFrameBusy = false;
 let visionFrameObjectUrl = null;
 let visionFrameGeneration = 0;
+let chosenCameraId = "";
+function ensureCameraPicker() {
+  let picker = document.getElementById("visionCameraPicker");
+  if (picker) return picker;
+  const hint = document.getElementById("liveHint");
+  if (!hint) return null;
+  picker = document.createElement("select");
+  picker.id = "visionCameraPicker";
+  picker.setAttribute("aria-label", "選擇現場 USB 攝影機");
+  picker.style.cssText = "max-width:240px;margin:5px 0;padding:7px;border:1px solid #425a78;border-radius:8px;background:#0e1d30;color:white";
+  picker.innerHTML = '<option value="">自動選擇最新相機</option>';
+  picker.addEventListener("change", () => { chosenCameraId = picker.value; startCamera(); });
+  hint.parentNode.insertBefore(picker,hint);
+  return picker;
+}
 async function startCamera() {
   if (visionFrameTimer) clearInterval(visionFrameTimer);
   visionFrameTimer = null;
@@ -1683,6 +1691,7 @@ async function startCamera() {
   const generation = visionFrameGeneration;
   const img = document.getElementById("camera");
   const hint = document.getElementById("liveHint");
+  const picker = ensureCameraPicker();
   if (!img) return;
   img.removeAttribute("src");
   if (visionFrameObjectUrl) URL.revokeObjectURL(visionFrameObjectUrl);
@@ -1697,7 +1706,16 @@ async function startCamera() {
     if (generation !== visionFrameGeneration || visionFrameBusy || document.hidden) return;
     visionFrameBusy = true;
     try {
-      const status = await apiFetch(`/api/vision-frame/status?system_id=${encodeURIComponent(systemId)}`);
+      const status = await apiFetch(`/api/vision-frame/status?system_id=${encodeURIComponent(systemId)}&camera_id=${encodeURIComponent(chosenCameraId)}`);
+      if (picker && Array.isArray(status?.cameras)) {
+        const ids = status.cameras.map(c => c.camera_id);
+        if (chosenCameraId && !ids.includes(chosenCameraId)) ids.push(chosenCameraId);
+        const oldIds = [...picker.options].slice(1).map(o => o.value);
+        if (JSON.stringify(ids) !== JSON.stringify(oldIds)) {
+          picker.replaceChildren(new Option("自動選擇最新相機", ""), ...ids.map(id => new Option(id, id)));
+          picker.value = chosenCameraId;
+        }
+      }
       if (generation !== visionFrameGeneration) return;
       if (!status?.online) {
         img.removeAttribute("src");
@@ -1706,7 +1724,7 @@ async function startCamera() {
         if (hint) hint.textContent = "未連線：尚未收到現場 Python／YOLOv8 即時影像（或影像已逾時）";
         return;
       }
-      const response = await fetch(`/api/vision-frame/image?system_id=${encodeURIComponent(systemId)}`, { credentials: "same-origin", cache: "no-store" });
+      const response = await fetch(`/api/vision-frame/image?system_id=${encodeURIComponent(systemId)}&camera_id=${encodeURIComponent(chosenCameraId)}`, { credentials: "same-origin", cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const blob = await response.blob();
       if (generation !== visionFrameGeneration) return;
@@ -1823,7 +1841,7 @@ list.forEach(t => {
 
   await loadSystemOptionsByTenant(newTenantId);
 
-  loadSelectedProducts();
+  await loadSelectedProducts();
   renderProductList();
   renderYieldAlertSettings();
 
@@ -1930,7 +1948,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       await loadSystemOptionsByTenant(tenantId);
     }
   }
-loadSelectedProducts();
+await loadSelectedProducts();
 renderProductList();
 renderYieldAlertSettings();
 
@@ -1976,7 +1994,7 @@ renderYieldAlertSettings();
   const newSystemId = e.target.value;
   setCurrentSystemId(newSystemId);
 
-  loadSelectedProducts();
+  await loadSelectedProducts();
   renderProductList();
   renderYieldAlertSettings();
 
