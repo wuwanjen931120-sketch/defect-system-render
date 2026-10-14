@@ -1066,10 +1066,9 @@ async function addProduct() {
   const name = (input?.value || "").trim();
   if (!name) return;
   const normalized = normalizeProductName(name);
-  const yoloClass = window.prompt("請輸入 YOLOv8 模型的類別名稱（尚未訓練可留空，稍後再設定）：", "");
-  if (yoloClass === null) return;
+  // 新增產品只需名稱，YOLO 類別映射可在管理產品時另外設定。
   try {
-    await apiFetch("/api/product-catalog", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ tenant_id:getCurrentTenantId(), name:normalized, yolo_class:yoloClass.trim() }) });
+    await apiFetch("/api/product-catalog", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ tenant_id:getCurrentTenantId(), name:normalized }) });
     if (input) input.value = "";
     await loadSelectedProducts();
     await window.refreshDashboard();

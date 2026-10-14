@@ -3,6 +3,7 @@
 let users = [];
 let selectedUser = null;
 let currentSystems = [];
+let viewerRole = "";
 
 const statusEl = document.getElementById("status");
 const userListEl = document.getElementById("userList");
@@ -88,6 +89,7 @@ async function loadUsers() {
 
   try {
     users = await apiFetch("/api/admin/users?limit=200");
+    if (viewerRole === "tenant_admin") users = users.filter((u) => u.role === "user");
     statusEl.textContent = `共 ${users.length} 個帳號`;
     renderUserList();
   } catch (error) {
@@ -126,7 +128,7 @@ function renderSystems() {
   const isUser = document.getElementById("role").value === "user";
 
   if (!currentSystems.length) {
-    container.textContent = "此租戶目前沒有機台";
+    container.textContent = "此客戶目前沒有建立機台；請由有權限的管理員先建立機台。這不表示其他客戶或整個網站沒有機台。";
     return;
   }
 
@@ -172,7 +174,7 @@ async function selectUser(user) {
   document.getElementById("username").value = user.email || user.username || "";
   document.getElementById("company").value = user.company || "";
   document.getElementById("tenantId").value = user.tenant_id || "";
-  document.getElementById("role").value = user.role || "user";
+  document.getElementById("role").value = viewerRole === "tenant_admin" ? "user" : (user.role || "user");
   document.getElementById("enabled").checked = !user.disabled;
   document.getElementById("saveStatus").textContent = "";
 
@@ -204,12 +206,17 @@ editForm.addEventListener("submit", async (event) => {
         ).map((input) => input.value)
       : [];
 
+  if (viewerRole !== "super_admin" && role !== "user") {
+    saveStatus.textContent = "❌ 客戶管理員只能管理一般使用者";
+    return;
+  }
+
   const payload = {
     name,
-    role,
     systems,
     disabled: !enabled
   };
+  if (viewerRole === "super_admin") payload.role = role;
 
   saveBtn.disabled = true;
   saveStatus.textContent = "儲存中...";
@@ -245,4 +252,30 @@ document
   .getElementById("refreshBtn")
   .addEventListener("click", loadUsers);
 
-loadUsers();
+async function initUserManagement() {
+  try {
+    const session = await apiFetch("/api/session");
+    viewerRole = session?.user?.role || "";
+    if (!["super_admin", "tenant_admin"].includes(viewerRole)) {
+      statusEl.textContent = "只有管理員可以管理帳號";
+      editForm.hidden = true;
+      return;
+    }
+    if (viewerRole === "tenant_admin") {
+      const roleSelect = document.getElementById("role");
+      roleSelect.replaceChildren();
+      const option = document.createElement("option");
+      option.value = "user";
+      option.textContent = "一般使用者";
+      roleSelect.appendChild(option);
+      roleSelect.disabled = true;
+      const hint = document.getElementById("rolePermissionHint");
+      if (hint) hint.hidden = false;
+    }
+    await loadUsers();
+  } catch (error) {
+    statusEl.textContent = `驗證管理權限失敗：${error.message}`;
+  }
+}
+
+initUserManagement();

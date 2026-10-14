@@ -8,7 +8,7 @@
   <script src="auth-bootstrap.js?v=20261007-1"></script>
   <link rel="stylesheet" href="style.css" />
 
-  <link rel="stylesheet" href="user-manage.css?v=20261007-2" />
+  <link rel="stylesheet" href="user-manage.css?v=20261014-role-1" />
   <script defer src="core.js?v=20261013-navorder-1"></script>
 <link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
 
@@ -73,6 +73,7 @@
                 <option value="tenant_admin">客戶管理員</option>
                 <option value="super_admin">系統管理員</option>
               </select>
+              <span id="rolePermissionHint" class="field-note" hidden>客戶管理員只能管理同租戶的一般使用者，無法指派或變更系統管理員角色。</span>
             </label>
 
             <div class="field-block">
@@ -100,6 +101,6 @@
     </section>
     </div></main>
   </div>
-  <script src="user-manage.js?v=20261007-2"></script>
+  <script src="user-manage.js?v=20261014-role-1"></script>
 </body>
 </html>
