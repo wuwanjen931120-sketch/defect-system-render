@@ -4,6 +4,23 @@ let users = [];
 let selectedUser = null;
 let currentSystems = [];
 let viewerRole = "";
+const OWNER_EMAIL = "bty931120@gmail.com";
+function isProtectedOwner(user) {
+  return !!user && (user.protected_owner === true ||
+    [user.email, user.username].some(v => String(v || "").trim().toLowerCase() === OWNER_EMAIL));
+}
+function lockProtectedOwnerEditor(user) {
+  const locked = isProtectedOwner(user);
+  for (const id of ["name", "role", "enabled", "saveBtn"]) document.getElementById(id).disabled = locked;
+  const hint = document.getElementById("rolePermissionHint");
+  if (hint) {
+    hint.hidden = !locked;
+    hint.textContent = locked ? "此帳號受保護：其他管理員無法修改。帳號本人請使用本人角色設定頁面。" : "";
+  }
+  if (locked) document.getElementById("saveStatus").textContent = "受保護帳號：僅本人可透過專屬頁面變更角色";
+  document.querySelectorAll('#systemsList input[type="checkbox"]').forEach(el => { if (locked) el.disabled = true; });
+}
+
 
 const statusEl = document.getElementById("status");
 const userListEl = document.getElementById("userList");
@@ -75,7 +92,7 @@ function renderUserList() {
     const meta = document.createElement("span");
     meta.className = "user-meta";
     meta.textContent =
-      `${roleLabel(user.role)}｜${user.disabled ? "停用" : "啟用"}${user.protected_owner ? "｜受保護帳號（不可修改）" : ""}`;
+      `${roleLabel(user.role)}｜${user.disabled ? "停用" : "啟用"}${isProtectedOwner(user) ? "｜受保護帳號（不可修改）" : ""}`;
 
     button.append(name, company, email, meta);
     button.addEventListener("click", () => selectUser(user));
@@ -179,10 +196,12 @@ async function selectUser(user) {
   document.getElementById("saveStatus").textContent = "";
 
   await loadSystems(user.tenant_id);
+  lockProtectedOwnerEditor(user);
 }
 
 document.getElementById("role").addEventListener("change", () => {
   renderSystems();
+  lockProtectedOwnerEditor(selectedUser);
 });
 
 editForm.addEventListener("submit", async (event) => {
@@ -193,7 +212,7 @@ editForm.addEventListener("submit", async (event) => {
   const saveStatus = document.getElementById("saveStatus");
   const saveBtn = document.getElementById("saveBtn");
 
-  if (selectedUser?.protected_owner) {
+  if (isProtectedOwner(selectedUser)) {
     document.getElementById("saveStatus").textContent = "受保護帳號請由本人使用專屬角色設定頁面修改";
     return;
   }
@@ -248,7 +267,7 @@ editForm.addEventListener("submit", async (event) => {
   } catch (error) {
     saveStatus.textContent = `❌ ${error.message}`;
   } finally {
-    saveBtn.disabled = false;
+    saveBtn.disabled = isProtectedOwner(selectedUser);
   }
 });
 
