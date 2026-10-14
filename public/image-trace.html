@@ -16,7 +16,7 @@
 
   <script defer src="core.js?v=20261013-navorder-1"></script>
   <script defer src="datetime-picker.js?v=20261006-1"></script>
-  <script defer src="image-trace.js?v=20260811-1"></script>
+  <script defer src="image-trace.js?v=20261014-demo1"></script>
 <link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
 
 <body>
@@ -92,6 +92,24 @@
             ⟳ 重新整理
           </button>
         </div>
+
+        <section id="demoImagePanel" class="demoImagePanel" hidden>
+          <h3>管理員模擬 NG 圖片上傳 <span class="demoTag">僅測試資料</span></h3>
+          <p>僅平台總管理員可使用。上傳後建立 TEST 類型 NG 事件，不會加入正式統計。正式 YOLOv8 圖片上傳不受此開關影響。</p>
+          <label class="demoToggle"><input id="demoImageEnabled" type="checkbox" /> 啟用管理員模擬圖片上傳</label>
+          <form id="demoImageForm" class="demoImageForm" hidden>
+            <label>機台 <select id="demoImageSystem" required><option value="">請選擇機台</option></select></label>
+            <label>產品名稱 <input id="demoImageProduct" type="text" maxlength="100" placeholder="例如：橡皮擦" required /></label>
+            <label>NG 測試圖片 <input id="demoImageFile" type="file" accept="image/jpeg,image/png,image/webp" required /></label>
+            <button class="btn btnPrimary" type="submit" id="demoImageUploadBtn">上傳測試圖片並建立 NG 事件</button>
+          </form>
+          <p id="demoImageStatus" role="status"></p>
+        </section>
+
+        <section id="adminTraceDataModePanel" class="demoImagePanel" hidden>
+          <label for="imageTraceDataMode">管理員資料檢視</label>
+          <select id="imageTraceDataMode"><option value="PRODUCTION">正式資料</option><option value="TEST">測試資料（包含歷史未分類）</option><option value="ALL">全部資料</option></select>
+        </section>
 
         <section class="imageTraceFilters">
 

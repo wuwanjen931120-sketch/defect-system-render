@@ -61,6 +61,8 @@ function buildTraceParams() {
 
   params.set("status", "NG");
   params.set("limit", "1000");
+  const mode = document.getElementById("imageTraceDataMode")?.value;
+  if (mode) params.set("data_mode", mode);
 
   const systemId =
     document.getElementById("imageTraceSystem")?.value || "";
@@ -441,5 +443,78 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   await loadTraceSystems();
+  await initDemoImageAdmin();
   await loadImageTrace();
 });
+
+// 管理員模擬圖片功能：角色與開關均由後端驗證；JS 隱藏不是安全界線。
+async function initDemoImageAdmin() {
+  try {
+    const sessionResponse = await fetch("/api/session", { credentials: "same-origin", cache: "no-store" });
+    if (!sessionResponse.ok) return;
+    const session = await sessionResponse.json();
+    if (session?.user?.role !== "super_admin") return;
+    document.getElementById("demoImagePanel").hidden = false;
+    document.getElementById("adminTraceDataModePanel").hidden = false;
+    document.getElementById("imageTraceDataMode").value = "TEST";
+    document.getElementById("imageTraceDataMode").addEventListener("change", loadImageTrace);
+    const response = await fetch("/api/admin/demo-image-settings", { credentials: "same-origin", cache: "no-store" });
+    if (!response.ok) throw new Error("無法讀取模擬功能設定");
+    const settings = await response.json();
+    const toggle = document.getElementById("demoImageEnabled");
+    toggle.checked = settings.enabled === true;
+    document.getElementById("demoImageForm").hidden = !toggle.checked;
+    toggle.addEventListener("change", async () => {
+      toggle.disabled = true;
+      try {
+        const r = await fetch("/api/admin/demo-image-settings", { method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: toggle.checked }) });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message || "設定失敗");
+        document.getElementById("demoImageForm").hidden = !data.enabled;
+        setDemoImageStatus(data.enabled ? "模擬上傳已啟用" : "模擬上傳已停用，不影響既有圖片與正式上傳");
+      } catch (error) { toggle.checked = !toggle.checked; setDemoImageStatus(error.message); }
+      finally { toggle.disabled = false; }
+    });
+    const systemsResponse = await fetch("/api/systems?limit=1000", { credentials: "same-origin", cache: "no-store" });
+    if (systemsResponse.ok) {
+      const systems = await systemsResponse.json();
+      const select = document.getElementById("demoImageSystem");
+      for (const system of (Array.isArray(systems) ? systems : [])) {
+        if (!system.system_id || !system.tenant_id) continue;
+        const opt = new Option(`${system.name || system.system_id} (${system.system_id})`, system.system_id);
+        opt.dataset.tenantId = system.tenant_id;
+        select.add(opt);
+      }
+    }
+    document.getElementById("demoImageForm").addEventListener("submit", uploadDemoImage);
+  } catch (error) { setDemoImageStatus(error.message || "管理員功能載入失敗"); }
+}
+function setDemoImageStatus(message) {
+  const target = document.getElementById("demoImageStatus");
+  if (target) target.textContent = message;
+}
+async function uploadDemoImage(event) {
+  event.preventDefault();
+  const select = document.getElementById("demoImageSystem");
+  const tenantId = select.selectedOptions[0]?.dataset.tenantId || "";
+  const product = document.getElementById("demoImageProduct").value.trim();
+  const file = document.getElementById("demoImageFile").files[0];
+  if (!select.value || !tenantId || !product || !file) { setDemoImageStatus("請選擇機台、填寫產品及圖片"); return; }
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) { setDemoImageStatus("請選擇 5 MB 以下的 JPG、PNG 或 WebP 圖片"); return; }
+  const button = document.getElementById("demoImageUploadBtn");
+  button.disabled = true;
+  try {
+    const params = new URLSearchParams({ tenant_id: tenantId, system_id: select.value, product });
+    const response = await fetch(`/api/admin/demo-ng-image?${params}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": file.type }, body: file });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.message || "圖片上傳失敗");
+    setDemoImageStatus(`上傳完成：${result.case_id}（測試資料）。可在下方查詢。`);
+    document.getElementById("imageTraceSystem").value = select.value;
+    document.getElementById("imageTraceProduct").value = "";
+    document.getElementById("imageTraceCaseId").value = "";
+    document.getElementById("imageTraceDataMode").value = "TEST";
+    document.getElementById("demoImageFile").value = "";
+    await loadImageTrace();
+  } catch (error) { setDemoImageStatus(error.message || "圖片上傳失敗"); }
+  finally { button.disabled = false; }
+}

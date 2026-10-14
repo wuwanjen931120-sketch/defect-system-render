@@ -311,3 +311,14 @@
   box-shadow:0 0 0 3px rgba(59,130,246,.14);
   outline:none;
 }
+
+/* 僅供平台總管理員的模擬上傳介面 */
+.demoImagePanel { margin: 16px 0; padding: 18px; border: 1px solid #375778; border-radius: 14px; background: #102640; color: #e4f1ff; }
+.demoImagePanel[hidden], .demoImageForm[hidden] { display: none !important; }
+.demoImagePanel p { margin: 9px 0; color: #a4bedb; font-size: 13px; line-height: 1.6; }
+.demoTag { color: #ffc76c; font-size: 12px; margin-left: 6px; }
+.demoToggle { display: flex; gap: 10px; align-items: center; margin: 10px 0; }
+.demoImageForm { display: flex; flex-wrap: wrap; gap: 14px; align-items: end; margin-top: 14px; }
+.demoImageForm label { display: grid; gap: 7px; min-width: 180px; flex: 1; }
+.demoImageForm input, .demoImageForm select, #imageTraceDataMode { background: #0b1b30; border: 1px solid #436080; color: #f5f8ff; border-radius: 8px; padding: 10px; max-width: 100%; }
+#demoImageStatus { min-height: 18px; }
