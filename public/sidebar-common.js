@@ -6,8 +6,8 @@
 (function () {
   const NAV_ITEMS = [
     { href: "dashboard.html", icon: "🏠", label: "首頁", pill: "Dashboard" },
-    { href: "machine-status.html", icon: "🖥️", label: "機台狀態", pill: "Machines" },
-    { href: "alerts.html", icon: "🚨", label: "告警中心", pill: "Alerts" },
+
+
     { href: "logs.html", icon: "🧾", label: "事件紀錄", pill: "Logs" },
     { href: "image-trace.html", icon: "🖼️", label: "圖片追溯", pill: "Images" },
     { href: "report.html", icon: "📊", label: "報表中心", pill: "Reports" },

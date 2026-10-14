@@ -240,8 +240,8 @@
       // 依實際使用流程排序：監控 → 品質追溯 → 分析 → 系統管理。
       nav.append(
         createNavLink("dashboard.html", "🏠 首頁", "Dashboard"),
-        createNavLink("machine-status.html", "🖥️ 機台狀態", "Machines"),
-        createNavLink("alerts.html", "🚨 告警中心", "Alerts"),
+
+
         createNavLink("logs.html", "🧾 事件紀錄", "Logs"),
         createNavLink("image-trace.html", "🖼️ 圖片追溯", "Images"),
         createNavLink("report.html", "📊 報表中心", "Reports"),
