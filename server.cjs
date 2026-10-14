@@ -142,6 +142,9 @@ app.use(express.urlencoded({ extended: false, limit: "64kb" }));
 
 const publicDir = path.join(__dirname, "public");
 app.get("/favicon.ico", (req,res) => res.redirect(302,"/icon-192.png"));
+// Only platform super_admin can load the user/role/machine management page.
+// Server-side guard is BEFORE express.static to prevent direct URL bypass.
+app.get(["/user-manage.html", "/user-manage"], auth, requireRole("super_admin"), (req, res, next) => next());
 app.use(express.static(publicDir, {
   dotfiles: "deny",
   etag: true,
@@ -617,7 +620,7 @@ app.post("/api/logout", asyncHandler(async (req, res) => {
   return res.json({ success: true });
 }));
 
-app.get("/api/admin/users", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
+app.get("/api/admin/users", auth, requireRole("super_admin"), asyncHandler(async (req, res) => {
   const page = clampInt(req.query.page, 1, 1, 100000);
   const limit = clampInt(req.query.limit, 100, 1, 200);
   const query = req.user.role === "tenant_admin" ? { tenant_id: req.user.tenant_id } : {};
@@ -645,7 +648,7 @@ app.get("/api/admin/users", auth, requireRole("super_admin", "tenant_admin"), as
   })));
 }));
 
-app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
+app.post("/api/admin/create-user", auth, requireRole("super_admin"), asyncHandler(async (req, res) => {
   const username = normalizeEmail(req.body.username);
   const password = String(req.body.password || "");
   const role = cleanText(req.body.role, 30);
@@ -677,7 +680,7 @@ app.post("/api/admin/create-user", auth, requireRole("super_admin", "tenant_admi
   return res.status(201).json({ success: true, message: "帳號建立成功" });
 }));
 
-app.patch("/api/admin/users/:id", auth, requireRole("super_admin", "tenant_admin"), asyncHandler(async (req, res) => {
+app.patch("/api/admin/users/:id", auth, requireRole("super_admin"), asyncHandler(async (req, res) => {
   const id = cleanText(req.params.id, 100);
   if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({ message: "使用者 ID 格式不正確" });
   const users = mongoose.connection.collection("users");
