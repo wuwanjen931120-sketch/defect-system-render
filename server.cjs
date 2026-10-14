@@ -689,6 +689,9 @@ app.patch("/api/admin/users/:id", auth, requireRole("super_admin", "tenant_admin
   if (req.user.role === "tenant_admin" && target.role !== "user") {
     return res.status(403).json({ message: "租戶管理員只能管理一般使用者" });
   }
+  if (req.user.role === "tenant_admin" && req.body.role !== undefined) {
+    return res.status(403).json({ message: "租戶管理員不可指派或修改任何帳號角色" });
+  }
   if (String(target._id) === req.user.id && req.body.disabled === true) {
     return res.status(400).json({ message: "不可停用目前登入帳號" });
   }
@@ -1033,7 +1036,13 @@ app.post("/api/product-catalog", auth, requireRole("super_admin","tenant_admin")
   if (!tenant || !name || name === "未分類") return res.status(400).json({ message: "請輸入正確客戶與產品名稱" });
   if (yolo_class && !/^[a-zA-Z0-9_\- ]{1,90}$/.test(yolo_class)) return res.status(400).json({ message: "YOLO 類別只能使用英數字、底線與連字號" });
   try {
-    const item = await ProductCatalog.findOneAndUpdate({ tenant_id: tenant, name }, { $set: { yolo_class } }, { upsert: true, new: true, runValidators: true });
+    // 未填寫 YOLO 類別時不覆蓋原有映射；新增產品時預設留空。
+    const update = { $setOnInsert: { yolo_class: "" } };
+    if (Object.prototype.hasOwnProperty.call(req.body, "yolo_class")) {
+      delete update.$setOnInsert;
+      update.$set = { yolo_class };
+    }
+    const item = await ProductCatalog.findOneAndUpdate({ tenant_id: tenant, name }, update, { upsert: true, new: true, runValidators: true });
     res.json({ success: true, product: item });
   } catch (e) { if (e.code === 11000) return res.status(409).json({ message: "此 YOLO 類別已對應另一產品" }); throw e; }
 }));
