@@ -75,7 +75,7 @@ function renderUserList() {
     const meta = document.createElement("span");
     meta.className = "user-meta";
     meta.textContent =
-      `${roleLabel(user.role)}｜${user.disabled ? "停用" : "啟用"}`;
+      `${roleLabel(user.role)}｜${user.disabled ? "停用" : "啟用"}${user.protected_owner ? "｜受保護帳號（不可修改）" : ""}`;
 
     button.append(name, company, email, meta);
     button.addEventListener("click", () => selectUser(user));
@@ -193,6 +193,10 @@ editForm.addEventListener("submit", async (event) => {
   const saveStatus = document.getElementById("saveStatus");
   const saveBtn = document.getElementById("saveBtn");
 
+  if (selectedUser?.protected_owner) {
+    document.getElementById("saveStatus").textContent = "受保護帳號請由本人使用專屬角色設定頁面修改";
+    return;
+  }
   const role = document.getElementById("role").value;
   const enabled = document.getElementById("enabled").checked;
   const name = document.getElementById("name").value.trim();
