@@ -620,6 +620,35 @@ app.post("/api/logout", asyncHandler(async (req, res) => {
   return res.json({ success: true });
 }));
 
+// Protected founding account: compare immutable account _id resolved by the configured email.
+// Do not grant elevated privileges based only on a request-supplied email.
+const PROTECTED_OWNER_EMAIL = normalizeEmail(process.env.PROTECTED_OWNER_EMAIL || "bty931120@gmail.com");
+async function getProtectedOwner(users) {
+  return users.findOne({ $or: [{ email: PROTECTED_OWNER_EMAIL }, { username: PROTECTED_OWNER_EMAIL }] });
+}
+app.get("/api/owner/role", auth, asyncHandler(async (req, res) => {
+  const owner = await getProtectedOwner(mongoose.connection.collection("users"));
+  if (!owner || String(owner._id) !== req.user.id) return res.status(403).json({ message: "只有受保護帳號本人可以使用" });
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ role: owner.role, email: PROTECTED_OWNER_EMAIL });
+}));
+// Sensitive self-service role changes require BOTH a valid login session and password re-verification.
+const ownerRoleLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: "draft-8", legacyHeaders: false });
+app.post("/api/owner/role", auth, ownerRoleLimiter, asyncHandler(async (req, res) => {
+  const users = mongoose.connection.collection("users");
+  const owner = await getProtectedOwner(users);
+  if (!owner || String(owner._id) !== req.user.id) return res.status(403).json({ message: "只有受保護帳號本人可以修改身分" });
+  const requestedRole = cleanText(req.body.role, 30);
+  if (!["super_admin", "tenant_admin", "user"].includes(requestedRole)) return res.status(400).json({ message: "角色不正確" });
+  const passwordHash = String(owner.password || owner.passwordHash || owner.password_hash || "");
+  if (!/^\$2[aby]\$/.test(passwordHash) || !await bcrypt.compare(String(req.body.password || ""), passwordHash)) {
+    return res.status(403).json({ message: "密碼驗證失敗" });
+  }
+  await users.updateOne({ _id: owner._id }, { $set: { role: requestedRole, systems: [], updatedAt: new Date() }, $inc: { session_version: 1 } });
+  await writeAudit(req, "owner.role.change", { target: PROTECTED_OWNER_EMAIL, details: { from: owner.role, to: requestedRole } });
+  return res.json({ success: true, message: "身分已更新，請重新登入" });
+}));
+
 app.get("/api/admin/users", auth, requireRole("super_admin"), asyncHandler(async (req, res) => {
   const page = clampInt(req.query.page, 1, 1, 100000);
   const limit = clampInt(req.query.limit, 100, 1, 200);
@@ -644,6 +673,7 @@ app.get("/api/admin/users", auth, requireRole("super_admin"), asyncHandler(async
     company: tenants.find(t => t.tenant_id === u.tenant_id)?.company || u.company || "未知",
     role: u.role,
     disabled: u.disabled === true || u.status === "disabled",
+    protected_owner: normalizeEmail(u.email || u.username) === PROTECTED_OWNER_EMAIL,
     systems: Array.isArray(u.systems) ? u.systems : []
   })));
 }));
@@ -686,6 +716,12 @@ app.patch("/api/admin/users/:id", auth, requireRole("super_admin"), asyncHandler
   const users = mongoose.connection.collection("users");
   const target = await users.findOne({ _id: new mongoose.Types.ObjectId(id) });
   if (!target) return res.status(404).json({ message: "找不到使用者" });
+  const protectedOwner = await getProtectedOwner(users);
+  if (protectedOwner && String(target._id) === String(protectedOwner._id)) {
+    // Even another super_admin cannot change owner name, role, enabled state or systems.
+    // Owner edits their own role ONLY via /api/owner/role with password confirmation.
+    return res.status(403).json({ message: "受保護的系統擁有者帳號不可在此修改，請由本人使用專屬角色設定" });
+  }
   if (req.user.role === "tenant_admin" && target.tenant_id !== req.user.tenant_id) {
     return res.status(403).json({ message: "無權管理其他租戶使用者" });
   }
