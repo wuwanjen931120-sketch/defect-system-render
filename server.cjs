@@ -673,7 +673,7 @@ app.get("/api/admin/users", auth, requireRole("super_admin"), asyncHandler(async
     company: tenants.find(t => t.tenant_id === u.tenant_id)?.company || u.company || "未知",
     role: u.role,
     disabled: u.disabled === true || u.status === "disabled",
-    protected_owner: normalizeEmail(u.email || u.username) === PROTECTED_OWNER_EMAIL,
+    protected_owner: [u.email, u.username].some(v => normalizeEmail(v) === PROTECTED_OWNER_EMAIL),
     systems: Array.isArray(u.systems) ? u.systems : []
   })));
 }));
@@ -717,7 +717,8 @@ app.patch("/api/admin/users/:id", auth, requireRole("super_admin"), asyncHandler
   const target = await users.findOne({ _id: new mongoose.Types.ObjectId(id) });
   if (!target) return res.status(404).json({ message: "找不到使用者" });
   const protectedOwner = await getProtectedOwner(users);
-  if (protectedOwner && String(target._id) === String(protectedOwner._id)) {
+  if ([target.email, target.username].some(v => normalizeEmail(v) === PROTECTED_OWNER_EMAIL) ||
+      (protectedOwner && String(target._id) === String(protectedOwner._id))) {
     // Even another super_admin cannot change owner name, role, enabled state or systems.
     // Owner edits their own role ONLY via /api/owner/role with password confirmation.
     return res.status(403).json({ message: "受保護的系統擁有者帳號不可在此修改，請由本人使用專屬角色設定" });
