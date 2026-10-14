@@ -1255,6 +1255,61 @@ app.patch("/api/systems/:systemId/name", auth, requireRole("super_admin", "tenan
   return res.json({success:true,system_id,name});
 }));
 
+// 管理員展示圖片開關：僅平台總管理員可修改；預設關閉，以免誤建測試事件。
+const demoImageSettings = () => mongoose.connection.collection("demo_image_settings");
+async function demoImageEnabled() {
+  const row = await demoImageSettings().findOne({ _id: "global" });
+  return row?.enabled === true;
+}
+app.get("/api/admin/demo-image-settings", auth, requireRole("super_admin"), asyncHandler(async (req, res) => {
+  res.setHeader("Cache-Control", "no-store");
+  return res.json({ enabled: await demoImageEnabled() });
+}));
+app.put("/api/admin/demo-image-settings", auth, requireRole("super_admin"), asyncHandler(async (req, res) => {
+  if (typeof req.body?.enabled !== "boolean") return res.status(400).json({ message: "enabled 必須為布林值" });
+  await demoImageSettings().updateOne({ _id: "global" }, { $set: { enabled: req.body.enabled, updated_at: new Date(), updated_by: req.user.id } }, { upsert: true });
+  await writeAudit(req, "demo.image.settings.updated", { details: { enabled: req.body.enabled } });
+  return res.json({ enabled: req.body.enabled });
+}));
+
+// 模擬 NG：資料庫事件固定 TEST，不會影響正式模式統計與正式品質告警。
+app.post(
+  "/api/admin/demo-ng-image",
+  auth,
+  requireRole("super_admin"),
+  express.raw({ type: ["image/jpeg", "image/png", "image/webp"], limit: `${NG_IMAGE_MAX_BYTES}b` }),
+  asyncHandler(async (req, res) => {
+    if (!(await demoImageEnabled())) return res.status(403).json({ message: "模擬圖片上傳已關閉，請先至圖片追溯管理區啟用" });
+    const system_id = cleanText(req.query.system_id, 100);
+    const tenant_id = cleanText(req.query.tenant_id, 100);
+    const product = cleanText(req.query.product, 100);
+    const contentType = String(req.headers["content-type"] || "").toLowerCase();
+    if (!system_id || !tenant_id || !product) return res.status(400).json({ message: "請選擇機台並填寫產品名稱" });
+    if (!["image/jpeg", "image/png", "image/webp"].includes(contentType)) return res.status(415).json({ message: "僅支援 JPG、PNG、WebP" });
+    if (!Buffer.isBuffer(req.body) || !req.body.length || req.body.length > NG_IMAGE_MAX_BYTES) return res.status(400).json({ message: "圖片不可為空或超過限制" });
+    const system = await mongoose.connection.collection("systems").findOne({ tenant_id, system_id });
+    if (!system) return res.status(404).json({ message: "找不到對應客戶的機台" });
+    const case_id = `DEMO-NG-${require("node:crypto").randomUUID()}`;
+    const bucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: "ng_images" });
+    const ext = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
+    const upload = bucket.openUploadStream(`${system_id}-${case_id}.${ext}`, {
+      contentType,
+      metadata: { tenant_id, system_id, case_id, product, data_mode: "TEST", demo: true, uploaded_at: new Date() }
+    });
+    await new Promise((resolve, reject) => { upload.once("error", reject); upload.once("finish", resolve); upload.end(req.body); });
+    const image_url = `/api/images/${upload.id.toString()}`;
+    try {
+      await Defect.create({ tenant_id, user_id: req.user.id, system_id, id: case_id, event_id: case_id,
+        status: "NG", product, source: "ADMIN_DEMO_IMAGE", data_mode: "TEST", image_url, timestamp: new Date() });
+    } catch (error) {
+      await bucket.delete(upload.id).catch(() => {});
+      throw error;
+    }
+    await writeAudit(req, "demo.image.uploaded", { tenant_id, system_id, target: case_id, details: { product, data_mode: "TEST" } });
+    return res.status(201).json({ success: true, case_id, image_url, data_mode: "TEST" });
+  })
+);
+
 // ===== 現場裝置整合：NG 圖片與實體手臂 heartbeat =====
 app.post(
   "/api/device/ng-image",
