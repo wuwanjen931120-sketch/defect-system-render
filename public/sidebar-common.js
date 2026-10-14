@@ -24,7 +24,7 @@
 
   function canOpenAdmin() {
     const role = sessionStorage.getItem("role") || "user";
-    return role === "super_admin" || role === "admin" || role === "tenant_admin";
+    return role === "super_admin";
   }
 
   function injectSidebarStyle() {

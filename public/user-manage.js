@@ -256,9 +256,10 @@ async function initUserManagement() {
   try {
     const session = await apiFetch("/api/session");
     viewerRole = session?.user?.role || "";
-    if (!["super_admin", "tenant_admin"].includes(viewerRole)) {
-      statusEl.textContent = "只有管理員可以管理帳號";
+    if (viewerRole !== "super_admin") {
+      statusEl.textContent = "只有平台系統管理員可以管理帳號";
       editForm.hidden = true;
+      window.location.replace("dashboard.html");
       return;
     }
     if (viewerRole === "tenant_admin") {

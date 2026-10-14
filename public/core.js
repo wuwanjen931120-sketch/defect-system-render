@@ -220,7 +220,7 @@
     const sidebars = Array.from(document.querySelectorAll(".sidebar"));
     if(!sidebars.length) return;
     const info = getLoginInfo();
-    const canAdmin = info.role === "super_admin" || info.role === "tenant_admin";
+    const canAdmin = info.role === "super_admin";
 
     sidebars.forEach(side => {
       const brand = document.createElement("div");
