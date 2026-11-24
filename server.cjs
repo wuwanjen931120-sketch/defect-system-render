@@ -1359,6 +1359,108 @@ app.post(
   })
 );
 
+// ===== YOLO HTTP API：和既有 MQTT 使用相同欄位、資料庫與即時通知 =====
+// 傳送 JSON：{system_id, event_id, product, status, track_id?, image_url?, timestamp?}
+// 每件產品使用固定 event_id；重送相同 ID 僅更新原紀錄，不會重複加總。
+const inspectionApiLimiter = rateLimit({ windowMs: 60 * 1000, limit: 300, standardHeaders: "draft-8", legacyHeaders: false });
+app.post("/api/device/inspection", deviceAuth, inspectionApiLimiter, asyncHandler(async (req, res) => {
+  const systemId = cleanText(req.body?.system_id, 100);
+  if (!systemId) return res.status(400).json({ message: "缺少 system_id" });
+  const systemDoc = await mongoose.connection.collection("systems").findOne(
+    { system_id: systemId }, { projection: { tenant_id: 1, current_product: 1 } }
+  );
+  if (!systemDoc) return res.status(404).json({ message: "找不到機台，請先在網站建立機台" });
+  const receivedAt = new Date();
+  let normalized;
+  try {
+    normalized = normalizeDefectPayload(req.body, systemDoc.current_product || "未分類", {
+      now: receivedAt,
+      maxFutureMs: MQTT_MAX_FUTURE_SECONDS * 1000,
+      maxPastMs: MQTT_MAX_PAST_DAYS * 86400000
+    });
+  } catch (e) {
+    return res.status(400).json({ message: e.message });
+  }
+  const ingestDataMode = await configuredMachineMode(systemDoc.tenant_id, systemId);
+  const owner = await mongoose.connection.collection("users").findOne(
+    { tenant_id: systemDoc.tenant_id }, { projection: { username: 1, email: 1 } }
+  );
+  const products = await ProductCatalog.find({ tenant_id: systemDoc.tenant_id }).lean();
+  const classMap = new Map(products.filter(p => p.yolo_class).map(p => [p.yolo_class.toLowerCase(), p.name]));
+  const docs = normalized.items.map(item => ({
+    tenant_id: systemDoc.tenant_id,
+    user_id: owner?.username || owner?.email || "unknown",
+    system_id: systemId,
+    id: item.id,
+    event_id: item.event_id || item.id,
+    track_id: item.track_id || "",
+    status: item.status,
+    product: classMap.get(String(item.product).toLowerCase()) || item.product,
+    source: item.source || "YOLO_HTTP_API",
+    data_mode: ingestDataMode,
+    robot_result: item.robot_result || "",
+    lane: item.lane || "",
+    image_url: item.image_url || "",
+    timestamp: item.timestamp || receivedAt
+  }));
+  const operations = docs.map(doc => ({ updateOne: {
+    filter: { tenant_id: doc.tenant_id, system_id: doc.system_id, id: doc.id },
+    update: {
+      $setOnInsert: {
+        tenant_id: doc.tenant_id, user_id: doc.user_id,
+        system_id: doc.system_id, id: doc.id,
+        event_id: doc.event_id, track_id: doc.track_id, data_mode: doc.data_mode
+      },
+      $set: {
+        status: doc.status, product: doc.product, source: doc.source,
+        ...(doc.robot_result ? { robot_result: doc.robot_result } : {}),
+        ...(doc.lane ? { lane: doc.lane } : {}),
+        ...(doc.image_url ? { image_url: doc.image_url } : {}),
+        timestamp: doc.timestamp
+      }
+    }, upsert: true
+  } }));
+  const result = await Defect.bulkWrite(operations, { ordered: false });
+  await mongoose.connection.collection("systems").updateOne(
+    { tenant_id: systemDoc.tenant_id, system_id: systemId },
+    { $set: { last_report_at: receivedAt, last_report_status: "online" } }
+  );
+  const last = docs[docs.length - 1];
+  // 維持既有 /api/mqtt/latest 消費端相容：它顯示最新品質事件，不限 transport。
+  latestMqttMessage = {
+    payload: {
+      id: last.id, event_id: last.event_id, track_id: last.track_id,
+      status: last.status, product: last.product, system_id: systemId,
+      source: last.source, data_mode: ingestDataMode,
+      robot_result: last.robot_result, lane: last.lane,
+      image_url: last.image_url, timestamp: last.timestamp
+    },
+    tenant_id: last.tenant_id, data_mode: ingestDataMode,
+    timestamp: receivedAt, receivedAt: receivedAt.toISOString(),
+    inserted_count: Number(result.upsertedCount || 0),
+    duplicate_count: Math.max(0, docs.length - Number(result.upsertedCount || 0))
+  };
+  if (ingestDataMode === "PRODUCTION") {
+    for (const doc of docs) pushRealtimeEvent("defect", {
+      id: doc.id, event_id: doc.event_id, track_id: doc.track_id,
+      system_id: doc.system_id, product: doc.product, status: doc.status,
+      source: doc.source, data_mode: doc.data_mode,
+      robot_result: doc.robot_result, lane: doc.lane,
+      image_url: doc.image_url, timestamp: doc.timestamp,
+      received_at: receivedAt.toISOString()
+    }, doc.tenant_id, doc.system_id);
+    if (docs.some(doc => doc.status === "NG")) {
+      await evaluateNgAlert(systemDoc.tenant_id, systemId);
+      await evaluateYieldAlerts(systemDoc.tenant_id, systemId);
+    }
+  }
+  res.status(200).json({
+    success: true, system_id: systemId, data_mode: ingestDataMode,
+    received_count: docs.length, inserted_count: Number(result.upsertedCount || 0),
+    updated_or_duplicate_count: docs.length - Number(result.upsertedCount || 0)
+  });
+}));
+
 // ===== 現場裝置整合：NG 圖片與實體手臂 heartbeat =====
 app.post(
   "/api/device/ng-image",
