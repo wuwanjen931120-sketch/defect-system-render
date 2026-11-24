@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+
+<html lang="zh-TW">
+<head>
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta charset="utf-8"/>
+<title>MongoDB 管理頁</title>
+<link href="style.css" rel="stylesheet"/>
+<link href="mongo-admin.page.css" rel="stylesheet"/><link href="unified-sidebar.css" rel="stylesheet"/><script src="auth-bootstrap.js?v=20260723-3"></script><script src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script></head>
+<body>
+<div class="page">
+<div class="topbar">
+<div>
+<h1>MongoDB 管理頁</h1>
+<p>查看 users、tenants、systems、defects 真實資料</p>
+</div>
+<button class="btn" id="mongo-admin-handler-1">← 返回管理後台</button>
+</div>
+<div class="panel">
+<label>選擇 Collection：</label>
+<select id="collectionSelect"></select>
+<button class="btn btnPrimary" id="mongo-admin-handler-2">讀取資料</button>
+</div>
+<div class="panel">
+<h2>資料內容</h2>
+<pre id="output">請先選擇 collection</pre>
+</div>
+</div>
+<script src="mongo-admin.inline-1.js?v=20260723-3"></script>
+<script src="mongo-admin.handlers.js"></script></body>
+</html>

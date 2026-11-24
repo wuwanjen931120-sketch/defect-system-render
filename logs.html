@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+
+<html lang="zh-TW">
+<head>
+<link rel="icon" type="image/png" href="/icon-192.png">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>事件紀錄 - 瑕疵辨識與分流系統</title>
+<link href="style.css" rel="stylesheet"/>
+<link href="manifest.webmanifest" rel="manifest"/>
+<meta content="#0b1220" name="theme-color"/>
+<meta content="yes" name="mobile-web-app-capable"/>
+<meta content="black-translucent" name="apple-mobile-web-app-status-bar-style"/>
+<script src="auth-bootstrap.js?v=20260723-3"></script><script defer src="core.js?v=20261013-navorder-1"></script>
+<link href="logs.page.css" rel="stylesheet"/><script src="vendor/dompurify.min.js"></script><script src="safe-dom.js"></script><link href="unified-sidebar.css?v=20261007-2" rel="stylesheet"/><link href="plan-a-layout.css?v=20261007-6" rel="stylesheet"/></head>
+<body>
+<div class="drawerOverlay" id="overlay"></div>
+<aside class="drawer" id="drawer">
+<div class="sidebar logs-inline-style-1">
+<div class="brand">
+<div class="logo"></div>
+<div>
+<h1>瑕疵辨識與分流系統</h1>
+</div>
+</div>
+<div class="nav">
+<a href="dashboard.html">
+<span class="nav-label">🏠 首頁</span>
+</a>
+<a class="active" href="logs.html">
+<span class="nav-label">🧾 事件紀錄</span>
+</a>
+<a href="settings.html">
+<span class="nav-label">⚙️ 系統設定</span>
+</a>
+
+</div>
+</div>
+</aside>
+<div class="app">
+<aside class="sidebar">
+<div class="brand">
+<div class="logo"></div>
+<div>
+<h1>瑕疵辨識與分流系統</h1>
+</div>
+</div>
+<div class="nav">
+<a href="dashboard.html">
+<span class="nav-label">🏠 首頁</span>
+</a>
+<a class="active" href="logs.html">
+<span class="nav-label">🧾 事件紀錄</span>
+</a>
+<a href="settings.html">
+<span class="nav-label">⚙️ 系統設定</span>
+</a>
+
+</div>
+<div class="side-footer">
+<button class="btn" id="logs-handler-1">修復灰底/警告（清快取）</button>
+</div>
+</aside>
+<main class="main">
+<div class="topbar logsTopbarUnified">
+<div class="logsToolbarUnified">
+  <div class="systemSwitchWrap logs-inline-style-2" id="tenantSwitchWrap">
+    <label class="systemLabel">目前客戶</label>
+    <select class="systemSelect" id="tenantSelect"></select>
+  </div>
+  <div class="systemSwitchWrap logs-inline-style-2" id="systemSwitchWrap">
+    <label class="systemLabel">目前機台</label>
+    <select class="systemSelect" id="systemSelect"></select>
+  </div>
+  <button class="btn btnPrimary filterBtn logAllBtn active" data-filter="all" type="button">全部</button>
+  <input id="logProductSearch" class="logProductSearch" type="search" maxlength="100" placeholder="輸入要查詢的產品名稱" aria-label="產品名稱查詢" />
+  <button class="btn btnPrimary" id="logProductSearchBtn" type="button">搜尋</button>
+  <span id="dynamicProductFilters"></span>
+  <div class="logsToolbarSpacer"></div>
+  <button class="btn btnPrimary" id="logs-handler-3" type="button">⬇ 匯出 CSV</button>
+  <button class="btn btnPrimary" id="logs-handler-4" type="button">⟳ 重新整理</button>
+</div>
+</div>
+<section class="grid">
+<div class="card span-12">
+<h3>🧾 事件紀錄</h3>
+<div class="logsScrollBox">
+<table>
+<thead>
+<tr>
+<th>時間</th>
+<th>事件編號</th>
+<th>產品追蹤編號</th>
+<th>狀態</th>
+<th>產品</th>
+<th>來源</th>
+<th>取放結果</th>
+<th>分流道</th>
+<th class="logs-inline-style-6">NG圖片</th>
+</tr>
+</thead>
+<tbody id="logBody"></tbody>
+</table>
+</div>
+</div>
+</section>
+<div id="errorBar"></div>
+</main>
+</div>
+<div class="imageModal" id="imageModal">
+<div class="imageModalBox">
+<button class="imageModalClose" id="logs-handler-5" type="button">×</button>
+<img alt="NG 瑕疵圖片" id="imageModalImg" src=""/>
+<div class="imageModalCaption" id="imageModalCaption"></div>
+</div>
+</div>
+<script src="logs.inline-1.js?v=20261011-1"></script>
+<div class="logs-inline-style-7" id="errorBar"></div>
+<script src="logs.handlers.js?v=20261007-5"></script>  </body>
+</html>
