@@ -197,7 +197,10 @@
   .sidebar,
   .reportActions,
   .reportFilters,
-  .reportHeader p {
+  .reportHeader p,
+  #aiFloatBtn,
+  .drawer,
+  .drawerOverlay {
     display: none !important;
   }
 
